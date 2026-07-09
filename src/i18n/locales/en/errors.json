@@ -1,0 +1,8 @@
+{
+  "generic": "Something went wrong",
+  "notFound": "Page not found",
+  "network": "Network error, please try again",
+  "providerUnavailable": "The selected provider is unavailable",
+  "required": "This field is required",
+  "loadFailed": "Failed to load data"
+}

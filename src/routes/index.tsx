@@ -15,6 +15,7 @@ import {
   ContextMemory,
   Speakers,
   Language,
+  Agents,
 } from "@/pages";
 import { DashboardLayout } from "@/layouts";
 
@@ -37,6 +38,7 @@ export default function AppRoutes() {
           <Route path="/context-memory" element={<ContextMemory />} />
           <Route path="/speakers" element={<Speakers />} />
           <Route path="/language" element={<Language />} />
+          <Route path="/agents" element={<Agents />} />
           <Route path="/dev-space" element={<DevSpace />} />
         </Route>
       </Routes>

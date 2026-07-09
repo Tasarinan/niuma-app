@@ -85,18 +85,29 @@ pub fn set_window_height(window: tauri::WebviewWindow, height: u32) -> Result<()
 
 #[tauri::command]
 pub fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
-    // Check if dashboard window already exists
+    show_dashboard_at(&app, "/chats")
+}
+
+/// Open (or navigate) the dashboard window to a specific frontend route.
+#[tauri::command]
+pub fn open_dashboard_at(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    show_dashboard_at(&app, &path)
+}
+
+fn show_dashboard_at(app: &tauri::AppHandle, path: &str) -> Result<(), String> {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
-        // Window exists, just focus and show it
+        // Navigate to the requested path then show/focus.
         dashboard_window
-            .set_focus()
-            .map_err(|e| format!("Failed to focus dashboard window: {}", e))?;
+            .eval(&format!("window.location.hash = '{}';", path))
+            .map_err(|e| format!("Failed to navigate dashboard window: {}", e))?;
         dashboard_window
             .show()
             .map_err(|e| format!("Failed to show dashboard window: {}", e))?;
+        dashboard_window
+            .set_focus()
+            .map_err(|e| format!("Failed to focus dashboard window: {}", e))?;
     } else {
-        // Window doesn't exist, create it with platform-aware defaults
-        create_dashboard_window(&app)
+        create_dashboard_window(app, true)
             .map_err(|e| format!("Failed to create dashboard window: {}", e))?;
     }
 
@@ -128,7 +139,7 @@ pub fn toggle_dashboard(app: tauri::AppHandle) -> Result<(), String> {
         }
     } else {
         // Window doesn't exist, create it
-        create_dashboard_window(&app)
+        create_dashboard_window(&app, true)
             .map_err(|e| format!("Failed to create dashboard window: {}", e))?;
     }
 
@@ -165,6 +176,7 @@ pub fn move_window(app: tauri::AppHandle, direction: String, step: i32) -> Resul
 
 pub fn create_dashboard_window<R: Runtime>(
     app: &AppHandle<R>,
+    visible: bool,
 ) -> Result<WebviewWindow<R>, tauri::Error> {
     let base_builder =
         WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::App("/chats".into()));
@@ -179,7 +191,7 @@ pub fn create_dashboard_window<R: Runtime>(
         .hidden_title(true)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .content_protected(true)
-        .visible(true)
+        .visible(visible)
         .traffic_light_position(LogicalPosition::new(14.0, 18.0));
 
     #[cfg(not(target_os = "macos"))]
@@ -190,7 +202,21 @@ pub fn create_dashboard_window<R: Runtime>(
         .inner_size(800.0, 600.0)
         .min_inner_size(800.0, 600.0)
         .content_protected(true)
-        .visible(true);
+        .visible(visible);
 
-    base_builder.build()
+    let window = base_builder.build()?;
+
+    // Intercept the OS close button so the window is hidden rather than destroyed.
+    // Keeping the "dashboard" label alive lets open_dashboard / toggle_dashboard
+    // always locate the window via get_webview_window("dashboard") without needing
+    // to recreate it (which can fail due to label-reuse race conditions in Tauri).
+    let win_clone = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            let _ = win_clone.hide();
+        }
+    });
+
+    Ok(window)
 }

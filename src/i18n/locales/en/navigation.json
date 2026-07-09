@@ -1,0 +1,23 @@
+{
+  "dashboard": "Dashboard",
+  "chats": "Chats",
+  "systemPrompts": "System prompts",
+  "settings": "App Settings",
+  "responses": "Responses",
+  "costTracking": "Cost Tracking",
+  "contextMemory": "Context Memory",
+  "screenshot": "Screenshot",
+  "audio": "Audio",
+  "speakers": "Speakers",
+  "language": "Language",
+  "shortcuts": "Cursor & Shortcuts",
+  "agents": "Agents",
+  "devSpace": "AI Providers",
+  "footer": {
+    "contactSupport": "Contact Support",
+    "reportBug": "Report a bug",
+    "quit": "Quit Niuma",
+    "website": "Website",
+    "github": "Github"
+  }
+}

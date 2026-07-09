@@ -3,8 +3,13 @@ mod activate;
 mod api;
 mod capture;
 mod db;
+mod fs_tools;
+mod mcp;
+mod sandbox;
 mod shortcuts;
+mod unified;
 mod window;
+mod zero_token;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 #[cfg(target_os = "macos")]
@@ -44,9 +49,12 @@ pub fn run() {
         )
         .manage(AudioState::default())
         .manage(CaptureState::default())
+        .manage(mcp::McpSessions::default())
+        .manage(unified::UnifiedManager::default())
         .manage(shortcuts::RegisteredShortcuts::default())
         .manage(shortcuts::LicenseState::default())
         .manage(shortcuts::MoveWindowState::default())
+        .manage(zero_token::ZeroTokenState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_http::init())
@@ -83,6 +91,7 @@ pub fn run() {
             get_app_version,
             window::set_window_height,
             window::open_dashboard,
+            window::open_dashboard_at,
             window::toggle_dashboard,
             window::move_window,
             capture::capture_to_base64,
@@ -120,6 +129,30 @@ pub fn run() {
             speaker::update_vad_config,
             speaker::get_capture_status,
             speaker::get_audio_sample_rate,
+            sandbox::run_sandboxed_command,
+            fs_tools::fs_read,
+            fs_tools::fs_write,
+            fs_tools::fs_edit,
+            fs_tools::fs_list,
+            fs_tools::fs_grep,
+            mcp::mcp_inspect,
+            mcp::mcp_call_tool,
+            mcp::mcp_read_resource,
+            mcp::mcp_get_prompt,
+            unified::unified_api_set_config,
+            unified::unified_api_start,
+            unified::unified_api_stop,
+            unified::unified_api_get_status,
+            unified::unified_api_log,
+            unified::unified_api_get_logs,
+            unified::unified_api_clear_logs,
+            unified::unified_api_get_stats,
+            zero_token::zt_ensure_window,
+            zero_token::zt_open_auth_window,
+            zero_token::zt_hide_window,
+            zero_token::zt_eval_script,
+            zero_token::zt_window_exists,
+            zero_token::zt_report_result,
         ])
         .setup(|app| {
             // Setup main window positioning
@@ -129,7 +162,7 @@ pub fn run() {
 
             let app_handle = app.handle();
             if app_handle.get_webview_window("dashboard").is_none() {
-                if let Err(e) = window::create_dashboard_window(app_handle) {
+                if let Err(e) = window::create_dashboard_window(app_handle, false) {
                     eprintln!("Failed to create dashboard window on startup: {}", e);
                 }
             }

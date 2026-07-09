@@ -8,7 +8,6 @@ import {
   saveConversation,
   getConversationById,
   generateConversationTitle,
-  shouldUseNiumaAPI,
   MESSAGE_ID_OFFSET,
   generateConversationId,
   generateMessageId,
@@ -22,7 +21,17 @@ import {
   summarizeConversation,
   shouldSummarize,
 } from "@/lib/functions/meeting-summarizer";
-import type { UsageData, TranscriptEntry, SpeakerInfo } from "@/types";
+import { getActiveProvider } from "@/lib/providers/storage";
+import { getProvider } from "@/lib/providers/registry";
+import { sendZeroTokenPrompt } from "@/lib/providers/adapters/zeroTokenService";
+import {
+  createAgentRuntime,
+  ProviderUnavailableError,
+  type AgentRuntime,
+} from "@/lib/agent";
+import { resolveActiveConnection } from "@/lib/agent/connection";
+import { useSkillStore } from "@/store";
+import type { UsageData, TranscriptEntry, SpeakerInfo, AgentDefinition } from "@/types";
 import { SpeakerIdFactory } from "@/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -148,6 +157,12 @@ export const useCompletion = () => {
   const currentRequestIdRef = useRef<string | null>(null);
   const currentConversationIdRef = useRef<string | null>(null);
   const conversationHistoryRef = useRef<ChatMessage[]>([]);
+
+  // Pi Agent runtime — reused across turns of the same conversation
+  const piAgentRef = useRef<AgentRuntime | null>(null);
+  const piConvIdRef = useRef<string | null>(null);
+  // Captures the final response text from Pi's onAssistantEnd callback
+  const piFullResponseRef = useRef<string>("");
 
   const setInput = useCallback((value: string) => {
     setState((prev) => ({ ...prev, input: value }));
@@ -524,23 +539,15 @@ export const useCompletion = () => {
 
         let fullResponse = "";
 
-        const useNiumaAPI = await shouldUseNiumaAPI();
-        // Check if AI provider is configured
-        if (!selectedAIProvider.provider && !useNiumaAPI) {
-          setState((prev) => ({
-            ...prev,
-            error: "Please select an AI provider in settings",
-          }));
-          return;
-        }
+        const activeStored = getActiveProvider();
+        const activeStoredDef = activeStored ? getProvider(activeStored.providerId) : null;
+        const isWebProvider = activeStoredDef?.type === "web";
 
-        const provider = allAiProviders.find(
-          (p) => p.id === selectedAIProvider.provider
-        );
-        if (!provider && !useNiumaAPI) {
+        // Require a configured provider
+        if (!activeStored) {
           setState((prev) => ({
             ...prev,
-            error: "Invalid provider selected",
+            error: "Please configure an AI provider in Settings → AI Providers",
           }));
           return;
         }
@@ -554,34 +561,102 @@ export const useCompletion = () => {
         }));
 
         try {
-          // Use the fetchAIResponse function with signal
-          console.log("[Cost Tracking] About to call fetchAIResponse");
-          for await (const chunk of fetchAIResponse({
-            provider: useNiumaAPI ? undefined : provider,
-            selectedProvider: selectedAIProvider,
-            systemPrompt: systemPrompt || undefined,
-            history: messageHistory,
-            userMessage: input,
-            imagesBase64,
-            signal,
-          })) {
-            // Only update if this is still the current request
-            if (currentRequestIdRef.current !== requestId) {
-              return; // Request was superseded, stop processing
+          if (isWebProvider && activeStored) {
+            // ── Zero-token browser-session path
+            const platform = activeStored.providerId.replace(/^zt-/, "");
+            const result = await sendZeroTokenPrompt(platform, input);
+            if (currentRequestIdRef.current !== requestId || signal.aborted) return;
+            fullResponse = result;
+            setState((prev) => ({ ...prev, response: result }));
+          } else {
+            // ── Pi Agent path for all registry API providers
+            piFullResponseRef.current = "";
+
+            // Create a new Pi agent when the conversation changes or on first call
+            if (!piAgentRef.current || piConvIdRef.current !== conversationId) {
+              piAgentRef.current?.abort();
+              piAgentRef.current = null;
+
+              const connection = resolveActiveConnection();
+              const allSkills = useSkillStore.getState().items;
+              const enabledSkillIds = allSkills
+                .filter((s) => s.enabled !== false)
+                .map((s) => s.id);
+
+              const def: AgentDefinition = {
+                id: `chat-${conversationId}`,
+                name: "Chat",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                systemPrompt: systemPrompt || "You are a helpful assistant.",
+                providerId: connection.providerId,
+                modelId: connection.model,
+                enabledInternalTools: [],
+                enabledSkillIds,
+                enabledMcpServerIds: [],
+                sandboxMode: "read-only",
+                temperature: 0.7,
+                maxTokens: 4096,
+                workspacePath: "",
+              };
+
+              piAgentRef.current = await createAgentRuntime(
+                def,
+                {
+                  onAssistantDelta: (text) => {
+                    // currentRequestIdRef always holds the latest requestId
+                    if (signal.aborted) return;
+                    piFullResponseRef.current = text;
+                    setState((prev) => ({ ...prev, response: text }));
+                  },
+                  onAssistantEnd: (text) => {
+                    piFullResponseRef.current = text;
+                  },
+                  onError: (message) => {
+                    if (!signal.aborted) {
+                      setState((prev) => ({
+                        ...prev,
+                        isLoading: false,
+                        error: message,
+                      }));
+                    }
+                  },
+                },
+                {
+                  skills: allSkills,
+                  mcpServers: [],
+                  providerVariables: {},
+                  connection,
+                }
+              );
+              piConvIdRef.current = conversationId;
             }
 
-            // Check if request was aborted
-            if (signal.aborted) {
-              return; // Request was cancelled, stop processing
+            // Abort Pi agent when the AbortController fires
+            const onAbort = () => piAgentRef.current?.abort();
+            signal.addEventListener("abort", onAbort, { once: true });
+
+            try {
+              await piAgentRef.current.prompt(input);
+              await piAgentRef.current.waitForIdle();
+            } finally {
+              signal.removeEventListener("abort", onAbort);
             }
 
-            fullResponse += chunk;
-            setState((prev) => ({
-              ...prev,
-              response: prev.response + chunk,
-            }));
+            if (signal.aborted) return;
+            fullResponse = piFullResponseRef.current;
           }
         } catch (e: any) {
+          if (e instanceof ProviderUnavailableError) {
+            if (!signal.aborted) {
+              setState((prev) => ({
+                ...prev,
+                isLoading: false,
+                error: `Provider not configured: ${e.message}`,
+              }));
+            }
+            return;
+          }
           // Only show error if this is still the current request and not aborted
           if (currentRequestIdRef.current === requestId && !signal.aborted) {
             setState((prev) => ({
@@ -820,6 +895,8 @@ export const useCompletion = () => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    // Abort the Pi agent run if one is in progress
+    piAgentRef.current?.abort();
     currentRequestIdRef.current = null;
     setState((prev) => ({ ...prev, isLoading: false }));
   }, []);
@@ -902,6 +979,10 @@ export const useCompletion = () => {
   const loadConversation = useCallback((conversation: ChatConversation) => {
     // Summarize current conversation before switching
     summarizeCurrentConversation();
+    // Reset Pi agent — new conversation = new agent context
+    piAgentRef.current?.abort();
+    piAgentRef.current = null;
+    piConvIdRef.current = null;
 
     currentConversationIdRef.current = conversation.id;
     conversationHistoryRef.current = conversation.messages; // Update ref immediately
@@ -919,6 +1000,10 @@ export const useCompletion = () => {
   const startNewConversation = useCallback(() => {
     // Summarize current conversation before starting new
     summarizeCurrentConversation();
+    // Reset Pi agent — fresh conversation
+    piAgentRef.current?.abort();
+    piAgentRef.current = null;
+    piConvIdRef.current = null;
 
     currentConversationIdRef.current = null;
     conversationHistoryRef.current = []; // Update ref immediately

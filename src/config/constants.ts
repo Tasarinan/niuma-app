@@ -47,6 +47,12 @@ export const STORAGE_KEYS = {
 
   // User Identity settings
   USER_IDENTITY: "user_identity",
+
+  // Multi-agent (Pi) settings
+  AGENTS: "agents",
+  AGENT_SKILLS: "agent_skills",
+  AGENT_MCP_SERVERS: "agent_mcp_servers",
+  SELECTED_AGENT_ID: "selected_agent_id",
 } as const;
 
 // Max number of files that can be attached to a message

@@ -1,0 +1,8 @@
+{
+  "generic": "出错了",
+  "notFound": "页面未找到",
+  "network": "网络错误，请重试",
+  "providerUnavailable": "所选服务商不可用",
+  "required": "此项为必填",
+  "loadFailed": "加载数据失败"
+}

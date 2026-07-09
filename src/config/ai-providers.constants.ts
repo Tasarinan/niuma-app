@@ -1,133 +1,51 @@
-export const AI_PROVIDERS = [
-  {
-    id: "openai",
-    curl: `curl https://api.openai.com/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer {{API_KEY}}" \\
-  -d '{
-    "model": "{{MODEL}}",
-    "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}]
-  }'`,
-    responseContentPath: "choices[0].message.content",
+// ─── Legacy export removed ───────────────────────────────────────────────────
+// cURL template constants have been replaced by the provider registry.
+// See src/lib/providers/registry.ts for the new direct-registration system.
+// This stub keeps backward-compat imports working.
+
+import type { TYPE_PROVIDER } from "@/types";
+import { getAllProviders, type ProviderDef } from "@/lib/providers/registry";
+
+/** Generate an OpenAI/Anthropic-compatible curl for internal use only. */
+export function generateCurlForProvider(
+  def: ProviderDef,
+  apiKey = "{{API_KEY}}",
+  model = "{{MODEL}}"
+): string {
+  if (def.api === "anthropic-messages") {
+    return (
+      `curl ${def.baseUrl}/messages ` +
+      `-H "x-api-key: ${apiKey}" ` +
+      `-H "anthropic-version: 2023-06-01" ` +
+      `-H "anthropic-dangerous-direct-browser-access: true" ` +
+      `-H "content-type: application/json" ` +
+      `-d '{"model":"${model}","system":"{{SYSTEM_PROMPT}}","messages":[{"role":"user","content":[{"type":"text","text":"{{TEXT}}"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"{{IMAGE}}"}}]}],"max_tokens":8192}'`
+    );
+  }
+  return (
+    `curl ${def.baseUrl}/chat/completions ` +
+    `-H "Content-Type: application/json" ` +
+    `-H "Authorization: Bearer ${apiKey}" ` +
+    `-d '{"model":"${model}","messages":[{"role":"system","content":"{{SYSTEM_PROMPT}}"},{"role":"user","content":[{"type":"text","text":"{{TEXT}}"},{"type":"image_url","image_url":{"url":"data:image/png;base64,{{IMAGE}}"}}]}],"stream":true}'`
+  );
+}
+
+function defToTypeProvider(def: ProviderDef): TYPE_PROVIDER {
+  return {
+    id: def.id,
+    name: def.name,
+    curl: generateCurlForProvider(def),
     streaming: true,
-  },
-  {
-    id: "claude",
-    curl: `curl https://api.anthropic.com/v1/messages \\
-  -H "x-api-key: {{API_KEY}}" \\
-  -H "anthropic-version: 2023-06-01" \\
-  -H "anthropic-dangerous-direct-browser-access: true" \\
-  -H "content-type: application/json" \\
-  -d '{
-    "model": "{{MODEL}}",
-    "system": "{{SYSTEM_PROMPT}}",
-    "messages": [{"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "{{IMAGE}}"}}]}],
-    "max_tokens": 1024
-  }'`,
-    responseContentPath: "content[0].text",
-    streaming: true,
-  },
-  {
-    id: "grok",
-    curl: `curl https://api.x.ai/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer {{API_KEY}}" \\
-  -d '{
-    "model": "{{MODEL}}",
-    "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}]
-  }'`,
-    responseContentPath: "choices[0].message.content",
-    streaming: true,
-  },
-  {
-    id: "gemini",
-    curl: `curl "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" \\
-  -H "Authorization: Bearer {{API_KEY}}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "{{MODEL}}",
-    "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}]
-  }'}`,
-    responseContentPath: "choices[0].message.content",
-    streaming: true,
-  },
-  {
-    id: "mistral",
-    curl: `curl https://api.mistral.ai/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer {{API_KEY}}" \\
-  -d '{
-    "model": "{{MODEL}}",
-    "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": "data:image/png;base64,{{IMAGE}}"}]}]
-  }'`,
-    responseContentPath: "choices[0].message.content",
-    streaming: true,
-  },
-  {
-    id: "cohere",
-    curl: `curl -X POST https://api.cohere.ai/v2/chat \\
-    -H "Authorization: Bearer {{API_KEY}}" \\
-    -H "Content-Type: application/json" \\
-    -d '{
-      "model": "{{MODEL}}",
-      "preamble": "{{SYSTEM_PROMPT}}",
-      "messages": [{"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}]
-    }'`,
-    responseContentPath: "message.content[0].text",
-    streaming: true,
-  },
-  {
-    id: "groq",
-    curl: `curl https://api.groq.com/openai/v1/chat/completions \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer {{API_KEY}}" \
-    -d '{
-      "model": "{{MODEL}}",
-      "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}],
-      "temperature": 1,
-      "max_completion_tokens": 8192,
-      "top_p": 1,
-      "stream": true,
-      "reasoning_effort": "medium",
-      "stop": null
-    }'`,
-    responseContentPath: "choices[0].message.content",
-    streaming: true,
-  },
-  {
-    id: "perplexity",
-    curl: `curl -X POST https://api.perplexity.ai/chat/completions \\
-  -H "Authorization: Bearer {{API_KEY}}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "{{MODEL}}",
-    "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}]
-  }'`,
-    responseContentPath: "choices[0].message.content",
-    streaming: true,
-  },
-  {
-    id: "openrouter",
-    curl: `  curl https://openrouter.ai/api/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer {{API_KEY}}" \
-  -d '{
-    "model": "{{MODEL}}",
-    "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}]
-  }'`,
-    responseContentPath: "choices[0].message.content",
-    streaming: true,
-  },
-  {
-    id: "ollama",
-    curl: `curl -X POST http://localhost:11434/v1/chat/completions \\
-    -H "Authorization: Bearer {{API_KEY}}" \\
-    -H "Content-Type: application/json" \\
-    -d '{
-    "model": "{{MODEL}}",
-    "messages": [{"role": "system", "content": "{{SYSTEM_PROMPT}}"}, {"role": "user", "content": [{"type": "text", "text": "{{TEXT}}"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,{{IMAGE}}"}}]}]
-  }'`,
-    responseContentPath: "choices[0].message.content",
-    streaming: true,
-  },
-];
+    responseContentPath:
+      def.api === "anthropic-messages"
+        ? "content[0].text"
+        : "choices[0].message.content",
+    isCustom: false,
+  };
+}
+
+/** All registered providers as TYPE_PROVIDER (backward-compat). */
+export const AI_PROVIDERS: TYPE_PROVIDER[] = getAllProviders()
+  .filter((p) => p.type !== "web")
+  .map(defToTypeProvider);
+

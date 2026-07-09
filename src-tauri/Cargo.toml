@@ -53,6 +53,8 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-store = "2"
 tauri-plugin-posthog = "0.2.4"
 tauri-plugin-machine-uid = "0.1.2"
+regex = "1"
+wait-timeout = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-macos-permissions = "2"

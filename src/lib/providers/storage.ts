@@ -1,0 +1,82 @@
+/**
+ * Provider config storage — direct key/model/url registration, no cURL.
+ *
+ * Persists to localStorage under a single JSON key.
+ * Each entry maps providerId → { apiKey, model, baseUrlOverride? }.
+ */
+
+import type { ProviderCredential } from "./registry";
+
+const STORAGE_KEY = "niuma_provider_configs_v1";
+
+export interface StoredProviderConfig extends ProviderCredential {
+  providerId: string;
+}
+
+function load(): Record<string, StoredProviderConfig> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function save(configs: Record<string, StoredProviderConfig>): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
+  } catch {
+    console.warn("[providerStorage] Failed to persist provider configs");
+  }
+}
+
+/** Save (or overwrite) a provider credential. */
+export function saveProviderConfig(config: StoredProviderConfig): void {
+  const all = load();
+  all[config.providerId] = config;
+  save(all);
+}
+
+/** Retrieve a single provider's stored config, or undefined. */
+export function getProviderConfig(
+  providerId: string
+): StoredProviderConfig | undefined {
+  return load()[providerId];
+}
+
+/** All stored configs (one per providerId). */
+export function getAllProviderConfigs(): StoredProviderConfig[] {
+  return Object.values(load());
+}
+
+/** Remove a provider config (e.g. when user removes a custom provider). */
+export function removeProviderConfig(providerId: string): void {
+  const all = load();
+  delete all[providerId];
+  save(all);
+}
+
+/** The provider currently selected as "active" for the agent. */
+const ACTIVE_KEY = "niuma_active_provider_v1";
+
+export interface ActiveProvider {
+  providerId: string;
+  model: string;
+}
+
+export function getActiveProvider(): ActiveProvider | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveProvider(active: ActiveProvider): void {
+  try {
+    localStorage.setItem(ACTIVE_KEY, JSON.stringify(active));
+  } catch {
+    console.warn("[providerStorage] Failed to persist active provider");
+  }
+}

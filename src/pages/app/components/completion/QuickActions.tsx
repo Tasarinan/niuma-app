@@ -81,15 +81,23 @@ export const QuickActions = ({
             >
               {action}
               {isManaging && (
-                <button
+                <span
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
                     removeAction(action);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.stopPropagation();
+                      removeAction(action);
+                    }
+                  }}
                   className="ml-1.5 cursor-pointer text-muted-foreground hover:text-destructive"
                 >
                   <Trash2Icon className="w-3 h-3" />
-                </button>
+                </span>
               )}
             </Button>
           </div>

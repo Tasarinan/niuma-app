@@ -60,7 +60,11 @@ export const Updater = () => {
         setUpdateState("uptodate");
       }
     } catch (err) {
-      console.error("Failed to check for updates:", err);
+      if (import.meta.env.DEV) {
+        console.debug("Failed to check for updates (expected in dev):", err);
+      } else {
+        console.error("Failed to check for updates:", err);
+      }
       setUpdateState("error");
       setIsPopoverOpen(false);
     }

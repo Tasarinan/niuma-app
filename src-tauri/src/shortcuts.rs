@@ -598,7 +598,7 @@ fn handle_toggle_dashboard<R: Runtime>(app: &AppHandle<R>) {
         }
     } else {
         // Window doesn't exist, create it
-        match create_dashboard_window(app) {
+        match create_dashboard_window(app, true) {
             Ok(_) => eprintln!("Dashboard window created successfully"),
             Err(e) => eprintln!("Failed to create dashboard window: {}", e),
         }

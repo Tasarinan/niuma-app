@@ -1,0 +1,39 @@
+{
+  "agents": {
+    "title": "智能体",
+    "description": "创建并运行基于 Pi 的多智能体工作流。",
+    "tabs": {
+      "agents": "智能体",
+      "skills": "技能",
+      "mcp": "MCP 服务器"
+    },
+    "empty": "还没有智能体，创建一个开始吧。",
+    "newAgent": "新建智能体",
+    "runAgent": "运行",
+    "fields": {
+      "name": "名称",
+      "description": "描述",
+      "model": "模型",
+      "systemPrompt": "系统提示词",
+      "sandboxMode": "沙盒模式",
+      "maxTokens": "最大 Token 数",
+      "workspacePath": "工作区路径"
+    }
+  },
+  "skills": {
+    "title": "技能",
+    "empty": "尚未配置技能。",
+    "newSkill": "新建技能"
+  },
+  "mcp": {
+    "title": "MCP 服务器",
+    "empty": "尚未配置 MCP 服务器。",
+    "newServer": "新建服务器"
+  },
+  "settings": {
+    "title": "应用设置"
+  },
+  "providers": {
+    "title": "服务商"
+  }
+}

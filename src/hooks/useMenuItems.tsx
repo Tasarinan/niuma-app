@@ -16,13 +16,16 @@ import {
   BrainIcon,
   UsersIcon,
   LanguagesIcon,
+  BotIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/contexts";
 import { GithubIcon } from "@/components";
 
 export const useMenuItems = () => {
   const { hasActiveLicense } = useApp();
+  const { t } = useTranslation("navigation");
 
   const menu: {
     icon: React.ElementType;
@@ -32,68 +35,73 @@ export const useMenuItems = () => {
   }[] = [
     {
       icon: HomeIcon,
-      label: "Dashboard",
+      label: t("dashboard"),
       href: "/dashboard",
     },
     {
       icon: MessagesSquare,
-      label: "Chats",
+      label: t("chats"),
       href: "/chats",
     },
     {
       icon: WandSparkles,
-      label: "System prompts",
+      label: t("systemPrompts"),
       href: "/system-prompts",
     },
     {
       icon: Settings,
-      label: "App Settings",
+      label: t("settings"),
       href: "/settings",
     },
     {
       icon: MessageSquareTextIcon,
-      label: "Responses",
+      label: t("responses"),
       href: "/responses",
     },
     {
       icon: DollarSignIcon,
-      label: "Cost Tracking",
+      label: t("costTracking"),
       href: "/cost-tracking",
     },
     {
       icon: BrainIcon,
-      label: "Context Memory",
+      label: t("contextMemory"),
       href: "/context-memory",
     },
     {
       icon: MonitorIcon,
-      label: "Screenshot",
+      label: t("screenshot"),
       href: "/screenshot",
     },
     {
       icon: AudioLinesIcon,
-      label: "Audio",
+      label: t("audio"),
       href: "/audio",
     },
     {
       icon: UsersIcon,
-      label: "Speakers",
+      label: t("speakers"),
       href: "/speakers",
     },
     {
       icon: LanguagesIcon,
-      label: "Language",
+      label: t("language"),
       href: "/language",
     },
     {
       icon: SquareSlashIcon,
-      label: "Cursor & Shortcuts",
+      label: t("shortcuts"),
       href: "/shortcuts",
     },
 
     {
+      icon: BotIcon,
+      label: t("agents"),
+      href: "/agents",
+    },
+    {
       icon: Code,
-      label: "Dev space",
+      label: t("devSpace"),
       href: "/dev-space",
     },
   ];
@@ -103,7 +111,7 @@ export const useMenuItems = () => {
       ? [
           {
             icon: MailIcon,
-            label: "Contact Support",
+            label: t("footer.contactSupport"),
             action: async () => {
               try {
                 await navigator.clipboard.writeText("support@niuma.com");
@@ -117,12 +125,12 @@ export const useMenuItems = () => {
       : []),
     {
       icon: BugIcon,
-      label: "Report a bug",
+      label: t("footer.reportBug"),
       href: "https://github.com/kmorgan-r/Niuma/issues/new?template=bug-report.yml",
     },
     {
       icon: PowerIcon,
-      label: "Quit Niuma",
+      label: t("footer.quit"),
       action: async () => {
         await invoke("exit_app");
       },
@@ -135,12 +143,12 @@ export const useMenuItems = () => {
     link: string;
   }[] = [
     {
-      title: "Website",
+      title: t("footer.website"),
       icon: GlobeIcon,
       link: "https://niuma.com",
     },
     {
-      title: "Github",
+      title: t("footer.github"),
       icon: GithubIcon,
       link: "https://github.com/kmorgan-r/Niuma",
     },

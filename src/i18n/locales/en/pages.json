@@ -1,0 +1,39 @@
+{
+  "agents": {
+    "title": "Agents",
+    "description": "Create and run Pi-based multi-agent workflows.",
+    "tabs": {
+      "agents": "Agents",
+      "skills": "Skills",
+      "mcp": "MCP Servers"
+    },
+    "empty": "No agents yet. Create one to get started.",
+    "newAgent": "New Agent",
+    "runAgent": "Run",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "model": "Model",
+      "systemPrompt": "System Prompt",
+      "sandboxMode": "Sandbox Mode",
+      "maxTokens": "Max Tokens",
+      "workspacePath": "Workspace Path"
+    }
+  },
+  "skills": {
+    "title": "Skills",
+    "empty": "No skills configured.",
+    "newSkill": "New Skill"
+  },
+  "mcp": {
+    "title": "MCP Servers",
+    "empty": "No MCP servers configured.",
+    "newServer": "New Server"
+  },
+  "settings": {
+    "title": "App Settings"
+  },
+  "providers": {
+    "title": "Providers"
+  }
+}
