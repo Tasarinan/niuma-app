@@ -31,7 +31,7 @@ export const Sidebar = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-6">
+      <nav className="flex-1 overflow-y-auto space-y-1 px-3 py-6">
         {menu.map((item, index) => (
           <button
             onClick={() => navigate(item.href)}

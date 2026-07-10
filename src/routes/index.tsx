@@ -24,9 +24,10 @@ export default function AppRoutes() {
     <Router>
       <Routes>
         <Route path="/" element={<App />} />
+        {/* Full-bleed route — DiscordChat owns its own layout */}
+        <Route path="/chats" element={<Chats />} />
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/chats" element={<Chats />} />
           <Route path="/system-prompts" element={<SystemPrompts />} />
           <Route path="/chats/view/:conversationId" element={<ViewChat />} />
           <Route path="/shortcuts" element={<Shortcuts />} />

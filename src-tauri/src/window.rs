@@ -85,7 +85,7 @@ pub fn set_window_height(window: tauri::WebviewWindow, height: u32) -> Result<()
 
 #[tauri::command]
 pub fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
-    show_dashboard_at(&app, "/chats")
+    show_dashboard_at(&app, "/dashboard")
 }
 
 /// Open (or navigate) the dashboard window to a specific frontend route.
@@ -96,9 +96,13 @@ pub fn open_dashboard_at(app: tauri::AppHandle, path: String) -> Result<(), Stri
 
 fn show_dashboard_at(app: &tauri::AppHandle, path: &str) -> Result<(), String> {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
-        // Navigate to the requested path then show/focus.
+        // BrowserRouter navigation: pushState + popstate event
+        let js = format!(
+            "history.pushState(null, '', '{}'); window.dispatchEvent(new PopStateEvent('popstate'));",
+            path
+        );
         dashboard_window
-            .eval(&format!("window.location.hash = '{}';", path))
+            .eval(&js)
             .map_err(|e| format!("Failed to navigate dashboard window: {}", e))?;
         dashboard_window
             .show()
@@ -107,7 +111,7 @@ fn show_dashboard_at(app: &tauri::AppHandle, path: &str) -> Result<(), String> {
             .set_focus()
             .map_err(|e| format!("Failed to focus dashboard window: {}", e))?;
     } else {
-        create_dashboard_window(app, true)
+        create_dashboard_window_at(app, true, path)
             .map_err(|e| format!("Failed to create dashboard window: {}", e))?;
     }
 
@@ -178,8 +182,16 @@ pub fn create_dashboard_window<R: Runtime>(
     app: &AppHandle<R>,
     visible: bool,
 ) -> Result<WebviewWindow<R>, tauri::Error> {
+    create_dashboard_window_at(app, visible, "/dashboard")
+}
+
+pub fn create_dashboard_window_at<R: Runtime>(
+    app: &AppHandle<R>,
+    visible: bool,
+    path: &str,
+) -> Result<WebviewWindow<R>, tauri::Error> {
     let base_builder =
-        WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::App("/chats".into()));
+        WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::App(path.into()));
 
     #[cfg(target_os = "macos")]
     let base_builder = base_builder

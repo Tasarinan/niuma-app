@@ -25,3 +25,4 @@ export * from "./useAgentRuntime";
 export * from "./useTimer";
 export * from "./useTTS";
 export * from "./useProvider";
+export * from "./useGroupChat";

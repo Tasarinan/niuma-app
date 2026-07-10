@@ -16,6 +16,7 @@ import {
   createUsageRecord,
   calculateCost,
   calculateSTTCost,
+  shouldUseNiumaAPI,
 } from "@/lib";
 import {
   summarizeConversation,

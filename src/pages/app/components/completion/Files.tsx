@@ -30,23 +30,20 @@ export const Files = ({
     <div className="relative">
       <Popover open={isFilesPopoverOpen} onOpenChange={setIsFilesPopoverOpen}>
         <PopoverTrigger asChild>
-          <Button
-            size="icon"
+          <button
             onClick={() => {
               if (attachedFiles.length === 0) {
-                // If no files, directly open file picker
                 fileInputRef.current?.click();
               } else {
-                // If files exist, show popover
                 setIsFilesPopoverOpen(true);
               }
             }}
             disabled={isLoading}
-            className="cursor-pointer"
             title="Attach images"
+            className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-all duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:pointer-events-none disabled:opacity-40 border-[#e4e4e4] bg-[#f7f7f7] text-[#3f3f46] hover:border-[#d7d7d7] hover:bg-[#eeeeee] hover:text-[#18181b] active:translate-y-px cursor-pointer"
           >
             <PaperclipIcon className="h-4 w-4" />
-          </Button>
+          </button>
         </PopoverTrigger>
 
         {/* File count badge */}

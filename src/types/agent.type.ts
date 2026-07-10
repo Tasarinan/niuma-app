@@ -94,6 +94,10 @@ export interface McpServer extends BaseEntity {
  */
 export interface AgentDefinition extends BaseEntity {
   name: string;
+  /** Display role / title shown on the talent market card (e.g. "前端工程师"). */
+  role?: string;
+  /** Avatar: an emoji string or an absolute URL to an image. */
+  avatar?: string;
   description: string;
   /** Full base system prompt (skills block is appended at run time). */
   systemPrompt: string;

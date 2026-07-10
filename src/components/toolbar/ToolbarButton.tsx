@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 interface ToolbarButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
-  activeColor?: "red" | "green" | "blue" | "amber";
+  activeColor?: "red" | "green" | "blue" | "amber" | "violet";
   indicator?: boolean; // pulsing dot indicator
   indicatorColor?: string;
   children: ReactNode;
@@ -14,6 +14,7 @@ const activeColorMap: Record<string, string> = {
   green: "border-green-200 bg-green-50 text-green-700 hover:bg-green-100",
   blue: "border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100",
   amber: "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100",
+  violet: "border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100",
 };
 
 /**

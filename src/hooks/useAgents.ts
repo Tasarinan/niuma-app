@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useAgentStore } from "@/store";
 import type { AgentDefinition } from "@/types";
 import type { CreateInput, UpdateInput } from "@/data";
+import { seedDefaultAgentsIfEmpty } from "@/lib/agent";
 
 export type AgentInput = CreateInput<AgentDefinition>;
 
@@ -14,7 +15,12 @@ export const useAgents = () => {
   const removeItem = useAgentStore((s) => s.remove);
 
   useEffect(() => {
-    void load();
+    void load().then(() => {
+      // If no agents in store, seed from bundled public/agents/ defaults
+      if (useAgentStore.getState().items.length === 0) {
+        void seedDefaultAgentsIfEmpty().then(() => void load());
+      }
+    });
   }, [load]);
 
   const create = useCallback(

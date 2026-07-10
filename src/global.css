@@ -118,6 +118,10 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Transparent window (main toolbar overlay) */
+  body.transparent-window {
+    background: transparent !important;
+  }
 }
 
 /* Apply global transparency */

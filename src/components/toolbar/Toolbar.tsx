@@ -2,19 +2,18 @@
  * Main overlay toolbar — the primary UI of niuma-app.
  *
  * Layout (left → center → right):
- *   [Mic] [Speak] [Screenshot] [Chat] [Meeting] [Timer] | [Input] | [Settings] [Close]
- *
- * Modelled after niuma Vue Main.vue for visual consistency.
+ *   [Mic] [Speak] [Screenshot] [Chat] [Meeting] [Timer] | [Input] | [Dashboard] [Close]
  */
-import { useState } from "react";
+import { useCallback } from "react";
 import {
   Mic,
   MicOff,
   Volume2,
   VolumeX,
   Camera,
+  Loader2,
   MessageSquare,
-  Users,
+  Video,
   X,
   LayoutDashboard,
 } from "lucide-react";
@@ -26,9 +25,11 @@ import { UseTimerReturn } from "@/hooks/useTimer";
 import { UseTTSReturn } from "@/hooks/useTTS";
 import type { UseCompletionReturn } from "@/types";
 import { Input } from "@/pages/app/components/completion/Input";
-import { Screenshot } from "@/pages/app/components/completion/Screenshot";
 import { Files } from "@/pages/app/components/completion/Files";
 import { UseQuickActionsReturn } from "@/hooks/useQuickActions";
+import { MAX_FILES } from "@/config";
+
+// Toolbar strip height in logical pixels (matches tauri.conf.json initial height)
 
 interface ToolbarProps {
   completion: UseCompletionReturn;
@@ -39,25 +40,30 @@ interface ToolbarProps {
 }
 
 export function Toolbar({ completion, timer, tts, quickActions, isHidden }: ToolbarProps) {
-  const [chatOpen, setChatOpen] = useState(false);
-
-  const handleClose = async () => {
+  const handleOpenChats = useCallback(async () => {
     try {
-      const win = getCurrentWindow();
-      await win.hide();
-    } catch {
-      // fallback for browser/non-Tauri
-      window.close();
+      await invoke("open_dashboard_at", { path: "/chats" });
+    } catch (error) {
+      console.error("Failed to open chats:", error);
     }
-  };
+  }, []);
 
-  const handleOpenDashboard = async () => {
+  const handleOpenDashboard = useCallback(async () => {
     try {
       await invoke("open_dashboard");
     } catch (error) {
       console.error("Failed to open dashboard:", error);
     }
-  };
+  }, []);
+
+  const handleClose = useCallback(async () => {
+    try {
+      const win = getCurrentWindow();
+      await win.hide();
+    } catch {
+      window.close();
+    }
+  }, []);
 
   const handleQuickAction = (action: string) => {
     if (completion.meetingAssistMode) {
@@ -120,23 +126,25 @@ export function Toolbar({ completion, timer, tts, quickActions, isHidden }: Tool
           )}
         </ToolbarButton>
 
-        {/* Screenshot */}
+        {/* Screenshot / capture — Camera icon with full mode support */}
         <ToolbarButton
-          title="Take screenshot"
-          aria-label="Take screenshot"
-          disabled={completion.isScreenshotLoading}
+          title={`${completion.screenshotConfiguration?.enabled ? "Screenshot" : "Selection"} mode (${completion.screenshotConfiguration?.mode}) - ${completion.attachedFiles.length} files`}
+          aria-label="Capture screenshot"
+          disabled={completion.attachedFiles.length >= MAX_FILES || completion.isLoading || completion.isScreenshotLoading}
           onClick={completion.captureScreenshot}
         >
-          <Camera className="h-4 w-4" aria-hidden="true" />
+          {completion.isScreenshotLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Camera className="h-4 w-4" aria-hidden="true" />
+          )}
         </ToolbarButton>
 
-        {/* Chat / conversation toggle */}
+        {/* Single-chat / DiscordChat */}
         <ToolbarButton
-          active={chatOpen}
-          activeColor="blue"
-          title="Toggle chat panel"
-          aria-label="Toggle chat panel"
-          onClick={() => setChatOpen((v) => !v)}
+          title="打开聊天中心"
+          aria-label="Open chat hub"
+          onClick={handleOpenChats}
         >
           <MessageSquare className="h-4 w-4" aria-hidden="true" />
         </ToolbarButton>
@@ -149,7 +157,7 @@ export function Toolbar({ completion, timer, tts, quickActions, isHidden }: Tool
           aria-label="Toggle meeting mode"
           onClick={() => completion.setMeetingAssistMode(!completion.meetingAssistMode)}
         >
-          <Users className="h-4 w-4" aria-hidden="true" />
+          <Video className="h-4 w-4" aria-hidden="true" />
         </ToolbarButton>
 
         {/* Timer */}
@@ -161,14 +169,13 @@ export function Toolbar({ completion, timer, tts, quickActions, isHidden }: Tool
         className="relative z-10 flex-1 flex items-center gap-2 min-w-0"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
+        <Files {...completion} />
         <Input
           {...completion}
           isHidden={isHidden}
           quickActions={quickActions}
           onQuickActionClick={handleQuickAction}
         />
-        <Screenshot {...completion} />
-        <Files {...completion} />
       </div>
 
       {/* ── Right button group ── */}

@@ -10,6 +10,7 @@ export type { ProviderConnection } from "./connection";
 export { ensureAgentFetch } from "./agent-fetch";
 export { sanitizeLeakedToolCallText } from "./leaked-tool-call-text";
 export { resolveAgent, resolveSystemPrompt } from "./agent-definition";
+export { seedDefaultAgentsIfEmpty } from "./seed";
 export type { ResolveAgentDeps, ResolvedAgent } from "./agent-definition";
 export {
   createAgentRuntime,

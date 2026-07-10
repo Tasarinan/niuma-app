@@ -39,11 +39,6 @@ export const useMenuItems = () => {
       href: "/dashboard",
     },
     {
-      icon: MessagesSquare,
-      label: t("chats"),
-      href: "/chats",
-    },
-    {
       icon: WandSparkles,
       label: t("systemPrompts"),
       href: "/system-prompts",
@@ -92,12 +87,6 @@ export const useMenuItems = () => {
       icon: SquareSlashIcon,
       label: t("shortcuts"),
       href: "/shortcuts",
-    },
-
-    {
-      icon: BotIcon,
-      label: t("agents"),
-      href: "/agents",
     },
     {
       icon: Code,
