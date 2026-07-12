@@ -620,35 +620,27 @@ fn handle_focus_input<R: Runtime>(app: &AppHandle<R>) {
 
 fn handle_move_window<R: Runtime>(app: &AppHandle<R>, direction: &str) {
     if let Some(window) = app.get_webview_window("main") {
-        match window.outer_position() {
-            Ok(current_pos) => {
-                let step = 12;
-                let (new_x, new_y) = match direction {
-                    "up" => (current_pos.x, current_pos.y - step),
-                    "down" => (current_pos.x, current_pos.y + step),
-                    "left" => (current_pos.x - step, current_pos.y),
-                    "right" => (current_pos.x + step, current_pos.y),
-                    _ => {
-                        eprintln!("Invalid direction: {}", direction);
-                        return;
-                    }
-                };
-
-                if let Err(e) =
-                    window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                        x: new_x,
-                        y: new_y,
-                    }))
-                {
-                    eprintln!("Failed to set window position: {}", e);
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to get window position: {}", e);
-            }
+        // Skip if the window is hidden — its HWND may be invalid and
+        // calling set_position would produce "Invalid window handle" errors.
+        if !matches!(window.is_visible(), Ok(true)) {
+            return;
         }
-    } else {
-        eprintln!("Main window not found");
+        let current_pos = match window.outer_position() {
+            Ok(pos) => pos,
+            Err(_) => return, // window transitioning, skip silently
+        };
+        let step = 12;
+        let (new_x, new_y) = match direction {
+            "up"    => (current_pos.x, current_pos.y - step),
+            "down"  => (current_pos.x, current_pos.y + step),
+            "left"  => (current_pos.x - step, current_pos.y),
+            "right" => (current_pos.x + step, current_pos.y),
+            _ => return,
+        };
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: new_x,
+            y: new_y,
+        }));
     }
 }
 

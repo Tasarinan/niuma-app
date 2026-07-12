@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { getPlatform } from "@/lib";
 import { CursorType } from "@/lib/storage";
 import { MousePointer, MousePointer2, Pointer, TextCursor } from "lucide-react";

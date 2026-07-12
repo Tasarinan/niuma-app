@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { MAX_FILES } from "@/config";
 import {
   fetchAIResponse,

@@ -1,7 +1,6 @@
 import {
   Settings,
   Code,
-  MessagesSquare,
   WandSparkles,
   AudioLinesIcon,
   SquareSlashIcon,
@@ -16,11 +15,10 @@ import {
   BrainIcon,
   UsersIcon,
   LanguagesIcon,
-  BotIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { GithubIcon } from "@/components";
 
 export const useMenuItems = () => {

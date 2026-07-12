@@ -9,7 +9,7 @@ import {
 } from "@/components";
 import { PlusIcon, SaveIcon } from "lucide-react";
 import { useCustomSttProviders } from "@/hooks";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { cn } from "@/lib/utils";
 
 interface CreateEditProviderProps {

@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { safeLocalStorage } from "@/lib/storage";
 
 import { Button, Card, CardContent, CardDescription, CardTitle } from "./ui";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 
 const STORAGE_KEY = "Niuma-promote-card-dismissed";
 

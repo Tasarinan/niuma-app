@@ -1,6 +1,5 @@
 export { default as Dashboard } from "./dashboard";
-export { default as Chats } from "./chats";
-export { default as ViewChat } from "./chats/components/View";
+export { default as AgentChat } from "./agents-chat";
 export { default as App } from "./app";
 export { default as SystemPrompts } from "./system-prompts";
 export { default as Settings } from "./settings";
@@ -13,4 +12,4 @@ export { default as CostTracking } from "./cost-tracking";
 export { default as ContextMemory } from "./context-memory";
 export { default as Speakers } from "./speakers";
 export { default as Language } from "./language";
-export { default as Agents } from "./agents";
+export { default as Providers } from "./providers";

@@ -185,6 +185,49 @@ pub fn create_dashboard_window<R: Runtime>(
     create_dashboard_window_at(app, visible, "/dashboard")
 }
 
+pub fn create_agent_chat_window<R: Runtime>(
+    app: &AppHandle<R>,
+    visible: bool,
+) -> Result<WebviewWindow<R>, tauri::Error> {
+    let base_builder =
+        WebviewWindowBuilder::new(app, "agent-chat", tauri::WebviewUrl::App("/agent-chat".into()));
+
+    #[cfg(target_os = "macos")]
+    let base_builder = base_builder
+        .title("AgentChat")
+        .center()
+        .decorations(true)
+        .inner_size(1100.0, 780.0)
+        .min_inner_size(860.0, 600.0)
+        .hidden_title(true)
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .content_protected(true)
+        .visible(visible)
+        .traffic_light_position(LogicalPosition::new(14.0, 18.0));
+
+    #[cfg(not(target_os = "macos"))]
+    let base_builder = base_builder
+        .title("AgentChat")
+        .center()
+        .decorations(true)
+        .inner_size(1100.0, 780.0)
+        .min_inner_size(860.0, 600.0)
+        .content_protected(true)
+        .visible(visible);
+
+    let window = base_builder.build()?;
+
+    let win_clone = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            let _ = win_clone.hide();
+        }
+    });
+
+    Ok(window)
+}
+
 pub fn create_dashboard_window_at<R: Runtime>(
     app: &AppHandle<R>,
     visible: bool,
@@ -231,4 +274,20 @@ pub fn create_dashboard_window_at<R: Runtime>(
     });
 
     Ok(window)
+}
+/// Open (or focus) the standalone AgentChat window.
+#[tauri::command]
+pub fn open_agent_chat_window(app: tauri::AppHandle) -> Result<(), String> {
+    // The agent-chat window is always pre-created at app startup (hidden).
+    // This command just shows and focuses it.
+    if let Some(win) = app.get_webview_window("agent-chat") {
+        win.show().map_err(|e| e.to_string())?;
+        win.set_focus().map_err(|e| e.to_string())?;
+        #[cfg(debug_assertions)]
+        win.open_devtools();
+        return Ok(());
+    }
+    // Fallback: create it now if somehow missing.
+    create_agent_chat_window(&app, true).map_err(|e| e.to_string())?;
+    Ok(())
 }

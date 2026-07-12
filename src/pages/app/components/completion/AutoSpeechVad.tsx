@@ -4,7 +4,7 @@ import { useMicVAD } from "@ricky0123/vad-react";
 import { LoaderCircleIcon, MicIcon, MicOffIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { floatArrayToWav } from "@/lib/utils";
 import { shouldUseNiumaAPI } from "@/lib/functions/Niuma.api";
 import { useTranslation } from "@/hooks";

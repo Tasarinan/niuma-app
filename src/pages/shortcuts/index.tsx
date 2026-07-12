@@ -1,5 +1,5 @@
 import { CursorSelection, ShortcutManager } from "./components";
-import { PageLayout } from "@/layouts";
+import { PageLayout } from "@/components/layouts";
 
 const Shortcuts = () => {
   return (

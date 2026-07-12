@@ -15,7 +15,7 @@ import { MessageHistory } from "./MessageHistory";
 import { QuickActions } from "./QuickActions";
 import { MeetingTranscriptPanel } from "./MeetingTranscriptPanel";
 import { UseQuickActionsReturn } from "@/hooks/useQuickActions";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 
 interface InputProps extends UseCompletionReturn {
   isHidden: boolean;

@@ -1,9 +1,9 @@
 import { Header, Selection, Switch } from "@/components";
 import { STT_LANGUAGES, TRANSLATION_LANGUAGES } from "@/config";
 import { LANGUAGES } from "@/lib";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { useMemo } from "react";
-import { PageLayout } from "@/layouts";
+import { PageLayout } from "@/components/layouts";
 import { providerSupportsAutoDetect } from "@/lib/functions/stt.function";
 
 // Language settings page - consolidates all language-related configuration

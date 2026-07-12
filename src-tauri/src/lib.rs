@@ -36,6 +36,53 @@ fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+/// Return the absolute path to the built-in clawpacks/agents directory.
+/// Priority: CARGO_MANIFEST_DIR/../clawpacks/agents (dev) → CWD/clawpacks/agents → resource_dir/clawpacks/agents (production).
+#[tauri::command]
+fn get_clawpacks_agents_dir(app: tauri::AppHandle) -> String {
+    // Dev: CARGO_MANIFEST_DIR is src-tauri/, parent is the project root.
+    // This is a compile-time constant, always correct in development.
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let candidate = manifest_dir.join("..").join("clawpacks").join("agents");
+    if candidate.exists() {
+        if let Ok(p) = candidate.canonicalize() {
+            return p.to_string_lossy().to_string();
+        }
+    }
+    // Fallback: CWD (works when launched from project root)
+    if let Ok(cwd) = std::env::current_dir() {
+        let candidate = cwd.join("clawpacks").join("agents");
+        if candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+    }
+    // Production: resources bundled alongside the binary
+    if let Ok(res) = app.path().resource_dir() {
+        let candidate = res.join("clawpacks").join("agents");
+        if candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+    }
+    String::new()
+}
+
+/// Return the absolute path to the user's agent customization directory
+/// (appLocalDataDir/user-customization/agents).
+#[tauri::command]
+fn get_user_agents_dir(app: tauri::AppHandle) -> String {
+    app.path()
+        .app_local_data_dir()
+        .ok()
+        .map(|p| {
+            p.join("user-customization")
+                .join("agents")
+                .to_string_lossy()
+                .to_string()
+        })
+        .unwrap_or_default()
+}
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Get PostHog API key
@@ -93,6 +140,7 @@ pub fn run() {
             window::open_dashboard,
             window::open_dashboard_at,
             window::toggle_dashboard,
+            window::open_agent_chat_window,
             window::move_window,
             capture::capture_to_base64,
             capture::start_screen_capture,
@@ -135,6 +183,10 @@ pub fn run() {
             fs_tools::fs_edit,
             fs_tools::fs_list,
             fs_tools::fs_grep,
+            fs_tools::read_text_file,
+            fs_tools::list_directory,
+            get_clawpacks_agents_dir,
+            get_user_agents_dir,
             mcp::mcp_inspect,
             mcp::mcp_call_tool,
             mcp::mcp_read_resource,
@@ -161,12 +213,6 @@ pub fn run() {
             init(app.app_handle());
 
             let app_handle = app.handle();
-            if app_handle.get_webview_window("dashboard").is_none() {
-                if let Err(e) = window::create_dashboard_window(app_handle, false) {
-                    eprintln!("Failed to create dashboard window on startup: {}", e);
-                }
-            }
-
             #[cfg(desktop)]
             {
                 use tauri_plugin_autostart::MacosLauncher;
@@ -234,6 +280,20 @@ pub fn run() {
                 .expect("Failed to initialize global shortcut plugin");
             if let Err(e) = shortcuts::setup_global_shortcuts(app.handle()) {
                 eprintln!("Failed to setup global shortcuts: {}", e);
+            }
+            // Create both secondary windows AFTER global_shortcut plugin is managed.
+            // Creating them earlier causes a panic: the second WebView2 init
+            // pumps the message loop, which fires the first window's IPC and
+            // hits GlobalShortcut state before it has been registered.
+            if app_handle.get_webview_window("dashboard").is_none() {
+                if let Err(e) = window::create_dashboard_window(app_handle, false) {
+                    eprintln!("Failed to create dashboard window on startup: {}", e);
+                }
+            }
+            if app_handle.get_webview_window("agent-chat").is_none() {
+                if let Err(e) = window::create_agent_chat_window(app_handle, false) {
+                    eprintln!("Failed to create agent-chat window on startup: {}", e);
+                }
             }
             Ok(())
         });

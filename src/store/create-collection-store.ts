@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import i18n from "@/i18n";
+import i18n from "@/lib/i18n";
 import type { BaseEntity } from "@/types";
-import type { CreateInput, Repository, UpdateInput } from "@/data";
+import type { CreateInput, Repository, UpdateInput } from "@/lib/data";
 
 export interface CollectionState<T extends BaseEntity> {
   items: T[];

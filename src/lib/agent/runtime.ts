@@ -14,6 +14,7 @@ import type {
   AgentMessage,
   AgentToolResult,
 } from "@earendil-works/pi-agent-core";
+import type { ImageContent } from "@earendil-works/pi-ai";
 import type { AgentDefinition, McpServer, Skill } from "@/types";
 import { buildPiModel } from "./model";
 import { createDirectRuntime } from "./provider";
@@ -60,7 +61,8 @@ export interface AgentRuntimeCallbacks {
 }
 
 export interface AgentRuntime {
-  prompt: (input: string) => Promise<void>;
+  /** Send a user turn. Optional images are forwarded as multimodal input. */
+  prompt: (input: string, images?: ImageContent[]) => Promise<void>;
   abort: () => void;
   waitForIdle: () => Promise<void>;
   /** MCP servers that failed to inspect while building tools. */
@@ -261,8 +263,8 @@ export async function createAgentRuntime(
   });
 
   return {
-    prompt: async (input: string) => {
-      await agent.prompt(input);
+    prompt: async (input: string, images?: ImageContent[]) => {
+      await agent.prompt(input, images);
     },
     abort: () => agent.abort(),
     waitForIdle: () => agent.waitForIdle(),

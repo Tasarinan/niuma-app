@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import {
   extractVariables,
   safeLocalStorage,

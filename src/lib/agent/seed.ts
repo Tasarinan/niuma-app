@@ -9,7 +9,7 @@
  *   npx tsx scripts/seed-agents.ts
  */
 
-import { agentDefinitionRepo } from "@/data";
+import { agentDefinitionRepo } from "@/lib/data";
 
 export async function seedDefaultAgentsIfEmpty(): Promise<void> {
   try {

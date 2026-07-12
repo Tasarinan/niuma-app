@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useWindowResize, useGlobalShortcuts } from ".";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { fetchSTT, fetchAIResponse, summarizeConversation, shouldSummarize } from "@/lib/functions";
 import {
   DEFAULT_QUICK_ACTIONS,

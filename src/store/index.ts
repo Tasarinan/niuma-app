@@ -1,14 +1,16 @@
 import { createCollectionStore } from "./create-collection-store";
-import { agentDefinitionRepo, skillRepo, mcpRepo } from "@/data";
+import { agentDefinitionRepo, skillRepo, mcpRepo, artifactRepo } from "@/lib/data";
 
 // UI / app-shell stores
 export {
   useThemeStore,
+  useTheme,
   applyTheme,
   applyTransparency,
   initThemeStore,
   type Theme,
 } from "./theme";
+export { useApp, useAppStore, initAppStore } from "./app";
 export { useLocaleStore } from "./locale";
 export {
   useSidebarStore,
@@ -24,5 +26,6 @@ export { useUnifiedStore } from "./unified";
 export const useAgentStore = createCollectionStore(agentDefinitionRepo);
 export const useSkillStore = createCollectionStore(skillRepo);
 export const useMcpStore = createCollectionStore(mcpRepo);
+export const useArtifactStore = createCollectionStore(artifactRepo);
 
 export { createCollectionStore, type CollectionState } from "./create-collection-store";

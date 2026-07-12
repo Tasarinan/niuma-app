@@ -1,6 +1,6 @@
 import { ResponseLength, AutoScrollToggle } from "./components";
-import { PageLayout } from "@/layouts";
-import { useApp } from "@/contexts";
+import { PageLayout } from "@/components/layouts";
+import { useApp } from "@/store";
 
 const Responses = () => {
   const { hasActiveLicense } = useApp();

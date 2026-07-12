@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window on macOS",
-  "windows": ["main", "dashboard", "zt-*"],
+  "windows": ["main", "dashboard", "agent-chat", "zt-*"],
   "platforms": ["macOS"],
   "permissions": [
     "core:default",
@@ -39,3 +39,4 @@
     "store:allow-clear"
   ]
 }
+

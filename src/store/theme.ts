@@ -96,3 +96,26 @@ export function initThemeStore() {
     }
   });
 }
+
+/** Backwards-compatible theme hook backed by the zustand theme store. */
+export const useTheme = () => {
+  const theme = useThemeStore((s) => s.theme);
+  const transparency = useThemeStore((s) => s.transparency);
+  const isSystemThemeDark = useThemeStore((s) => s.isSystemThemeDark);
+  const setTheme = useThemeStore((s) => s.setTheme);
+  const onSetTransparency = useThemeStore((s) => s.setTransparency);
+
+  return {
+    theme,
+    setTheme,
+    transparency,
+    onSetTransparency,
+    isSystemThemeDark,
+  } as {
+    theme: Theme;
+    setTheme: (theme: Theme) => void;
+    transparency: number;
+    onSetTransparency: (transparency: number) => void;
+    isSystemThemeDark: boolean;
+  };
+};

@@ -10,7 +10,7 @@ import {
 import { ChatMessage } from "@/types/completion";
 import { QuickActions } from "./QuickActions";
 import { UseQuickActionsReturn } from "@/hooks/useQuickActions";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 
 interface MessageHistoryProps {
   conversationHistory: ChatMessage[];

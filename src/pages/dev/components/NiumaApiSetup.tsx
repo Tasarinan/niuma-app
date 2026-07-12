@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { KeyIcon, TrashIcon, LoaderIcon, ChevronDown } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import {
   Button,
   Header,

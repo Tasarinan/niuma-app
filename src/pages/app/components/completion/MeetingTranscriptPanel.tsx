@@ -2,7 +2,7 @@ import { UseCompletionReturn, SpeakerInfo, SpeakerId, SpeakerIdParser } from "@/
 import { Button, ScrollArea, SpeakerTaggingPopover } from "@/components";
 import { TrashIcon, UsersIcon, Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 
 // Speaker color palette for visual distinction
 const SPEAKER_COLORS: Record<string, string> = {

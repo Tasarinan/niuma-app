@@ -1,5 +1,5 @@
 import { Switch, Label, Header } from "@/components";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 
 interface AppIconToggleProps {
   className?: string;

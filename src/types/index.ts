@@ -12,3 +12,4 @@ export * from "./meeting-context";
 export * from "./speaker-id";
 export * from "./user-identity";
 export * from "./group-chat.type";
+export * from "./studio.type";

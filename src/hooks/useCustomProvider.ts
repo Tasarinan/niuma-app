@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { TYPE_PROVIDER } from "@/types";
 import { AI_PROVIDERS } from "@/config";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import {
   getCustomAiProviders,
   addCustomAiProvider,

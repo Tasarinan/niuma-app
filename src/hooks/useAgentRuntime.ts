@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import {
   createAgentRuntime,
   ProviderUnavailableError,
@@ -8,6 +8,7 @@ import {
 import { useSkillStore, useMcpStore } from "@/store";
 import { logUnifiedCall } from "@/lib/unified-api";
 import type { AgentDefinition } from "@/types";
+import type { ImageContent } from "@earendil-works/pi-ai";
 
 export interface AgentToolCallView {
   toolCallId: string;
@@ -64,7 +65,7 @@ export const useAgentRuntime = (agent: AgentDefinition | null) => {
   );
 
   const send = useCallback(
-    async (input: string) => {
+    async (input: string, images?: ImageContent[]) => {
       if (!agent) {
         setError("请先选择一个 Agent");
         return;
@@ -157,7 +158,7 @@ export const useAgentRuntime = (agent: AgentDefinition | null) => {
         );
         runtimeRef.current = runtime;
         setIsRunning(true);
-        await runtime.prompt(input);
+        await runtime.prompt(input, images);
         await runtime.waitForIdle();
       } catch (err) {
         if (err instanceof ProviderUnavailableError) {

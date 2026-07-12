@@ -1,6 +1,6 @@
 import { ScreenshotConfigs } from "./components";
 import { useSettings } from "@/hooks";
-import { PageLayout } from "@/layouts";
+import { PageLayout } from "@/components/layouts";
 
 const Settings = () => {
   const settings = useSettings();

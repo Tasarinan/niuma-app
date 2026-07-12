@@ -24,7 +24,7 @@ import {
 import { DeleteSystemPrompt } from "./Delete";
 import { CreateEditDialog } from "./CreateEditDialog";
 import { useState } from "react";
-import { PageLayout } from "@/layouts";
+import { PageLayout } from "@/components/layouts";
 
 const SystemPrompts = () => {
   const {

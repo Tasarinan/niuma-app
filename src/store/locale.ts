@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import i18n, { type AppLocale } from "@/i18n";
+import i18n, { type AppLocale } from "@/lib/i18n";
 
 interface LocaleState {
   language: AppLocale;

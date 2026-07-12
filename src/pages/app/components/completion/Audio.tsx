@@ -9,7 +9,7 @@ import {
 } from "@/components";
 import { AutoSpeechVAD } from "./AutoSpeechVad";
 import { UseCompletionReturn } from "@/types";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { useMeetingAudio, useTranslation, useSpeakerDiarization } from "@/hooks";
 import { STORAGE_KEYS } from "@/config";
 import { secureGet, migrateFromLocalStorage } from "@/lib";

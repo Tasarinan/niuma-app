@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useSkillStore } from "@/store";
 import type { Skill } from "@/types";
-import type { CreateInput, UpdateInput } from "@/data";
+import type { CreateInput, UpdateInput } from "@/lib/data";
 
 export type SkillInput = CreateInput<Skill>;
 

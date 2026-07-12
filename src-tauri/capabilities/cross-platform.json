@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "cross-platform",
   "description": "Capability for the main window on Windows and Linux",
-  "windows": ["main", "dashboard", "zt-*"],
+  "windows": ["main", "dashboard", "agent-chat", "zt-*"],
   "platforms": ["windows", "linux"],
   "permissions": [
     "core:default",
@@ -38,3 +38,4 @@
     "store:allow-clear"
   ]
 }
+

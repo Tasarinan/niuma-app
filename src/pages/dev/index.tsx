@@ -1,5 +1,5 @@
 import { AIProviders } from "./components";
-import { PageLayout } from "@/layouts";
+import { PageLayout } from "@/components/layouts";
 
 const DevSpace = () => {
   return (

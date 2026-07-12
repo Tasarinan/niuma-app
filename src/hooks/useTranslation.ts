@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { translateText, TranslationResult } from "@/lib";
 import { STT_LANGUAGES } from "@/config";
 

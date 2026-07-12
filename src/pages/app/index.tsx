@@ -1,10 +1,10 @@
 import { Toolbar } from "@/components/toolbar";
 import { Updater, CustomCursor } from "@/components";
 import { useApp } from "@/hooks";
-import { useApp as useAppContext } from "@/contexts";
-import { useCompletion, useQuickActions, useTimer, useTTS } from "@/hooks";
+import { useApp as useAppContext } from "@/store";
+import { useCompletion, useQuickActions, useTTS } from "@/hooks";
 import { ErrorBoundary } from "react-error-boundary";
-import { ErrorLayout } from "@/layouts";
+import { ErrorLayout } from "@/components/layouts";
 import { getPlatform } from "@/lib";
 import { useEffect } from "react";
 
@@ -14,7 +14,6 @@ const App = () => {
   const platform = getPlatform();
   const completion = useCompletion();
   const quickActions = useQuickActions();
-  const timer = useTimer();
   const tts = useTTS();
 
   // Mark body transparent so body bg-background doesn't show behind the pill
@@ -35,7 +34,6 @@ const App = () => {
       >
         <Toolbar
           completion={completion}
-          timer={timer}
           tts={tts}
           quickActions={quickActions}
           isHidden={isHidden}

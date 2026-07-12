@@ -2,7 +2,7 @@
  * Main overlay toolbar — the primary UI of niuma-app.
  *
  * Layout (left → center → right):
- *   [Mic] [Speak] [Screenshot] [Chat] [Meeting] [Timer] | [Input] | [Dashboard] [Close]
+ *   [Mic] [Speak] [Screenshot] [Chat] [Meeting] | [Input] | [Dashboard] [Close]
  */
 import { useCallback } from "react";
 import {
@@ -12,16 +12,13 @@ import {
   VolumeX,
   Camera,
   Loader2,
-  MessageSquare,
-  Video,
+  Palette,
   X,
-  LayoutDashboard,
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { ToolbarButton } from "./ToolbarButton";
-import { TimerButton } from "./TimerButton";
-import { UseTimerReturn } from "@/hooks/useTimer";
+import { DragButton, WingIcon } from "@/components";
 import { UseTTSReturn } from "@/hooks/useTTS";
 import type { UseCompletionReturn } from "@/types";
 import { Input } from "@/pages/app/components/completion/Input";
@@ -33,26 +30,25 @@ import { MAX_FILES } from "@/config";
 
 interface ToolbarProps {
   completion: UseCompletionReturn;
-  timer: UseTimerReturn;
   tts: UseTTSReturn;
   quickActions?: UseQuickActionsReturn;
   isHidden: boolean;
 }
 
-export function Toolbar({ completion, timer, tts, quickActions, isHidden }: ToolbarProps) {
-  const handleOpenChats = useCallback(async () => {
-    try {
-      await invoke("open_dashboard_at", { path: "/chats" });
-    } catch (error) {
-      console.error("Failed to open chats:", error);
-    }
-  }, []);
-
+export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProps) {
   const handleOpenDashboard = useCallback(async () => {
     try {
       await invoke("open_dashboard");
     } catch (error) {
       console.error("Failed to open dashboard:", error);
+    }
+  }, []);
+
+  const handleOpenStudio = useCallback(async () => {
+    try {
+      await invoke("open_agent_chat_window");
+    } catch (error) {
+      console.error("Failed to open AgentChat:", error);
     }
   }, []);
 
@@ -139,29 +135,6 @@ export function Toolbar({ completion, timer, tts, quickActions, isHidden }: Tool
             <Camera className="h-4 w-4" aria-hidden="true" />
           )}
         </ToolbarButton>
-
-        {/* Single-chat / DiscordChat */}
-        <ToolbarButton
-          title="打开聊天中心"
-          aria-label="Open chat hub"
-          onClick={handleOpenChats}
-        >
-          <MessageSquare className="h-4 w-4" aria-hidden="true" />
-        </ToolbarButton>
-
-        {/* Meeting mode */}
-        <ToolbarButton
-          active={completion.meetingAssistMode}
-          activeColor="green"
-          title={completion.meetingAssistMode ? "Stop meeting mode" : "Start meeting mode"}
-          aria-label="Toggle meeting mode"
-          onClick={() => completion.setMeetingAssistMode(!completion.meetingAssistMode)}
-        >
-          <Video className="h-4 w-4" aria-hidden="true" />
-        </ToolbarButton>
-
-        {/* Timer */}
-        <TimerButton timer={timer} />
       </div>
 
       {/* ── Center: text input ── */}
@@ -183,13 +156,22 @@ export function Toolbar({ completion, timer, tts, quickActions, isHidden }: Tool
         className="relative z-10 flex items-center gap-1 shrink-0"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
+        {/* Cowork */}
+        <ToolbarButton
+          title="Cowork"
+          aria-label="Open cowork"
+          onClick={handleOpenStudio}
+        >
+          <Palette className="h-4 w-4" aria-hidden="true" />
+        </ToolbarButton>
+
         {/* Dashboard */}
         <ToolbarButton
           title="Open dashboard"
           aria-label="Open dashboard"
           onClick={handleOpenDashboard}
         >
-          <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+          <WingIcon className="h-5 w-5" />
         </ToolbarButton>
 
         {/* Close / hide */}
@@ -200,6 +182,9 @@ export function Toolbar({ completion, timer, tts, quickActions, isHidden }: Tool
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </ToolbarButton>
+
+        {/* Drag handle */}
+        <DragButton />
       </div>
     </div>
   );

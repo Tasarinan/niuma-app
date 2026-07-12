@@ -12,7 +12,7 @@ import type {
 } from "@/types";
 import { DEFAULT_SYSTEM_PROMPT, STORAGE_KEYS } from "@/config";
 import { safeLocalStorage } from "@/lib";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 
 export const useSystemPrompts = () => {
   const { setSystemPrompt } = useApp();

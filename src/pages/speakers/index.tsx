@@ -1,4 +1,4 @@
-import { PageLayout } from "@/layouts";
+import { PageLayout } from "@/components/layouts";
 import { DiarizationSettings, SpeakerProfiles } from "./components";
 
 const Speakers = () => {

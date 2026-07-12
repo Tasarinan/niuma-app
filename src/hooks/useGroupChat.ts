@@ -1,12 +1,11 @@
 import { useState, useCallback, useRef } from "react";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { useAgents } from "./useAgents";
 import { fetchAIResponse } from "@/lib";
 import type { Message } from "@/types";
 import type { GroupChannel, GroupMessage } from "@/types";
 import {
   loadChannels,
-  saveChannels,
   createChannel as storageCreateChannel,
   updateChannel as storageUpdateChannel,
   deleteChannel as storageDeleteChannel,

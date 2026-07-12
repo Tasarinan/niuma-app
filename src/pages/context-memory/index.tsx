@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
-import { PageLayout } from "@/layouts";
+import { PageLayout } from "@/components/layouts";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Sparkles } from "lucide-react";
 import { compactKnowledge } from "@/lib/functions/knowledge-compactor";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import {
   SummaryList,
   SummaryDetail,

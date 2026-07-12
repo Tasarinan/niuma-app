@@ -450,6 +450,45 @@ pub fn fs_grep(req: FsGrepRequest) -> Result<FsGrepResponse, String> {
     Ok(FsGrepResponse { matches, truncated })
 }
 
+// ─── Simple filesystem helpers (no sandbox, for agent/skill catalog) ─────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimpleDirEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
+/// Read a text file from an absolute path, stripping a UTF-8 BOM if present.
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    let bytes = fs::read(&path).map_err(|e| format!("read_text_file error: {e}"))?;
+    let content = if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        String::from_utf8_lossy(&bytes[3..]).to_string()
+    } else {
+        String::from_utf8_lossy(&bytes).to_string()
+    };
+    Ok(content)
+}
+
+/// List files and directories at an absolute path.
+#[tauri::command]
+pub fn list_directory(path: String) -> Result<Vec<SimpleDirEntry>, String> {
+    let read_dir = fs::read_dir(&path).map_err(|e| format!("list_directory error: {e}"))?;
+    let mut entries: Vec<SimpleDirEntry> = Vec::new();
+    for item in read_dir.flatten() {
+        let is_dir = item.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        entries.push(SimpleDirEntry {
+            name: item.file_name().to_string_lossy().to_string(),
+            path: item.path().to_string_lossy().to_string(),
+            is_dir,
+        });
+    }
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(entries)
+}
+
 fn grep_file(
     path: &Path,
     regex: &regex::Regex,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useMcpStore } from "@/store";
 import type { McpServer } from "@/types";
-import type { CreateInput, UpdateInput } from "@/data";
+import type { CreateInput, UpdateInput } from "@/lib/data";
 
 export type McpServerInput = CreateInput<McpServer>;
 

@@ -8,7 +8,7 @@ import {
 } from "@/components";
 import { MicIcon, RefreshCwIcon, HeadphonesIcon } from "lucide-react";
 import { useState } from "react";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import { STORAGE_KEYS } from "@/config/constants";
 import { safeLocalStorage } from "@/lib/storage";
 

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useWindowResize } from "./useWindow";
 import { useGlobalShortcuts } from "@/hooks";
 import { MAX_FILES, STORAGE_KEYS, MEETING_ASSIST_SYSTEM_PROMPT } from "@/config";
-import { useApp } from "@/contexts";
+import { useApp } from "@/store";
 import {
   fetchAIResponse,
   saveConversation,
@@ -522,12 +522,6 @@ export const useCompletion = () => {
       const signal = abortControllerRef.current.signal;
 
       try {
-        // Prepare message history for the AI (use ref to avoid stale closure)
-        const messageHistory = conversationHistoryRef.current.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-
         // Handle image attachments
         const imagesBase64: string[] = [];
         if (state.attachedFiles.length > 0) {
@@ -587,6 +581,7 @@ export const useCompletion = () => {
               const def: AgentDefinition = {
                 id: `chat-${conversationId}`,
                 name: "Chat",
+                description: "",
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 systemPrompt: systemPrompt || "You are a helpful assistant.",
