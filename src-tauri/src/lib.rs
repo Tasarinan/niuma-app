@@ -82,6 +82,32 @@ fn get_user_agents_dir(app: tauri::AppHandle) -> String {
         .unwrap_or_default()
 }
 
+/// Return the absolute path to the built-in clawpacks/skills directory.
+/// Priority: CARGO_MANIFEST_DIR/../clawpacks/skills (dev) → CWD/clawpacks/skills → resource_dir/clawpacks/skills (production).
+#[tauri::command]
+fn get_clawpacks_skills_dir(app: tauri::AppHandle) -> String {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let candidate = manifest_dir.join("..").join("clawpacks").join("skills");
+    if candidate.exists() {
+        if let Ok(p) = candidate.canonicalize() {
+            return p.to_string_lossy().to_string();
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        let candidate = cwd.join("clawpacks").join("skills");
+        if candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+    }
+    if let Ok(res) = app.path().resource_dir() {
+        let candidate = res.join("clawpacks").join("skills");
+        if candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+    }
+    String::new()
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -184,8 +210,10 @@ pub fn run() {
             fs_tools::fs_list,
             fs_tools::fs_grep,
             fs_tools::read_text_file,
+            fs_tools::write_text_file,
             fs_tools::list_directory,
             get_clawpacks_agents_dir,
+            get_clawpacks_skills_dir,
             get_user_agents_dir,
             mcp::mcp_inspect,
             mcp::mcp_call_tool,

@@ -1,73 +1,23 @@
-import { useState, useCallback, useEffect } from "react";
-import { Brain, Users, Hash, MessageSquare, FileText, Zap } from "lucide-react";
-import { useStudio } from "@/hooks/useStudio";
-import { useTTS } from "@/hooks/useTTS";
+import { useState } from "react";
+import { Brain, MessageSquare, FileText, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { StudioMessage } from "@/types";
 
-import ChatSection from "./chat";
+import ChatPage from "./chat";
 import AgentsPage from "./agents";
 import SkillsPage from "./skills";
-import GroupsPage from "./groups";
-import ChannelsPage from "./channels";
 import ArticlesPage from "./articles";
 
-type Section = "skills" | "agents" | "groups" | "channels" | "chat" | "articles";
+type Section = "skills" | "agents" | "chat" | "articles";
 
 const NAV_ITEMS: { id: Section; label: string; Icon: React.ElementType }[] = [
   { id: "skills",   label: "Skills",   Icon: Zap },
   { id: "agents",   label: "Agents",   Icon: Brain },
-  { id: "groups",   label: "Groups",   Icon: Users },
-  { id: "channels", label: "Channels", Icon: Hash },
   { id: "chat",     label: "Chat",     Icon: MessageSquare },
   { id: "articles", label: "Articles", Icon: FileText },
 ];
 
 export default function AgentChatPage() {
   const [section, setSection] = useState<Section>("chat");
-  const tts = useTTS();
-  const speakRef = useCallback((text: string) => tts.speak(text), [tts]);
-  const studio = useStudio({ onAgentReply: speakRef });
-
-  const {
-    projects,
-    selectedId,
-    selectedProject,
-    roles,
-    messages,
-    isSending,
-    streamingIds,
-    agents,
-    artifacts,
-    generatingArtifactId,
-    liveContent,
-    selectProject,
-    createProject,
-    addRole,
-    removeRole,
-    clearThread,
-    send,
-    stop,
-    confirmPlan,
-    regenerateArtifact,
-    updateArtifact,
-    removeArtifact,
-  } = studio;
-
-  useEffect(() => {
-    if (projects.length === 0) {
-      createProject("session", []);
-    } else if (!selectedId && projects.length > 0) {
-      selectProject(projects[0].id);
-    }
-  }, [projects, selectedId, createProject, selectProject]);
-
-  const handleConfirmPlan = useCallback(
-    (msg: StudioMessage) => void confirmPlan(msg),
-    [confirmPlan]
-  );
-
-  const activeIds = selectedProject?.agentIds ?? [];
 
   return (
     <div
@@ -116,39 +66,10 @@ export default function AgentChatPage() {
             <AgentsPage />
           </div>
         )}
-        {section === "groups" && (
-          <div className="flex-1 overflow-auto bg-background">
-            <GroupsPage />
-          </div>
-        )}
-        {section === "channels" && (
-          <div className="flex-1 overflow-auto bg-background">
-            <ChannelsPage />
-          </div>
-        )}
         {section === "chat" && (
-          <ChatSection
-            ready={!!selectedProject}
-            roles={roles}
-            messages={messages}
-            isSending={isSending}
-            streamingIds={streamingIds}
-            agents={agents}
-            artifacts={artifacts}
-            generatingArtifactId={generatingArtifactId}
-            liveContent={liveContent}
-            tts={tts}
-            activeIds={activeIds}
-            onAddRole={addRole}
-            onRemoveRole={removeRole}
-            onClear={clearThread}
-            onSend={send}
-            onStop={stop}
-            onConfirmPlan={handleConfirmPlan}
-            onRegenerate={regenerateArtifact}
-            onUpdate={updateArtifact}
-            onRemoveArtifact={removeArtifact}
-          />
+          <div className="flex-1 overflow-auto bg-background">
+            <ChatPage />
+          </div>
         )}
         {section === "articles" && (
           <div className="flex-1 overflow-auto bg-background">

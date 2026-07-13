@@ -472,6 +472,16 @@ pub fn read_text_file(path: String) -> Result<String, String> {
     Ok(content)
 }
 
+/// Write text content to an absolute path, creating parent directories as needed.
+#[tauri::command]
+pub fn write_text_file(path: String, content: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("write_text_file mkdir error: {e}"))?;
+    }
+    fs::write(p, content.as_bytes()).map_err(|e| format!("write_text_file error: {e}"))
+}
+
 /// List files and directories at an absolute path.
 #[tauri::command]
 pub fn list_directory(path: String) -> Result<Vec<SimpleDirEntry>, String> {

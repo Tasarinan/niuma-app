@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import rehypeSanitize from "rehype-sanitize";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
@@ -14,6 +14,14 @@ interface MarkdownRendererProps {
   children: string;
 }
 
+const SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  protocols: {
+    ...(defaultSchema.protocols ?? {}),
+    src: [...(defaultSchema.protocols?.src ?? ["http", "https"]), "data", "blob"],
+  },
+};
+
 export function Markdown({ children }: MarkdownRendererProps) {
   const fixedMarkdown = children
     .replace(/\\\[(.*?)\\\]/gs, "$$$1$$") // display math
@@ -22,7 +30,7 @@ export function Markdown({ children }: MarkdownRendererProps) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeKatex]}
+      rehypePlugins={[rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA], rehypeKatex]}
       components={COMPONENTS as any}
     >
       {fixedMarkdown}

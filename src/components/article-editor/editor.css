@@ -1,0 +1,184 @@
+@layer base {
+  .article-editor.typography {
+    color: rgb(51 65 85);
+    white-space: pre-wrap;
+    caret-color: rgb(79 70 229);
+  }
+
+  .article-editor.typography p.is-empty::before {
+    color: rgb(148 163 184);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .article-editor.typography h1 {
+    font-size: 2.2rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .article-editor.typography h2 {
+    font-size: 1.7rem;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-top: 2rem;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid rgb(226 232 240);
+  }
+
+  .article-editor.typography h3,
+  .article-editor.typography h4,
+  .article-editor.typography h5,
+  .article-editor.typography h6 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 1.65rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .article-editor.typography p {
+    font-size: 1rem;
+    line-height: 1.85;
+  }
+
+  .article-editor.typography p + p {
+    margin-top: 1rem;
+  }
+
+  .article-editor.typography a {
+    color: rgb(79 70 229);
+    text-decoration: underline;
+    text-underline-offset: 0.2rem;
+  }
+
+  .article-editor.typography blockquote {
+    margin: 1.5rem 0;
+    border-left: 3px solid rgb(148 163 184);
+    padding-left: 1rem;
+    color: rgb(100 116 139);
+    font-style: italic;
+  }
+
+  .article-editor.typography ul,
+  .article-editor.typography ol {
+    margin-top: 1rem;
+    margin-left: 1.5rem;
+  }
+
+  .article-editor.typography ul {
+    list-style: disc;
+  }
+
+  .article-editor.typography ol {
+    list-style: decimal;
+  }
+
+  .article-editor.typography li {
+    margin-top: 0.45rem;
+    line-height: 1.75;
+  }
+
+  .article-editor.typography ul[data-type="taskList"] {
+    list-style: none;
+    margin-left: 0;
+    padding: 0;
+  }
+
+  .article-editor.typography ul[data-type="taskList"] li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .article-editor.typography ul[data-type="taskList"] input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: rgb(79 70 229);
+  }
+
+  .article-editor.typography pre {
+    background: rgb(15 23 42);
+    color: rgb(226 232 240);
+    border-radius: 1rem;
+    padding: 1rem 1.1rem;
+    margin: 1.5rem 0;
+    overflow: auto;
+    font-size: 0.92rem;
+    line-height: 1.7;
+  }
+
+  .article-editor.typography code:not(pre code) {
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    border-radius: 0.5rem;
+    padding: 0.12rem 0.35rem;
+    font-size: 0.9em;
+  }
+
+  .article-editor.typography table {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 0.85rem;
+    margin: 1.5rem 0;
+    border-collapse: collapse;
+  }
+
+  .article-editor.typography th,
+  .article-editor.typography td {
+    border: 1px solid rgb(226 232 240);
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+  }
+
+  .article-editor.typography th {
+    background: rgb(248 250 252);
+    font-weight: 600;
+  }
+
+  .article-editor.typography img {
+    max-width: 100%;
+    border-radius: 1rem;
+    margin: 1.25rem 0;
+  }
+
+  .article-editor .tableWrapper,
+  .article-editor .table-wrapper {
+    margin: 1.5rem 0;
+  }
+
+  .article-editor .selectedCell {
+    box-shadow: inset 0 0 0 1px rgb(79 70 229);
+  }
+
+  .article-editor .math {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.65rem;
+    background: rgb(248 250 252);
+    border: 1px solid rgb(226 232 240);
+    padding: 0.2rem 0.45rem;
+    margin: 0 0.12rem;
+  }
+
+  .article-editor .math-display {
+    display: block;
+    margin: 1.25rem 0;
+    padding: 1rem 1.1rem;
+  }
+
+  .article-editor .math-selected {
+    border-color: rgb(99 102 241);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  .article-editor .math-content-empty::before {
+    content: "Type formula...";
+    color: rgb(148 163 184);
+  }
+}

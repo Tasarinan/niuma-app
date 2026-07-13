@@ -13,6 +13,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { TALENT_AVATAR_ITEMS } from "../talent-avatar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,11 @@ export async function loadAgentCatalog(): Promise<CatalogAgent[]> {
 
   if (!isTauri()) {
     const result = await fetchCatalogHttp();
+    result.forEach((agent, i) => {
+      if (!agent.avatar && TALENT_AVATAR_ITEMS.length > 0) {
+        agent.avatar = TALENT_AVATAR_ITEMS[i % TALENT_AVATAR_ITEMS.length].avatarUrl;
+      }
+    });
     cache = result;
     cacheTimestamp = now;
     return result;
@@ -147,7 +153,15 @@ export async function loadAgentCatalog(): Promise<CatalogAgent[]> {
     map.set(a.name.toLowerCase(), a);
   }
 
-  cache = Array.from(map.values());
+  const merged = Array.from(map.values());
+  // Assign avatars deterministically by sorted position for agents that lack one
+  const sorted = [...merged].sort((a, b) => a.file.localeCompare(b.file));
+  sorted.forEach((agent, i) => {
+    if (!agent.avatar && TALENT_AVATAR_ITEMS.length > 0) {
+      agent.avatar = TALENT_AVATAR_ITEMS[i % TALENT_AVATAR_ITEMS.length].avatarUrl;
+    }
+  });
+  cache = sorted;
   cacheTimestamp = now;
   return cache;
 }
