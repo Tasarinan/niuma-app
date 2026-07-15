@@ -2,6 +2,7 @@ import { Loader2, TrashIcon } from "lucide-react";
 import { Button, Header } from "@/components";
 import { UseSettingsReturn } from "@/types";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export const DeleteChats = ({
   handleDeleteAllChatsConfirm,
@@ -9,6 +10,7 @@ export const DeleteChats = ({
   setShowDeleteConfirmDialog,
 }: UseSettingsReturn) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const { t } = useTranslation("pages");
 
   const deleteAllChats = () => {
     setIsDeleting(true);
@@ -21,8 +23,8 @@ export const DeleteChats = ({
   return (
     <div id="delete-chats" className="space-y-3">
       <Header
-        title="Delete Chat History"
-        description="Permanently delete all your chat conversations and history. This action cannot be undone and will remove all stored conversations from your local storage."
+        title={t("settingsPage.deleteChats.title")}
+        description={t("settingsPage.deleteChats.description")}
         isMainTitle
       />
 
@@ -30,7 +32,7 @@ export const DeleteChats = ({
         {isDeleting && (
           <div className="p-3 bg-green-50 border border-green-200 rounded-md">
             <p className="text-xs text-green-700 font-medium">
-              ✅ All chat history has been successfully deleted.
+              {t("settingsPage.deleteChats.success")}
             </p>
           </div>
         )}
@@ -45,12 +47,12 @@ export const DeleteChats = ({
           {isDeleting ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Deleting...
+              {t("settingsPage.deleteChats.deleting")}
             </>
           ) : (
             <>
               <TrashIcon className="h-4 w-4 mr-2" />
-              Delete All Chats
+              {t("settingsPage.deleteChats.deleteAll")}
             </>
           )}
         </Button>
@@ -61,22 +63,20 @@ export const DeleteChats = ({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-background border rounded-lg p-6 max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-2">
-              Delete All Chat History
+              {t("settingsPage.deleteChats.dialogTitle")}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Are you sure you want to delete all chat history? This action
-              cannot be undone and will permanently remove all stored
-              conversations.
+              {t("settingsPage.deleteChats.dialogDesc")}
             </p>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => setShowDeleteConfirmDialog(false)}
               >
-                Cancel
+                {t("common.actions.cancel", { ns: "common" })}
               </Button>
               <Button variant="destructive" onClick={deleteAllChats}>
-                Delete All
+                {t("settingsPage.deleteChats.confirm")}
               </Button>
             </div>
           </div>

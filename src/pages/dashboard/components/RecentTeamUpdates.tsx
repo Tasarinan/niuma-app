@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ export const RecentTeamUpdates = ({ refreshTrigger }: RecentTeamUpdatesProps) =>
   const [profile, setProfile] = useState<KnowledgeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { t } = useTranslation("dashboard");
 
   const loadProfile = async () => {
     setLoading(true);
@@ -59,7 +61,7 @@ export const RecentTeamUpdates = ({ refreshTrigger }: RecentTeamUpdatesProps) =>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
-            Recent Team Updates
+            {t("recentTeamUpdates.title")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -80,14 +82,14 @@ export const RecentTeamUpdates = ({ refreshTrigger }: RecentTeamUpdatesProps) =>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Recent Team Updates
+              {t("recentTeamUpdates.title")}
             </CardTitle>
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
               onClick={() => setIsDialogOpen(true)}
-              title="Edit Recent Team Updates"
+              title={t("recentTeamUpdates.editTitle")}
             >
               <Edit2 className="h-3.5 w-3.5" />
             </Button>
@@ -105,7 +107,7 @@ export const RecentTeamUpdates = ({ refreshTrigger }: RecentTeamUpdatesProps) =>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No recent team updates yet
+              {t("recentTeamUpdates.empty")}
             </p>
           )}
         </CardContent>
@@ -114,9 +116,9 @@ export const RecentTeamUpdates = ({ refreshTrigger }: RecentTeamUpdatesProps) =>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Recent Team Updates</DialogTitle>
+            <DialogTitle>{t("recentTeamUpdates.editTitle")}</DialogTitle>
             <DialogDescription>
-              Manage your recent team updates
+              {t("recentTeamUpdates.editDescription")}
             </DialogDescription>
           </DialogHeader>
           <ListEditor

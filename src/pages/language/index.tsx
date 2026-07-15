@@ -4,10 +4,12 @@ import { LANGUAGES } from "@/lib";
 import { useApp } from "@/store";
 import { useMemo } from "react";
 import { PageLayout } from "@/components/layouts";
+import { useTranslation } from "react-i18next";
 import { providerSupportsAutoDetect } from "@/lib/functions/stt.function";
 
 // Language settings page - consolidates all language-related configuration
 const Language = () => {
+  const { t } = useTranslation("pages");
   const {
     hasActiveLicense,
     sttLanguage,
@@ -48,27 +50,27 @@ const Language = () => {
 
   return (
     <PageLayout
-      title="Language"
-      description="Configure language settings for responses and speech translation"
+      title={t("languagePage.title")}
+      description={t("languagePage.description")}
     >
       {/* Speech Recognition Language Section */}
       <div className="space-y-4">
         <Header
-          title="Speech Recognition Language"
-          description="Select the language for speech-to-text recognition. Choose 'Auto-detect' to let the STT provider automatically identify the spoken language, or select a specific language for improved accuracy."
+          title={t("languagePage.sttTitle")}
+          description={t("languagePage.sttDesc")}
           isMainTitle
         />
         <div className="max-w-md">
           <Selection
             selected={sttLanguage}
             options={[
-              { label: "Auto-detect (any language)", value: "auto" },
+              { label: t("languagePage.autoDetect"), value: "auto" },
               ...STT_LANGUAGES.map((lang) => ({
                 label: lang.name,
                 value: lang.code,
               })),
             ]}
-            placeholder="Choose language"
+            placeholder={t("languagePage.chooseLanguage")}
             onChange={(value) => {
               setSttLanguage(value);
             }}
@@ -79,8 +81,7 @@ const Language = () => {
         {showAutoDetectWarning && (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
             <p className="text-[10px] lg:text-xs text-yellow-600 dark:text-yellow-400">
-              Your current STT provider ({currentSttProvider?.name || "Unknown"}) may not fully support auto-detect.
-              Consider selecting a specific language for better accuracy, or switch to a provider like OpenAI Whisper, Groq, or AssemblyAI.
+              {t("languagePage.sttWarning")}
             </p>
           </div>
         )}
@@ -89,15 +90,15 @@ const Language = () => {
       {/* Response Language Section */}
       <div className="space-y-4">
         <Header
-          title="Response Language"
-          description="Select the language for AI responses. Setting applies globally to all providers and conversations. Language support may vary depending on your selected LLM provider"
+          title={t("languagePage.responseLang")}
+          description={t("languagePage.responseLangDesc")}
           isMainTitle
         />
 
         {!hasActiveLicense && (
           <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
             <p className="text-[10px] lg:text-xs text-muted-foreground">
-              🔒 Response language customization requires an active license.
+              {t("languagePage.responseLicenseRequired")}
             </p>
           </div>
         )}
@@ -107,7 +108,7 @@ const Language = () => {
             selected={responseLanguage}
             onChange={handleLanguageChange}
             options={languageOptions}
-            placeholder="Select a language"
+            placeholder={t("languagePage.selectLanguage")}
             disabled={!hasActiveLicense}
           />
         </div>
@@ -116,16 +117,16 @@ const Language = () => {
       {/* Speech Translation Section */}
       <div className="space-y-4 pt-4 border-t">
         <Header
-          title="Speech Translation"
-          description="Enable real-time translation of your speech transcriptions to a second language."
+          title={t("languagePage.translation")}
+          description={t("languagePage.translationDesc")}
           isMainTitle
         />
 
         <div className="flex items-center justify-between py-2">
           <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Enable Translation</span>
+            <span className="text-sm font-medium">{t("languagePage.enableTranslation")}</span>
             <span className="text-xs text-muted-foreground">
-              Show translated version alongside original speech
+              {t("languagePage.enableTranslationDesc")}
             </span>
           </div>
           <Switch
@@ -137,8 +138,8 @@ const Language = () => {
         {sttTranslationEnabled && (
           <div className="space-y-2">
             <Header
-              title="Target Language"
-              description="Select the language to translate your speech into."
+              title={t("languagePage.targetLanguage")}
+              description={t("languagePage.targetLanguageDesc")}
             />
             <Selection
               selected={sttTranslationLanguage}
@@ -146,7 +147,7 @@ const Language = () => {
                 label: lang.name,
                 value: lang.code,
               }))}
-              placeholder="Choose target language"
+              placeholder={t("languagePage.chooseTarget")}
               onChange={(value) => {
                 setSttTranslationLanguage(value);
               }}

@@ -1,7 +1,6 @@
 import { Button, Label } from "@/components";
 import { cn } from "@/lib/utils";
 import { ArrowLeftIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   title: string;
@@ -26,7 +25,6 @@ export const Header = ({
   className,
   allowBackButton = false,
 }: HeaderProps) => {
-  const navigate = useNavigate();
   return (
     <div
       className={cn(
@@ -42,7 +40,7 @@ export const Header = ({
     >
       <div className="flex items-center gap-2">
         {allowBackButton && (
-          <Button size="icon" variant="outline" onClick={() => navigate(-1)}>
+          <Button size="icon" variant="outline" onClick={() => window.history.back()}>
             <ArrowLeftIcon className="size-3 lg:size-4 transition-all duration-300" />
           </Button>
         )}

@@ -1,0 +1,30 @@
+{
+  "title": "Dashboard",
+  "welcome": "Welcome back",
+  "quickActions": "Quick Actions",
+  "recentChats": "Recent Chats",
+  "stats": "Overview",
+  "overview": "Overview",
+  "tagline": "Your invisible Agents with user-customized capabilities",
+  "description": "Your current focus areas from recent meetings",
+  "updateKnowledge": "Update Knowledge",
+  "updating": "Updating...",
+  "recentGoals": {
+    "title": "Recent Goals",
+    "editTitle": "Edit Recent Goals",
+    "editDescription": "Manage your recent goals",
+    "empty": "No recent goals yet"
+  },
+  "recentDecisions": {
+    "title": "Recent Decisions",
+    "editTitle": "Edit Recent Decisions",
+    "editDescription": "Manage your recent decisions",
+    "empty": "No recent decisions yet"
+  },
+  "recentTeamUpdates": {
+    "title": "Recent Team Updates",
+    "editTitle": "Edit Recent Team Updates",
+    "editDescription": "Manage your recent team updates",
+    "empty": "No recent team updates yet"
+  }
+}

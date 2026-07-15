@@ -1,70 +1,71 @@
-import { useState, useCallback } from "react";
-import { PageLayout } from "@/components/layouts";
+import { useTranslation } from "react-i18next";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
+import { useMenuItems } from "@/hooks";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, Sparkles } from "lucide-react";
-import { compactKnowledge } from "@/lib/functions/knowledge-compactor";
-import { useApp } from "@/store";
-import { RecentGoals, RecentDecisions, RecentTeamUpdates } from "./components";
 
 const Dashboard = () => {
-  const { selectedAIProvider, allAiProviders } = useApp();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isCompacting, setIsCompacting] = useState(false);
-
-  const handleRefresh = useCallback(() => {
-    setRefreshTrigger((prev) => prev + 1);
-  }, []);
-
-  const handleCompactKnowledge = useCallback(async () => {
-    setIsCompacting(true);
-    try {
-      const provider = allAiProviders.find(
-        (p) => p.id === selectedAIProvider.provider
-      );
-      await compactKnowledge({
-        provider,
-        selectedProvider: selectedAIProvider,
-      });
-      handleRefresh();
-    } catch (error) {
-      console.error("Failed to compact knowledge:", error);
-    } finally {
-      setIsCompacting(false);
-    }
-  }, [handleRefresh, allAiProviders, selectedAIProvider]);
+  const { t } = useTranslation("dashboard");
+  const { footerLinks, footerItems } = useMenuItems();
 
   return (
-    <PageLayout
-      title="Dashboard"
-      description="Your current focus areas from recent meetings"
-      rightSlot={
-        <div className="flex items-center gap-2">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-8 px-8">
+      <img
+        src="/niuma_brand.png"
+        alt="Niuma"
+        className="w-48 object-contain"
+        draggable={false}
+      />
+      <div className="text-center space-y-2">
+        <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+          {t("overview")}
+        </p>
+        <p className="text-base text-muted-foreground">
+          {t("tagline")}
+        </p>
+      </div>
+
+      {/* Footer links (website / github) */}
+      <div className="flex flex-row gap-3">
+        {footerLinks.map((item) => (
           <Button
+            key={item.title}
+            title={item.title}
             variant="outline"
             size="sm"
-            onClick={handleCompactKnowledge}
-            disabled={isCompacting}
-            className="flex items-center gap-1"
+            className="gap-2"
+            onClick={() => openUrl(item.link)}
           >
-            <Sparkles className="h-3 w-3" />
-            {isCompacting ? "Updating..." : "Update Knowledge"}
+            <item.icon className="size-4" />
+            {item.title}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-          >
-            <RefreshCcw className="h-4 w-4" />
-          </Button>
-        </div>
-      }
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <RecentGoals refreshTrigger={refreshTrigger} />
-        <RecentDecisions refreshTrigger={refreshTrigger} />
-        <RecentTeamUpdates refreshTrigger={refreshTrigger} />
+        ))}
       </div>
-    </PageLayout>
+
+      {/* Footer items (contact support / report bug / quit) */}
+      <div className="flex flex-col w-48 gap-1">
+        {footerItems.map((item, index) => {
+          const handleClick = (e: React.MouseEvent) => {
+            e.preventDefault();
+            if (item.action) {
+              void item.action();
+            } else if (item.href) {
+              void openUrl(item.href);
+            }
+          };
+          return (
+            <button
+              key={`footer-${index}`}
+              onClick={handleClick}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <item.icon className="size-4 shrink-0" />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 

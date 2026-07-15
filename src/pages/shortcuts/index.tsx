@@ -1,11 +1,13 @@
 import { CursorSelection, ShortcutManager } from "./components";
 import { PageLayout } from "@/components/layouts";
+import { useTranslation } from "react-i18next";
 
 const Shortcuts = () => {
+  const { t } = useTranslation("pages");
   return (
     <PageLayout
-      title="Cursor & Keyboard Shortcuts"
-      description="Manage your cursor and keyboard shortcuts"
+      title={t("shortcutsPage.title")}
+      description={t("shortcutsPage.description")}
     >
       <div className="flex flex-col gap-6 pb-8">
         {/* Cursor Selection */}

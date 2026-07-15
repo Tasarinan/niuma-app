@@ -1,5 +1,6 @@
 import { Switch, Label, Header } from "@/components";
 import { useApp } from "@/store";
+import { useTranslation } from "react-i18next";
 
 interface AlwaysOnTopToggleProps {
   className?: string;
@@ -7,6 +8,7 @@ interface AlwaysOnTopToggleProps {
 
 export const AlwaysOnTopToggle = ({ className }: AlwaysOnTopToggleProps) => {
   const { customizable, toggleAlwaysOnTop } = useApp();
+  const { t } = useTranslation("pages");
 
   const handleSwitchChange = async (checked: boolean) => {
     await toggleAlwaysOnTop(checked);
@@ -15,8 +17,8 @@ export const AlwaysOnTopToggle = ({ className }: AlwaysOnTopToggleProps) => {
   return (
     <div id="always-on-top" className={`space-y-2 ${className}`}>
       <Header
-        title="Always On Top Mode"
-        description="Control whether the window stays above all other applications"
+        title={t("settingsPage.alwaysOnTop.title")}
+        description={t("settingsPage.alwaysOnTop.description")}
         isMainTitle
       />
       <div className="flex items-center justify-between">
@@ -24,25 +26,21 @@ export const AlwaysOnTopToggle = ({ className }: AlwaysOnTopToggleProps) => {
           <div>
             <Label className="text-sm font-medium">
               {customizable.alwaysOnTop.isEnabled
-                ? "Disable Always On Top"
-                : "Enable Always On Top"}
+                ? t("settingsPage.alwaysOnTop.disable")
+                : t("settingsPage.alwaysOnTop.enable")}
             </Label>
             <p className="text-xs text-muted-foreground mt-1">
               {customizable.alwaysOnTop.isEnabled
-                ? "Window stays above all other applications (default)"
-                : "Window behaves like normal applications"}
+                ? t("settingsPage.alwaysOnTop.enabledDesc")
+                : t("settingsPage.alwaysOnTop.disabledDesc")}
             </p>
           </div>
         </div>
         <Switch
           checked={customizable.alwaysOnTop.isEnabled}
           onCheckedChange={handleSwitchChange}
-          title={`Toggle to ${
-            !customizable.alwaysOnTop.isEnabled ? "Enabled" : "Disabled"
-          } always on top`}
-          aria-label={`Toggle to ${
-            customizable.alwaysOnTop.isEnabled ? "Enabled" : "Disabled"
-          } always on top`}
+          title={!customizable.alwaysOnTop.isEnabled ? t("settingsPage.alwaysOnTop.toggleEnabled") : t("settingsPage.alwaysOnTop.toggleDisabled")}
+          aria-label={customizable.alwaysOnTop.isEnabled ? t("settingsPage.alwaysOnTop.toggleEnabled") : t("settingsPage.alwaysOnTop.toggleDisabled")}
         />
       </div>
     </div>

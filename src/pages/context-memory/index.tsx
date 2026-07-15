@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { PageLayout } from "@/components/layouts";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { compactKnowledge } from "@/lib/functions/knowledge-compactor";
 import { useApp } from "@/store";
 import {
@@ -16,6 +17,7 @@ import type { MeetingSummary } from "@/types";
 
 const ContextMemory = () => {
   const { selectedAIProvider, allAiProviders } = useApp();
+  const { t } = useTranslation("pages");
   const [selectedSummary, setSelectedSummary] = useState<MeetingSummary | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isCompacting, setIsCompacting] = useState(false);
@@ -60,8 +62,8 @@ const ContextMemory = () => {
 
   return (
     <PageLayout
-      title="Context Memory"
-      description="View and manage your conversation history and knowledge profile"
+      title={t("contextMemoryPage.title")}
+      description={t("contextMemoryPage.description")}
       rightSlot={
         <div className="flex items-center gap-2">
           <Button
@@ -72,7 +74,7 @@ const ContextMemory = () => {
             className="flex items-center gap-1"
           >
             <Sparkles className="h-3 w-3" />
-            {isCompacting ? "Updating..." : "Update Knowledge"}
+            {isCompacting ? t("contextMemoryPage.updating") : t("contextMemoryPage.updateKnowledge")}
           </Button>
           <Button
             variant="ghost"

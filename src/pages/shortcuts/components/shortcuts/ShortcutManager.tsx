@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button, Card, GetLicense, Switch } from "@/components";
 import { RotateCcw, AlertCircle, Keyboard, Lock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   getAllShortcutActions,
   getShortcutsConfig,
@@ -17,6 +18,7 @@ import { ShortcutRecorder } from "./ShortcutRecorder";
 
 export const ShortcutManager = () => {
   const { hasActiveLicense } = useApp();
+  const { t } = useTranslation("pages");
   const [actions, setActions] = useState<ShortcutAction[]>([]);
   const [bindings, setBindings] = useState<Record<string, ShortcutBinding>>({});
   const [editingAction, setEditingAction] = useState<string | null>(null);
@@ -129,12 +131,11 @@ export const ShortcutManager = () => {
         <div>
           <h3 className="text-md lg:text-lg font-semibold flex items-center gap-2">
             <Keyboard className="size-5 lg:size-5" />
-            Keyboard Shortcuts
+            {t("shortcutsPage.manager.title")}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {actions.length} shortcut{actions.length !== 1 ? "s" : ""}{" "}
-            configured
-            {!hasActiveLicense && " • License required for customization"}
+            {actions.length} {t("shortcutsPage.manager.configured")}
+            {!hasActiveLicense && ` • ${t("shortcutsPage.manager.licenseRequired")}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -156,7 +157,7 @@ export const ShortcutManager = () => {
             variant="outline"
             onClick={handleReset}
             disabled={isApplying}
-            title="Reset all shortcuts to platform defaults"
+            title={t("shortcutsPage.manager.resetTooltip")}
           >
             <RotateCcw className="size-3 lg:size-4" />
             Reset
@@ -187,14 +188,13 @@ export const ShortcutManager = () => {
             <Lock className="size-4 lg:size-5 text-primary mt-0.5" />
             <div className="flex-1 space-y-2">
               <p className="text-xs lg:text-sm font-medium">
-                Unlock Shortcut Customization
+                {t("shortcutsPage.manager.unlockTitle")}
               </p>
               <p className="text-[10px] lg:text-xs text-muted-foreground">
-                Get a license to customize keyboard shortcuts to your
-                preference.
+                {t("shortcutsPage.manager.unlockDesc")}
               </p>
               <GetLicense
-                buttonText="Get License"
+                buttonText={t("shortcutsPage.manager.getLicense")}
                 buttonClassName="w-full mt-2"
               />
             </div>
@@ -288,11 +288,11 @@ export const ShortcutManager = () => {
                       className="min-w-[80px]"
                       title={
                         isLocked
-                          ? "License required to customize"
-                          : "Change this shortcut"
+                          ? t("shortcutsPage.manager.licenseRequired")
+                          : t("shortcutsPage.manager.change")
                       }
                     >
-                      Change
+                      {t("shortcutsPage.manager.change")}
                     </Button>
                   </div>
                 </div>
@@ -304,7 +304,7 @@ export const ShortcutManager = () => {
 
       {/* Footer Note */}
       <p className="text-xs text-muted-foreground text-center pt-2">
-        💡 Shortcuts work globally, even when the app is hidden
+        {t("shortcutsPage.manager.globalTip")}
       </p>
     </div>
   );

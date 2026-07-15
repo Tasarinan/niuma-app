@@ -5,7 +5,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import Overlay from "./components/Overlay";
 import { AppProvider, ThemeProvider } from "./components";
 import { Toaster } from "./components";
-import i18n from "./lib/i18n";
+import i18n from "./i18n";
 import "./global.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import AppRoutes from "./lib/routes";

@@ -1,0 +1,30 @@
+{
+  "title": "仪表盘",
+  "welcome": "欢迎回来",
+  "quickActions": "快捷操作",
+  "recentChats": "最近对话",
+  "stats": "概览",
+  "overview": "概览",
+  "tagline": "您的隐形智能体，可按需定制能力",
+  "description": "来自最近会议的当前重点关注领域",
+  "updateKnowledge": "更新知识库",
+  "updating": "更新中...",
+  "recentGoals": {
+    "title": "近期目标",
+    "editTitle": "编辑近期目标",
+    "editDescription": "管理您的近期目标",
+    "empty": "暂无近期目标"
+  },
+  "recentDecisions": {
+    "title": "近期决策",
+    "editTitle": "编辑近期决策",
+    "editDescription": "管理您的近期决策",
+    "empty": "暂无近期决策"
+  },
+  "recentTeamUpdates": {
+    "title": "近期团队动态",
+    "editTitle": "编辑近期团队动态",
+    "editDescription": "管理您的近期团队动态",
+    "empty": "暂无近期团队动态"
+  }
+}

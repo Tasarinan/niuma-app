@@ -1,23 +1,24 @@
 import { ResponseLength, AutoScrollToggle } from "./components";
 import { PageLayout } from "@/components/layouts";
 import { useApp } from "@/store";
+import { useTranslation } from "react-i18next";
 
 const Responses = () => {
   const { hasActiveLicense } = useApp();
+  const { t } = useTranslation("pages");
 
   return (
     <PageLayout
-      title="Response Settings"
-      description="Customize how AI generates and displays responses"
+      title={t("responsesPage.title")}
+      description={t("responsesPage.description")}
     >
       {!hasActiveLicense && (
         <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
           <p className="text-[10px] lg:text-sm text-foreground font-medium mb-2">
-            🔒 Premium Features
+            {t("responsesPage.premiumTitle")}
           </p>
           <p className="text-[10px] lg:text-sm text-muted-foreground">
-            Response customization features (Response Length and Auto-Scroll
-            Control) require an active license to use.
+            {t("responsesPage.premiumDesc")}
           </p>
         </div>
       )}

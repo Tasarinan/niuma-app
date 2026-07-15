@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ export const RecentGoals = ({ refreshTrigger }: RecentGoalsProps) => {
   const [profile, setProfile] = useState<KnowledgeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { t } = useTranslation("dashboard");
 
   const loadProfile = async () => {
     setLoading(true);
@@ -58,9 +60,9 @@ export const RecentGoals = ({ refreshTrigger }: RecentGoalsProps) => {
       <Card className="shadow-none border border-border/70 rounded-xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Recent Goals
-          </CardTitle>
+              <Target className="h-4 w-4" />
+              {t("recentGoals.title")}
+            </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-6">
@@ -80,14 +82,14 @@ export const RecentGoals = ({ refreshTrigger }: RecentGoalsProps) => {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Target className="h-4 w-4" />
-              Recent Goals
+              {t("recentGoals.title")}
             </CardTitle>
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
               onClick={() => setIsDialogOpen(true)}
-              title="Edit Recent Goals"
+              title={t("recentGoals.editTitle")}
             >
               <Edit2 className="h-3.5 w-3.5" />
             </Button>
@@ -105,7 +107,7 @@ export const RecentGoals = ({ refreshTrigger }: RecentGoalsProps) => {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No recent goals yet
+              {t("recentGoals.empty")}
             </p>
           )}
         </CardContent>
@@ -114,9 +116,9 @@ export const RecentGoals = ({ refreshTrigger }: RecentGoalsProps) => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Recent Goals</DialogTitle>
+            <DialogTitle>{t("recentGoals.editTitle")}</DialogTitle>
             <DialogDescription>
-              Manage your recent goals
+              {t("recentGoals.editDescription")}
             </DialogDescription>
           </DialogHeader>
           <ListEditor

@@ -1,81 +1,108 @@
-import { useState } from "react";
-import { Brain, MessageSquare, FileText, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { type CSSProperties, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Brain, FileText, MessageSquare, Settings, Zap } from "lucide-react";
 
-import ChatPage from "./chat";
 import AgentsPage from "./agents";
-import SkillsPage from "./skills";
 import ArticlesPage from "./articles";
+import ChatPage from "./chat";
+import SkillsPage from "./skills";
+import ProvidersPage from "@/pages/providers";
 
-type Section = "skills" | "agents" | "chat" | "articles";
+type Section = "chat" | "agents" | "skills" | "articles" | "settings";
 
-const NAV_ITEMS: { id: Section; label: string; Icon: React.ElementType }[] = [
-  { id: "skills",   label: "Skills",   Icon: Zap },
-  { id: "agents",   label: "Agents",   Icon: Brain },
-  { id: "chat",     label: "Chat",     Icon: MessageSquare },
-  { id: "articles", label: "Articles", Icon: FileText },
-];
+/** Mirrors DeDeClaw PageContainer: all pages mounted, shown/hidden via display.
+ *  Uses display:block so child pages fill the full width naturally and
+ *  h-full / ScrollArea flex-1 resolve correctly.
+ */
+function PageContainer({
+  pageId,
+  current,
+  children,
+}: {
+  pageId: Section;
+  current: Section;
+  children: React.ReactNode;
+}) {
+  const style: CSSProperties = {
+    display: pageId === current ? "block" : "none",
+    flex: 1,
+    height: "100%",
+    overflow: "hidden",
+  };
+  return <div style={style}>{children}</div>;
+}
 
 export default function AgentChatPage() {
   const [section, setSection] = useState<Section>("chat");
+  const { t } = useTranslation("pages");
+
+  const NAV_ITEMS: { id: Section; label: string; icon: React.ElementType }[] = [
+    { id: "chat",     label: t("agentsChat.tabs.chat"),     icon: MessageSquare },
+    { id: "agents",   label: t("agentsChat.tabs.agents"),   icon: Brain },
+    { id: "skills",   label: t("agentsChat.tabs.skills"),   icon: Zap },
+    { id: "articles", label: t("agentsChat.tabs.articles"), icon: FileText },
+  ];
 
   return (
-    <div
-      className="flex h-screen w-screen overflow-hidden"
-      style={{ background: "#16171a", color: "#e2e4e9" }}
-    >
-      {/* ── Left icon nav ── */}
-      <nav
-        className="flex w-[68px] flex-shrink-0 flex-col items-center gap-1 py-4"
-        style={{ background: "#0f1012" }}
-      >
-        <div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-purple-600 shadow-lg shadow-purple-900/40">
-          <span className="text-[10px] font-bold tracking-wide text-white">AC</span>
+    <div className="flex h-screen w-screen overflow-hidden bg-white">
+      {/* ── NavigationBar — mirrors DeDeClaw style ── */}
+      <nav className="flex w-20 flex-shrink-0 flex-col items-center bg-[#2C2D33] pb-3 pt-6">
+        {/* Nav items */}
+        <div className="flex flex-col items-center gap-2">
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+            const isActive = section === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setSection(id)}
+                title={label}
+                className={[
+                  "flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200",
+                  isActive
+                    ? "bg-[#3E3F47] text-white scale-105 shadow-sm"
+                    : "text-gray-400 hover:bg-[#3E3F47] hover:text-gray-200",
+                ].join(" ")}
+              >
+                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              </button>
+            );
+          })}
         </div>
-        <div className="mb-1 w-8 border-b border-white/10" />
-        {NAV_ITEMS.map(({ id, label, Icon }) => (
+
+        {/* Settings at bottom */}
+        <div className="mt-auto">
           <button
-            key={id}
-            onClick={() => setSection(id)}
-            title={label}
-            className={cn(
-              "flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-200",
-              section === id
-                ? "bg-purple-500/25 text-purple-300"
-                : "text-white/30 hover:bg-white/6 hover:text-white/70"
-            )}
+            title={t("agentsChat.settingsTitle")}
+            onClick={() => setSection((s) => s === "settings" ? "chat" : "settings")}
+            className={[
+              "flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200",
+              section === "settings"
+                ? "bg-[#3E3F47] text-white scale-105 shadow-sm"
+                : "text-gray-500 hover:bg-[#3E3F47] hover:text-gray-300",
+            ].join(" ")}
           >
-            <Icon size={18} strokeWidth={section === id ? 2.5 : 2} />
-            <span className="text-[8px] leading-none">{label}</span>
+            <Settings size={22} strokeWidth={section === "settings" ? 2.5 : 2} />
           </button>
-        ))}
+        </div>
       </nav>
 
-      {/* ── Section content ── */}
-      <div
-        className="flex min-w-0 flex-1 overflow-hidden"
-        style={{ borderLeft: "1px solid rgba(255,255,255,0.07)" }}
-      >
-        {section === "skills" && (
-          <div className="flex-1 overflow-auto bg-background">
-            <SkillsPage />
-          </div>
-        )}
-        {section === "agents" && (
-          <div className="flex-1 overflow-auto bg-background">
-            <AgentsPage />
-          </div>
-        )}
-        {section === "chat" && (
-          <div className="flex-1 overflow-auto bg-background">
-            <ChatPage />
-          </div>
-        )}
-        {section === "articles" && (
-          <div className="flex-1 overflow-auto bg-background">
-            <ArticlesPage />
-          </div>
-        )}
+      {/* ── Page content — DeDeClaw PageContainer pattern ── */}
+      <div className="flex min-w-0 flex-1 overflow-hidden">
+        <PageContainer pageId="chat" current={section}>
+          <ChatPage />
+        </PageContainer>
+        <PageContainer pageId="agents" current={section}>
+          <AgentsPage />
+        </PageContainer>
+        <PageContainer pageId="skills" current={section}>
+          <SkillsPage />
+        </PageContainer>
+        <PageContainer pageId="articles" current={section}>
+          <ArticlesPage />
+        </PageContainer>
+        <PageContainer pageId="settings" current={section}>
+          <ProvidersPage />
+        </PageContainer>
       </div>
     </div>
   );

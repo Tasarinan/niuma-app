@@ -8,6 +8,7 @@
  * Disabled slugs are persisted in localStorage under "niuma-disabled-skills".
  */
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Badge, Button, Input, ScrollArea, Switch } from "@/components/ui";
 import { fetchClawpackSkillCatalog, installSkillToClawpacks, type ClawpackSkill } from "@/lib/data";
 import { Check, CloudDownload, ExternalLink, Loader2, Search, X, Zap } from "lucide-react";
@@ -91,6 +92,7 @@ export default function SkillsPage() {
   const [preview, setPreview] = useState<{ skill: HubSkill; content: string } | null>(null);
   const [installing, setInstalling] = useState<Set<string>>(new Set());
   const [previewLoading, setPreviewLoading] = useState(false);
+  const { t } = useTranslation("pages");
 
   useEffect(() => {
     setBuiltinLoading(true);
@@ -136,7 +138,7 @@ export default function SkillsPage() {
     try {
       setPreview({ skill, content: await fetchSkillMd(skill) });
     } catch {
-      setPreview({ skill, content: "⚠️ 无法获取 SKILL.md，请检查网络连接" });
+      setPreview({ skill, content: t("skillsPage.skillMdError") });
     } finally {
       setPreviewLoading(false);
     }
@@ -188,7 +190,7 @@ export default function SkillsPage() {
               hubTab === "builtin" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            <Zap className="size-3" />内置技能
+            <Zap className="size-3" />{t("skillsPage.tabs.builtin")}
           </button>
           <button
             onClick={() => setHubTab("online")}
@@ -197,7 +199,7 @@ export default function SkillsPage() {
               hubTab === "online" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            <CloudDownload className="size-3" />在线市场
+            <CloudDownload className="size-3" />{t("skillsPage.tabs.online")}
           </button>
           {hubTab === "builtin" && (
             <div className="ml-auto flex items-center py-2">
@@ -206,7 +208,7 @@ export default function SkillsPage() {
                 <Input
                   value={builtinSearch}
                   onChange={(e) => setBuiltinSearch(e.target.value)}
-                  placeholder="搜索内置技能…"
+                  placeholder={t("skillsPage.searchBuiltin")}
                   className="pl-6 h-7 text-xs w-52"
                 />
               </div>
@@ -220,12 +222,12 @@ export default function SkillsPage() {
                   value={hubQuery}
                   onChange={(e) => setHubQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void searchHub()}
-                  placeholder="搜索 skill.sh…"
+                  placeholder={t("skillsPage.searchOnline")}
                   className="pl-6 h-7 text-xs w-52"
                 />
               </div>
               <Button size="sm" className="h-7 text-xs" onClick={() => void searchHub()} disabled={hubLoading}>
-                {hubLoading ? <Loader2 className="size-3 animate-spin" /> : <Search className="size-3" />}搜索
+                {hubLoading ? <Loader2 className="size-3 animate-spin" /> : <Search className="size-3" />}{t("skillsPage.search")}
               </Button>
             </div>
           )}
@@ -236,7 +238,7 @@ export default function SkillsPage() {
             <ScrollArea className="flex-1 border-r">
               {builtinLoading ? (
                 <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
-                  <Loader2 className="size-5 animate-spin mr-2" />加载内置技能…
+                  <Loader2 className="size-5 animate-spin mr-2" />{t("skillsPage.loadingBuiltin")}
                 </div>
               ) : (
                 <div className="p-4 space-y-1">
@@ -271,7 +273,7 @@ export default function SkillsPage() {
                   {filtered.length === 0 && !builtinLoading && (
                     <div className="flex flex-col items-center gap-4 py-16 text-muted-foreground">
                       <Zap className="size-10 opacity-20" />
-                      <p className="text-sm">{builtinSearch ? "没有匹配的技能" : "暂无内置技能"}</p>
+                      <p className="text-sm">{builtinSearch ? t("skillsPage.noMatchSkills") : t("skillsPage.emptyBuiltin")}</p>
                     </div>
                   )}
                 </div>
@@ -305,12 +307,12 @@ export default function SkillsPage() {
             <ScrollArea className="flex-1 border-r">
               {hubLoading ? (
                 <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
-                  <Loader2 className="size-5 animate-spin mr-2" />加载中…
+                  <Loader2 className="size-5 animate-spin mr-2" />{t("skillsPage.loadingPreview")}
                 </div>
               ) : hubResults.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 py-20 text-muted-foreground">
                   <Zap className="size-12 opacity-20" />
-                  <p className="text-sm">输入关键词搜索在线技能</p>
+                  <p className="text-sm">{t("skillsPage.enterKeyword")}</p>
                 </div>
               ) : (
                 <div className="p-4 space-y-2">
@@ -336,7 +338,7 @@ export default function SkillsPage() {
                             <p className="font-semibold text-sm">{skill.name}</p>
                             {installed && (
                               <Badge variant="secondary" className="text-[9px] h-4 px-1.5 text-emerald-600 bg-emerald-50">
-                                已安装
+                                {t("skillsPage.installed")}
                               </Badge>
                             )}
                           </div>
@@ -363,7 +365,7 @@ export default function SkillsPage() {
                             installed ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" : "bg-foreground text-background hover:opacity-90 disabled:opacity-40"
                           )}
                         >
-                          {installed ? <><Check className="size-3" />已装</> : installingNow ? <Loader2 className="size-3 animate-spin" /> : <><CloudDownload className="size-3" />安装</>}
+                          {installed ? <><Check className="size-3" />{t("skillsPage.installedShort")}</> : installingNow ? <Loader2 className="size-3 animate-spin" /> : <><CloudDownload className="size-3" />{t("skillsPage.install")}</>}
                         </button>
                       </div>
                     );
@@ -393,7 +395,7 @@ export default function SkillsPage() {
                       onClick={() => void installHub(preview.skill, preview.content)}
                       disabled={installing.has(`${preview.skill.repo}/${preview.skill.path}`) || onlineInstalled(preview.skill)}
                     >
-                      {onlineInstalled(preview.skill) ? <><Check className="size-3 mr-1" />已安装</> : <><CloudDownload className="size-3 mr-1" />安装到内置</>}
+                      {onlineInstalled(preview.skill) ? <><Check className="size-3 mr-1" />{t("skillsPage.installed")}</> : <><CloudDownload className="size-3 mr-1" />{t("skillsPage.installToBuiltin")}</>}
                     </Button>
                     <button onClick={() => setPreview(null)} className="p-1 rounded hover:bg-muted text-muted-foreground">
                       <X className="size-3.5" />

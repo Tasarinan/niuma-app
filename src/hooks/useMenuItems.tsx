@@ -1,11 +1,8 @@
 import {
   Settings,
-  Code,
-  WandSparkles,
   AudioLinesIcon,
   SquareSlashIcon,
   MonitorIcon,
-  HomeIcon,
   PowerIcon,
   MailIcon,
   GlobeIcon,
@@ -31,16 +28,6 @@ export const useMenuItems = () => {
     href: string;
     count?: number;
   }[] = [
-    {
-      icon: HomeIcon,
-      label: t("dashboard"),
-      href: "/dashboard",
-    },
-    {
-      icon: WandSparkles,
-      label: t("systemPrompts"),
-      href: "/system-prompts",
-    },
     {
       icon: Settings,
       label: t("settings"),
@@ -86,11 +73,6 @@ export const useMenuItems = () => {
       label: t("shortcuts"),
       href: "/shortcuts",
     },
-    {
-      icon: Code,
-      label: t("devSpace"),
-      href: "/dev-space",
-    },
   ];
 
   const footerItems = [
@@ -113,7 +95,7 @@ export const useMenuItems = () => {
     {
       icon: BugIcon,
       label: t("footer.reportBug"),
-      href: "https://github.com/kmorgan-r/Niuma/issues/new?template=bug-report.yml",
+      href: "https://github.com/Tasarinan/niuma-app/issues/new?template=bug-report.yml",
     },
     {
       icon: PowerIcon,
@@ -137,7 +119,7 @@ export const useMenuItems = () => {
     {
       title: t("footer.github"),
       icon: GithubIcon,
-      link: "https://github.com/kmorgan-r/Niuma",
+      link: "https://github.com/Tasarinan/niuma-app",
     },
   ];
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components";
 import { Check, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   isMacOS,
   validateShortcutKey,
@@ -23,6 +24,7 @@ export const ShortcutRecorder = ({
 }: ShortcutRecorderProps) => {
   const [recordedKeys, setRecordedKeys] = useState<string[]>([]);
   const [error, setError] = useState<string>("");
+  const { t } = useTranslation("pages");
   const isRecording = true; // Always recording
   const isMoveWindow = actionId === "move_window";
   const minKeys = isMoveWindow ? 1 : 2;
@@ -78,16 +80,14 @@ export const ShortcutRecorder = ({
 
       if (isMoveWindow) {
         if (["up", "down", "left", "right"].includes(mainKey)) {
-          setError(
-            "Arrow keys are automatic for Move Window. Only set modifiers."
-          );
+          setError(t("shortcutsPage.recorder.arrowKeysNote"));
           return;
         }
         if (keys.length >= 1) {
           setRecordedKeys(keys);
           setError("");
         } else {
-          setError("Must include at least one modifier (Cmd/Ctrl/Alt/Shift)");
+          setError(t("shortcutsPage.recorder.modifierOnlyNote"));
         }
       } else {
         if (!["control", "alt", "shift", "meta"].includes(mainKey)) {
@@ -98,9 +98,7 @@ export const ShortcutRecorder = ({
           setRecordedKeys(keys);
           setError("");
         } else {
-          setError(
-            "Must include at least one modifier (Cmd/Ctrl/Alt/Shift) and one key"
-          );
+          setError(t("shortcutsPage.recorder.modifierKeyNote"));
         }
       }
     },
@@ -135,8 +133,8 @@ export const ShortcutRecorder = ({
     if (recordedKeys.length < minKeys) {
       setError(
         isMoveWindow
-          ? "Move Window needs at least one modifier"
-          : "Shortcut must have at least one modifier and one key"
+          ? t("shortcutsPage.recorder.arrowModifierError")
+          : t("shortcutsPage.recorder.modifierKeyError")
       );
       return;
     }
@@ -147,7 +145,7 @@ export const ShortcutRecorder = ({
     if (!isMoveWindow) {
       // Validate with frontend
       if (!validateShortcutKey(shortcutKey)) {
-        setError("Invalid shortcut combination");
+        setError(t("shortcutsPage.recorder.invalidCombo"));
         return;
       }
 
@@ -158,11 +156,11 @@ export const ShortcutRecorder = ({
         });
 
         if (!isValid) {
-          setError("This shortcut combination is not supported");
+          setError(t("shortcutsPage.recorder.notSupported"));
           return;
         }
       } catch (e) {
-        setError("Failed to validate shortcut");
+        setError(t("shortcutsPage.recorder.validateFailed"));
         return;
       }
     }
@@ -179,7 +177,7 @@ export const ShortcutRecorder = ({
   const displayKey =
     recordedKeys.length > 0
       ? formatShortcutKeyForDisplay(recordedKeys.join("+"))
-      : "Waiting for keys...";
+      : t("shortcutsPage.recorder.waiting");
 
   return (
     <div className="flex flex-col gap-2 w-full">
@@ -201,20 +199,20 @@ export const ShortcutRecorder = ({
           variant="default"
           onClick={handleSave}
           disabled={disabled || recordedKeys.length < minKeys}
-          title="Save shortcut"
+          title={t("shortcutsPage.recorder.save")}
         >
           <Check className="h-4 w-4" />
-          Save
+          {t("shortcutsPage.recorder.save")}
         </Button>
         <Button
           size="sm"
           variant="outline"
           onClick={handleCancel}
           disabled={disabled}
-          title="Cancel"
+          title={t("shortcutsPage.recorder.cancel")}
         >
           <X className="h-4 w-4" />
-          Cancel
+          {t("shortcutsPage.recorder.cancel")}
         </Button>
       </div>
 

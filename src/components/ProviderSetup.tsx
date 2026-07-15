@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Select,
   SelectContent,
@@ -58,6 +59,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
   const [model, setModel] = useState(active?.model ?? "");
   const [modelInput, setModelInput] = useState(active?.model ?? "");
   const [saved, setSaved] = useState(false);
+  const { t } = useTranslation("pages");
 
   const selectedDef = providers.find((p) => p.id === selectedId);
 
@@ -87,8 +89,8 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
   return (
     <div className="space-y-4 p-4 w-full max-w-md">
       <div className="space-y-1">
-        <h2 className="text-sm font-semibold text-[#18181b]">Provider 设置</h2>
-        <p className="text-xs text-gray-500">直接配置，无需 cURL 模板</p>
+        <h2 className="text-sm font-semibold text-[#18181b]">{t("providerSetup.title")}</h2>
+        <p className="text-xs text-gray-500">{t("providerSetup.subtitle")}</p>
       </div>
 
       {/* Provider selector */}
@@ -96,7 +98,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
         <Label className="text-xs">Provider</Label>
         <Select value={selectedId} onValueChange={handleProviderChange}>
           <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="选择 Provider..." />
+            <SelectValue placeholder={t("providerSetup.selectProvider")} />
           </SelectTrigger>
           <SelectContent>
             {providers.map((p) => (
@@ -133,7 +135,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
             <Label className="text-xs">
               Base URL
               <span className="ml-1 text-gray-400 font-normal">
-                (默认: {selectedDef.baseUrl})
+                ({t("providerSetup.defaultLabel", { url: selectedDef.baseUrl })})
               </span>
             </Label>
             <Input
@@ -158,7 +160,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
                   }}
                 >
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="选择模型..." />
+                    <SelectValue placeholder={t("providerSetup.selectModel")} />
                   </SelectTrigger>
                   <SelectContent>
                     {selectedDef.suggestedModels.map((m) => (
@@ -167,14 +169,14 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
                       </SelectItem>
                     ))}
                     <SelectItem value="__custom__" className="text-xs text-gray-500">
-                      自定义...
+                      {t("providerSetup.customModel")}
                     </SelectItem>
                   </SelectContent>
                 </Select>
                 {model === "__custom__" && (
                   <Input
                     className="h-8 text-xs font-mono"
-                    placeholder="输入模型 ID..."
+                    placeholder={t("providerSetup.modelPlaceholder")}
                     value={modelInput === "__custom__" ? "" : modelInput}
                     onChange={(e) => setModelInput(e.target.value)}
                     autoFocus
@@ -184,7 +186,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
             ) : (
               <Input
                 className="h-8 text-xs font-mono"
-                placeholder="输入模型 ID..."
+                placeholder={t("providerSetup.modelPlaceholder")}
                 value={modelInput}
                 onChange={(e) => setModelInput(e.target.value)}
               />
@@ -203,7 +205,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
               className="flex-1 h-8 text-xs"
               onClick={handleSave}
             >
-              {saved ? "✓ 已保存" : "保存并激活"}
+              {saved ? t("providerSetup.saved") : t("providerSetup.saveAndActivate")}
             </Button>
             {onClose && (
               <Button
@@ -212,7 +214,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
                 className="h-8 text-xs"
                 onClick={onClose}
               >
-                关闭
+                {t("providerSetup.close")}
               </Button>
             )}
           </div>

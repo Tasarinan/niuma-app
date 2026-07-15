@@ -1,11 +1,13 @@
 import { PageLayout } from "@/components/layouts";
 import { DiarizationSettings, SpeakerProfiles } from "./components";
+import { useTranslation } from "react-i18next";
 
 const Speakers = () => {
+  const { t } = useTranslation("pages");
   return (
     <PageLayout
-      title="Speakers"
-      description="Manage speaker identification and voice profiles for meetings"
+      title={t("speakersPage.title")}
+      description={t("speakersPage.description")}
     >
       {/* Speaker Diarization Settings */}
       <DiarizationSettings />

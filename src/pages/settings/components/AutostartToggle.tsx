@@ -1,5 +1,6 @@
 import { Switch, Label, Header } from "@/components";
 import { useApp } from "@/store";
+import { useTranslation } from "react-i18next";
 
 interface AutostartToggleProps {
   className?: string;
@@ -7,6 +8,7 @@ interface AutostartToggleProps {
 
 export const AutostartToggle = ({ className }: AutostartToggleProps) => {
   const { customizable, toggleAutostart } = useApp();
+  const { t } = useTranslation("pages");
 
   const isEnabled = customizable?.autostart?.isEnabled ?? true;
 
@@ -17,18 +19,18 @@ export const AutostartToggle = ({ className }: AutostartToggleProps) => {
   return (
     <div id="autostart" className={`space-y-2 ${className}`}>
       <Header
-        title="Launch on Startup"
-        description="Automatically open Niuma when your system starts"
+        title={t("settingsPage.autostart.title")}
+        description={t("settingsPage.autostart.description")}
         isMainTitle
       />
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div>
-            <Label className="text-sm font-medium">Open on Start</Label>
+            <Label className="text-sm font-medium">{t("settingsPage.autostart.label")}</Label>
             <p className="text-xs text-muted-foreground mt-1">
               {isEnabled
-                ? "Niuma will launch automatically on system startup"
-                : "Niuma will not launch automatically"}
+                ? t("settingsPage.autostart.enabled")
+                : t("settingsPage.autostart.disabled")}
             </p>
           </div>
         </div>

@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { PageLayout } from "@/components/layouts";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { CostOverview, CostChart, CostByProvider } from "./components";
 import { getCostSummary, getDailyCosts } from "@/lib";
 import type { CostSummary, DailyCostData } from "@/types";
 
 const CostTracking = () => {
+  const { t } = useTranslation("pages");
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<CostSummary>({
     totalCost: 0,
@@ -48,8 +50,8 @@ const CostTracking = () => {
 
   return (
     <PageLayout
-      title="Cost Tracking"
-      description="Monitor your estimated API usage costs"
+      title={t("costTrackingPage.title")}
+      description={t("costTrackingPage.description")}
       rightSlot={
         <Button
           variant="ghost"
@@ -64,9 +66,7 @@ const CostTracking = () => {
       <div className="space-y-6">
         {/* Disclaimer */}
         <div className="text-xs text-amber-500 bg-amber-500/10 p-3 rounded-md">
-          Costs shown are estimates based on configured pricing. Actual billing
-          may vary. Prices are based on publicly available API pricing and may
-          not reflect discounts or special arrangements.
+          {t("costTrackingPage.disclaimer")}
         </div>
 
         {/* Summary Cards */}

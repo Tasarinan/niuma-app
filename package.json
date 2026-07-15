@@ -5,17 +5,17 @@
   "description": "Your invisible Agents with user-customized capabilities",
   "author": {
     "name": "Albin",
-    "email": "",
-    "url": "https://niuma.com"
+    "email": "niuma8@888.com",
+    "url": "https://niuma-app.com"
   },
   "license": "GPL-3.0",
-  "homepage": "https://github.com/kmorgan-r/niuma-app#readme",
+  "homepage": "https://github.com/Tasarinan/niuma-app#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kmorgan-r/niuma-app.git"
+    "url": "git+https://github.com/Tasarinan/niuma-app.git"
   },
   "bugs": {
-    "url": "https://github.com/kmorgan-r/niuma-app/issues"
+    "url": "https://github.com/Tasarinan/niuma-app/issues"
   },
   "keywords": [
     "ai-assistant",

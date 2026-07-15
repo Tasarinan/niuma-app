@@ -1,6 +1,7 @@
 import { useApp, useTheme } from "@/store";
 import { Header, Label, Slider, Button } from "@/components";
 import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,16 +12,13 @@ import {
 export const Theme = () => {
   const { theme, transparency, setTheme, onSetTransparency } = useTheme();
   const { hasActiveLicense } = useApp();
+  const { t } = useTranslation("pages");
 
   return (
     <div id="theme" className="relative space-y-3">
       <Header
-        title={`Theme Customization ${
-          hasActiveLicense
-            ? ""
-            : " (You need an active license to use this feature)"
-        }`}
-        description="Personalize your experience with custom theme and transparency settings"
+        title={`${t("settingsPage.theme.title")} ${hasActiveLicense ? "" : t("settingsPage.theme.licenseRequired")}`}
+        description={t("settingsPage.theme.description")}
         isMainTitle
       />
 
@@ -37,24 +35,24 @@ export const Theme = () => {
                 {theme === "system" ? (
                   <>
                     <MonitorIcon className="h-4 w-4" />
-                    System
+                    {t("settingsPage.theme.system")}
                   </>
                 ) : theme === "light" ? (
                   <>
                     <SunIcon className="h-4 w-4" />
-                    Light Mode
+                    {t("settingsPage.theme.light")}
                   </>
                 ) : (
                   <>
                     <MoonIcon className="h-4 w-4" />
-                    Dark Mode
+                    {t("settingsPage.theme.dark")}
                   </>
                 )}
               </Label>
               <p className="text-xs text-muted-foreground mt-1">
                 {theme === "light"
-                  ? "Using light theme for better visibility in bright environments"
-                  : "Using dark theme for comfortable viewing in low light"}
+                  ? t("settingsPage.theme.lightDesc")
+                  : t("settingsPage.theme.darkDesc")}
               </p>
             </div>
           </div>
@@ -73,13 +71,13 @@ export const Theme = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setTheme("light")}>
-                Light
+                {t("settingsPage.theme.lightBtn")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")}>
-                Dark
+                {t("settingsPage.theme.darkBtn")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("system")}>
-                System
+                {t("settingsPage.theme.systemBtn")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -93,8 +91,8 @@ export const Theme = () => {
         }`}
       >
         <Header
-          title="Window Transparency"
-          description="Adjust the transparency level of the application window"
+          title={t("settingsPage.theme.transparency")}
+          description={t("settingsPage.theme.transparencyDesc")}
         />
         <div className="space-y-3">
           <div className="flex items-center gap-4 mt-4">
@@ -109,8 +107,7 @@ export const Theme = () => {
           </div>
 
           <p className="text-xs text-muted-foreground/70">
-            💡 Tip: Higher transparency lets you see through the window, perfect
-            for dark overlay. Changes apply immediately.
+            {t("settingsPage.theme.transparencyTip")}
           </p>
         </div>
       </div>

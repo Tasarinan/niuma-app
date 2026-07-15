@@ -1,23 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
-import { TaskItem, TaskList } from "@tiptap/extension-list";
-import { Selection, Focus } from "@tiptap/extensions";
-import { FileHandler } from "@tiptap/extension-file-handler";
-import { Markdown } from "@tiptap/markdown";
-import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
-import { common, createLowlight } from "lowlight";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import type { Editor } from "@tiptap/core";
 import {
   Bold,
   CheckSquare,
+  Clipboard,
   Code2,
   Download,
   Eye,
   FileInput,
+  FolderDown,
   Heading1,
   Heading2,
   ImagePlus,
@@ -35,16 +28,14 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { documentDir, join } from "@tauri-apps/api/path";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Markdown as MarkdownPreview } from "@/components/Markdown";
-import { MathExtension } from "@/components/article-editor/math";
-import { SlashCommands } from "@/components/article-editor/slash-commands";
-import { suggestionItems } from "@/components/article-editor/suggestion-items";
+import { ArticleEditor } from "@/components/article-editor/ArticleEditor";
 import "@/components/article-editor/editor.css";
 
 type ArticleRecord = {
@@ -60,13 +51,12 @@ type ArticleRecord = {
 type EditorMode = "write" | "split" | "preview";
 
 const STORAGE_KEY = "niuma.articles";
-const lowlight = createLowlight(common);
 
 function createArticle(partial?: Partial<ArticleRecord>): ArticleRecord {
   const now = new Date().toISOString();
   return {
     id: partial?.id ?? crypto.randomUUID(),
-    title: partial?.title ?? "未命名文章",
+    title: partial?.title ?? i18n.t("articles.untitled", { ns: "pages" }),
     summary: partial?.summary ?? "",
     content: partial?.content ?? "",
     cover: partial?.cover ?? "",
@@ -107,8 +97,6 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
-const toolbarButtonClass = "h-9 rounded-full border border-slate-200 bg-white px-3 text-slate-600 hover:bg-slate-50 hover:text-slate-950";
-
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<ArticleRecord[]>(() => {
     const stored = readArticles();
@@ -126,6 +114,8 @@ export default function ArticlesPage() {
   // Tracks whether a setContent call is in-flight so onUpdate skips writing
   // back to articles state and avoids an infinite loop.
   const isSettingContentRef = useRef(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const { t } = useTranslation("pages");
 
   const activeArticle = useMemo(() => {
     return articles.find((article) => article.id === activeId) ?? articles[0] ?? null;
@@ -135,94 +125,35 @@ export default function ArticlesPage() {
     activeIdRef.current = activeId;
   }, [activeId]);
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    autofocus: "end",
-    content: activeArticle?.content ?? "",
-    contentType: "markdown",
-    editorProps: {
-      attributes: {
-        class:
-          "article-editor typography min-h-[55vh] max-w-none px-8 py-10 text-[15px] outline-none sm:px-12",
-      },
-    },
-    extensions: [
-      StarterKit.configure({
-        codeBlock: false,
-      }),
-      Selection,
-      Focus.configure({ className: "has-focus", mode: "all" }),
-      Placeholder.configure({
-        placeholder: ({ node }) => {
-          if (node.type.name === "heading") return "输入标题...";
-          return "输入正文，或使用 / 打开命令菜单";
-        },
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        defaultProtocol: "https",
-      }),
-      Image.configure({
-        inline: false,
-        allowBase64: true,
-      }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Table.configure({
-        resizable: true,
-        allowTableNodeSelection: true,
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      CodeBlockLowlight.configure({ lowlight }),
-      MathExtension,
-      FileHandler.configure({
-        allowedMimeTypes: ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"],
-        onDrop: async (editorInstance, files, position) => {
-          for (const file of files) {
-            const url = await fileToDataUrl(file);
-            editorInstance.chain().focus().insertContentAt(position, { type: "image", attrs: { src: url, alt: file.name } }).run();
-          }
-        },
-        onPaste: async (editorInstance, files) => {
-          for (const file of files) {
-            const url = await fileToDataUrl(file);
-            editorInstance.chain().focus().setImage({ src: url, alt: file.name }).run();
-          }
-        },
-      }),
-      Markdown.configure({
-        indentation: {
-          style: "space",
-          size: 2,
-        },
-      }),
-      SlashCommands.configure({
-        commandItems: suggestionItems,
-      }),
-    ],
-    onCreate({ editor: instance }) {
-      setMarkdownSource(instance.getMarkdown());
-    },
-    onUpdate({ editor: instance }) {
-      if (isSettingContentRef.current) return;
-      const content = instance.getMarkdown();
-      setMarkdownSource(content);
-      setArticles((current) =>
-        current.map((article) =>
-          article.id === activeIdRef.current
-            ? {
-                ...article,
-                content,
-                updatedAt: new Date().toISOString(),
-              }
-            : article
-        )
-      );
-    },
-  });
+  const handleEditorUpdate = useCallback((content: string) => {
+    if (isSettingContentRef.current) return;
+    setMarkdownSource(content);
+    setArticles((current) =>
+      current.map((article) =>
+        article.id === activeIdRef.current
+          ? { ...article, content, updatedAt: new Date().toISOString() }
+          : article
+      )
+    );
+  }, []);
+
+  const handleEditorCreate = useCallback((content: string) => {
+    setMarkdownSource(content);
+  }, []);
+
+  const handleDropFile = useCallback(async (editorInstance: Editor, files: File[], position: number) => {
+    for (const file of files) {
+      const url = await fileToDataUrl(file);
+      editorInstance.chain().focus().insertContentAt(position, { type: "image", attrs: { src: url, alt: file.name } }).run();
+    }
+  }, []);
+
+  const handlePasteFile = useCallback(async (editorInstance: Editor, files: File[]) => {
+    for (const file of files) {
+      const url = await fileToDataUrl(file);
+      editorInstance.chain().focus().setImage({ src: url, alt: file.name }).run();
+    }
+  }, []);
 
   // Sync editor content when the active article changes (e.g. user switches
   // articles from the selector). We guard with isSettingContentRef so the
@@ -265,7 +196,7 @@ export default function ArticlesPage() {
     setIsSaving(true);
     await new Promise((resolve) => setTimeout(resolve, 250));
     setIsSaving(false);
-    toast.success("文章已保存到本地");
+    toast.success(t("articles.toast.saved"));
   };
 
   const handleCreateArticle = () => {
@@ -273,7 +204,7 @@ export default function ArticlesPage() {
     setArticles((current) => [next, ...current]);
     setActiveId(next.id);
     setMode("write");
-    toast.success("已创建新文章");
+    toast.success(t("articles.toast.created"));
   };
 
   const handleDeleteArticle = () => {
@@ -283,12 +214,12 @@ export default function ArticlesPage() {
       const fallback = createArticle();
       setArticles([fallback]);
       setActiveId(fallback.id);
-      toast.success("已删除文章，并创建空白草稿");
+      toast.success(t("articles.toast.deletedWithFallback"));
       return;
     }
     setArticles(nextArticles);
     setActiveId(nextArticles[0].id);
-    toast.success("文章已删除");
+    toast.success(t("articles.toast.deleted"));
   };
 
   const handleExportMarkdown = () => {
@@ -306,14 +237,14 @@ export default function ArticlesPage() {
     if (!file) return;
     try {
       const text = await file.text();
-      const title = file.name.replace(/\.md$/i, "") || "导入文章";
+      const title = file.name.replace(/\.md$/i, "") || i18n.t("articles.untitled", { ns: "pages" });
       const imported = createArticle({ title, content: text });
       setArticles((current) => [imported, ...current]);
       setActiveId(imported.id);
       setMode("write");
-      toast.success("Markdown 已导入");
+      toast.success(t("articles.toast.mdImported"));
     } catch {
-      toast.error("导入失败");
+      toast.error(t("articles.toast.importFailed"));
     }
   };
 
@@ -322,260 +253,327 @@ export default function ArticlesPage() {
     try {
       const url = await fileToDataUrl(file);
       editor.chain().focus().setImage({ src: url, alt: file.name }).run();
-      toast.success("图片已插入");
+      toast.success(t("articles.toast.imageInserted"));
     } catch {
-      toast.error("图片读取失败");
+      toast.error(t("articles.toast.imageReadFailed"));
     }
   };
 
-  if (!activeArticle) {
-    return null;
-  }
+  const handleSaveToDisk = async () => {
+    if (!activeArticle) return;
+    try {
+      const docDir = await documentDir();
+      const slug = (activeArticle.title || "untitled")
+        .replace(/[\\/:*?"<>|]/g, "")
+        .trim() || "untitled";
+      const fileName = `${slug}.md`;
+      const folderPath = await join(docDir, "niuma", "articles");
+      const filePath = await join(folderPath, fileName);
+      await invoke("fs_write", {
+        req: {
+          workspaceRoot: docDir,
+          path: filePath,
+          content: activeArticle.content,
+          sandboxMode: "danger-full-access",
+        },
+      });
+      toast.success(t("articles.toast.savedToDisk", { path: folderPath }));
+    } catch (e) {
+      toast.error(t("articles.toast.saveToDiskFailed", { error: String(e) }));
+    }
+  };
+
+  const handleShare = async () => {
+    if (!activeArticle) return;
+    try {
+      await navigator.clipboard.writeText(activeArticle.content);
+      toast.success(t("articles.toast.mdCopied"));
+    } catch {
+      toast.error(t("articles.toast.copyFailed"));
+    }
+  };
+
+  if (!activeArticle) return null;
+
+  // ── Icon-only toolbar button style ──────────────────────────────────────────
+  const tb = (active = false) =>
+    cn(
+      "inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors",
+      active
+        ? "bg-indigo-100 text-indigo-700"
+        : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+    );
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.08),_transparent_28%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-[1600px] flex-col gap-4">
-        <Card className="rounded-[28px] border border-white/70 bg-white/85 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="min-w-[220px] max-w-sm flex-1">
-                <div className="mb-1 text-xs font-medium uppercase tracking-[0.28em] text-slate-400">Article</div>
-                <select
-                  value={activeArticle.id}
-                  onChange={(event) => setActiveId(event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-indigo-400"
-                >
-                  {articles.map((article) => (
-                    <option key={article.id} value={article.id}>
-                      {article.title || "未命名文章"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={handleCreateArticle} className="rounded-full bg-slate-950 px-4 text-white hover:bg-slate-800">
-                  <Plus className="mr-2 size-4" />
-                  新建
-                </Button>
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mr-2 size-4" />
-                  导入 Markdown
-                </Button>
-                <Button type="button" variant="outline" className="rounded-full" onClick={handleDeleteArticle}>
-                  <Trash2 className="mr-2 size-4" />
-                  删除
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".md,text/markdown"
-                  className="hidden"
-                  onChange={(event) => {
-                    void handleImportMarkdown(event.target.files?.[0] ?? null);
-                    event.currentTarget.value = "";
-                  }}
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-full border border-slate-200 bg-slate-50 p-1">
-                {[
-                  { key: "write", label: "编辑", icon: PencilLine },
-                  { key: "split", label: "分栏", icon: Split },
-                  { key: "preview", label: "预览", icon: Eye },
-                ].map((item) => (
-                  <Button
-                    key={item.key}
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setMode(item.key as EditorMode)}
-                    className={cn(
-                      "rounded-full px-3 text-slate-500",
-                      mode === item.key && "bg-white text-slate-950 shadow-sm"
-                    )}
-                  >
-                    <item.icon className="mr-2 size-4" />
-                    {item.label}
-                  </Button>
-                ))}
-              </div>
-              <Button type="button" variant="outline" className="rounded-full" onClick={handleExportMarkdown}>
-                <Download className="mr-2 size-4" />
-                导出
-              </Button>
-              <Button type="button" onClick={() => void handleSave()} className="rounded-full bg-indigo-600 px-4 text-white hover:bg-indigo-500">
-                {isSaving ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-                保存
-              </Button>
-            </div>
-          </div>
-        </Card>
+    <div className="flex h-full overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.06),_transparent_30%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
+      {/* ── LEFT COLUMN: toolbar + editor ──────────────────────────────────── */}
+      <div className="flex min-w-0 flex-1 flex-col border-r border-slate-100 bg-white/80 backdrop-blur">
 
-        <div className="grid flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="overflow-hidden rounded-[32px] border border-white/70 bg-white/88 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-            <div className="border-b border-slate-100 px-5 py-5 sm:px-8">
-              <Input
-                value={activeArticle.title}
-                onChange={(event) => updateArticle({ title: event.target.value || "未命名文章" })}
-                className="h-auto border-0 px-0 text-3xl font-semibold tracking-[-0.04em] text-slate-950 shadow-none placeholder:text-slate-300 focus-visible:ring-0"
-                placeholder="文章标题"
+        {/* Title row */}
+        <div className="flex flex-shrink-0 items-center gap-3 border-b border-slate-100 px-5 py-2">
+          <Input
+            value={activeArticle.title}
+            onChange={(e) => updateArticle({ title: e.target.value || i18n.t("articles.untitled", { ns: "pages" }) })}
+            className="h-9 border-0 bg-transparent px-0 text-lg font-semibold tracking-tight text-slate-900 shadow-none placeholder:text-slate-300 focus-visible:ring-0"
+            placeholder={t("articles.titlePlaceholder")}
+          />
+        </div>
+
+        {/* Toolbar row – icon only */}
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-0.5 border-b border-slate-100 px-3 py-1.5">
+          {/* Mode group */}
+          <button type="button" title={t("articles.toolbar.edit")} className={tb(mode === "write")} onClick={() => setMode("write")}>
+            <PencilLine className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.split")} className={tb(mode === "split")} onClick={() => setMode("split")}>
+            <Split className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.preview")} className={tb(mode === "preview")} onClick={() => setMode("preview")}>
+            <Eye className="size-4" />
+          </button>
+
+          <span className="mx-1.5 h-5 w-px bg-slate-200" />
+
+          {/* Save */}
+          <button type="button" title={t("articles.toolbar.save")} className={tb()} onClick={() => void handleSave()}>
+            {isSaving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+          </button>
+          {/* Download */}
+          <button type="button" title={t("articles.toolbar.downloadMd")} className={tb()} onClick={handleExportMarkdown}>
+            <Download className="size-4" />
+          </button>
+          {/* Import */}
+          <label title={t("articles.toolbar.importMd")} className={cn(tb(), "cursor-pointer")}>
+            <Upload className="size-4" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,text/markdown"
+              className="hidden"
+              onChange={(e) => {
+                void handleImportMarkdown(e.target.files?.[0] ?? null);
+                e.currentTarget.value = "";
+              }}
+            />
+          </label>
+
+          <span className="mx-1.5 h-5 w-px bg-slate-200" />
+
+          {/* Formatting */}
+          <button type="button" title={t("articles.toolbar.bold")} className={tb(editor?.isActive("bold"))} onClick={() => editor?.chain().focus().toggleBold().run()}>
+            <Bold className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.heading1")} className={tb(editor?.isActive("heading", { level: 1 }))} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
+            <Heading1 className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.heading2")} className={tb(editor?.isActive("heading", { level: 2 }))} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
+            <Heading2 className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.bulletList")} className={tb(editor?.isActive("bulletList"))} onClick={() => editor?.chain().focus().toggleBulletList().run()}>
+            <List className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.orderedList")} className={tb(editor?.isActive("orderedList"))} onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
+            <ListOrdered className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.taskList")} className={tb(editor?.isActive("taskList"))} onClick={() => editor?.chain().focus().toggleTaskList().run()}>
+            <CheckSquare className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.blockquote")} className={tb(editor?.isActive("blockquote"))} onClick={() => editor?.chain().focus().toggleBlockquote().run()}>
+            <Quote className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.codeBlock")} className={tb(editor?.isActive("codeBlock"))} onClick={() => editor?.chain().focus().toggleCodeBlock().run()}>
+            <Code2 className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.math")} className={tb()} onClick={() => editor?.chain().focus().toggleMathDisplay().run()}>
+            <Sigma className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.insertTable")} className={tb()} onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
+            <Table2 className="size-4" />
+          </button>
+          <button
+            type="button"
+            title={t("articles.toolbar.insertLink")}
+            className={tb(editor?.isActive("link"))}
+            onClick={() => {
+              const href = window.prompt(i18n.t("articles.linkPrompt", { ns: "pages" }), "https://");
+              if (!href) return;
+              editor?.chain().focus().extendMarkRange("link").setLink({ href }).run();
+            }}
+          >
+            <Link2 className="size-4" />
+          </button>
+          <label title={t("articles.toolbar.insertImage")} className={cn(tb(), "cursor-pointer")}>
+            <ImagePlus className="size-4" />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                void insertImageFromFile(e.target.files?.[0] ?? null);
+                e.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
+
+        {/* Editor / Preview area */}
+        <div className={cn("min-h-0 flex-1 overflow-hidden", mode === "split" ? "grid grid-cols-2" : "grid grid-cols-1")}>
+          {mode !== "preview" && (
+            <div className={cn("min-w-0 overflow-y-auto", mode === "split" && "border-r border-slate-100")}>
+              <ArticleEditor
+                content={activeArticle.content}
+                onUpdate={handleEditorUpdate}
+                onCreate={handleEditorCreate}
+                onEditorReady={setEditor}
+                onDropFile={handleDropFile}
+                onPasteFile={handlePasteFile}
               />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleBold().run()}>
-                  <Bold className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
-                  <Heading1 className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
-                  <Heading2 className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleBulletList().run()}>
-                  <List className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
-                  <ListOrdered className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleTaskList().run()}>
-                  <CheckSquare className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleBlockquote().run()}>
-                  <Quote className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleCodeBlock().run()}>
-                  <Code2 className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().toggleMathDisplay().run()}>
-                  <Sigma className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" className={toolbarButtonClass} onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
-                  <Table2 className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={toolbarButtonClass}
-                  onClick={() => {
-                    const href = window.prompt("输入链接地址", "https://");
-                    if (!href) return;
-                    editor?.chain().focus().extendMarkRange("link").setLink({ href }).run();
-                  }}
-                >
-                  <Link2 className="size-4" />
-                </Button>
-                <label className={cn(toolbarButtonClass, "inline-flex cursor-pointer items-center gap-2")}> 
-                  <ImagePlus className="size-4" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) => {
-                      void insertImageFromFile(event.target.files?.[0] ?? null);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
+            </div>
+          )}
+          {mode !== "write" && (
+            <div className={cn("min-w-0 overflow-y-auto", mode === "split" ? "bg-slate-50/80" : "bg-white")}>
+              <div className="mx-auto max-w-3xl px-8 py-8">
+                <MarkdownPreview>{markdownSource}</MarkdownPreview>
               </div>
-              <div className="mt-3 text-xs text-slate-400">支持标题、任务列表、表格、代码块、数学公式、图片粘贴/拖拽、Markdown 导入导出，以及 / 命令菜单。</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── RIGHT COLUMN: actions + meta ───────────────────────────────────── */}
+      <div className="flex w-72 flex-shrink-0 flex-col bg-white/70 backdrop-blur">
+
+        {/* Action bar */}
+        <div className="flex flex-shrink-0 items-center gap-1 border-b border-slate-100 px-3 py-2">
+          <button type="button" title={t("articles.toolbar.exportMd")} className={tb()} onClick={handleExportMarkdown}>
+            <Download className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.copyClipboard")} className={tb()} onClick={() => void handleShare()}>
+            <Clipboard className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.newArticle")} className={tb()} onClick={handleCreateArticle}>
+            <Plus className="size-4" />
+          </button>
+          <button type="button" title={t("articles.toolbar.deleteArticle")} className={tb()} onClick={handleDeleteArticle}>
+            <Trash2 className="size-4" />
+          </button>
+          <span className="flex-1" />
+          <button
+            type="button"
+            title={t("articles.toolbar.saveToDisk")}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 text-xs font-medium text-white hover:bg-indigo-500"
+            onClick={() => void handleSaveToDisk()}
+          >
+            <FolderDown className="size-3.5" />
+            {t("articles.meta.archive")}
+          </button>
+        </div>
+
+        {/* Meta panel – scrollable */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-5 p-4">
+
+            {/* Article selector */}
+            <div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">{t("articles.meta.currentArticle")}</div>
+              <select
+                value={activeArticle.id}
+                onChange={(e) => setActiveId(e.target.value)}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400"
+              >
+                {articles.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title || i18n.t("articles.untitled", { ns: "pages" })}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className={cn("grid min-h-[68vh]", mode === "split" ? "lg:grid-cols-2" : "grid-cols-1")}>
-              {/* Left pane: rich editor (write) or raw markdown textarea (split) */}
-              {mode !== "preview" ? (
-                <div className={cn("min-w-0", mode === "split" && "border-b border-slate-100 lg:border-b-0 lg:border-r")}>
-                  <EditorContent editor={editor} />
+            {/* Cover */}
+            <div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">{t("articles.meta.cover")}</div>
+              {activeArticle.cover ? (
+                <img src={activeArticle.cover} alt={activeArticle.title} className="h-36 w-full rounded-xl object-cover" />
+              ) : (
+                <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-xs text-slate-400">
+                  {t("articles.meta.noCover")}
                 </div>
-              ) : null}
-              {/* Right pane: rendered markdown preview (split or preview mode) */}
-              {mode !== "write" ? (
-                <ScrollArea className={cn("min-w-0", mode === "split" ? "bg-slate-50/80" : "bg-white")}>
-                  <div className="mx-auto max-w-4xl px-8 py-10 sm:px-12">
-                    <MarkdownPreview>{markdownSource}</MarkdownPreview>
-                  </div>
-                </ScrollArea>
-              ) : null}
-            </div>
-          </Card>
-
-          <Card className="rounded-[32px] border border-white/70 bg-white/88 p-5 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur">
-            <div className="text-xs font-medium uppercase tracking-[0.28em] text-slate-400">Meta</div>
-            <div className="mt-4 space-y-5">
-              <div>
-                <div className="mb-2 text-sm font-medium text-slate-700">封面图</div>
-                {activeArticle.cover ? (
-                  <img src={activeArticle.cover} alt={activeArticle.title} className="h-40 w-full rounded-2xl object-cover" />
-                ) : (
-                  <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-                    暂无封面
-                  </div>
-                )}
-                <label className="mt-3 inline-flex cursor-pointer items-center rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
-                  <FileInput className="mr-2 size-4" />
-                  上传封面
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      if (!file) return;
-                      const url = await fileToDataUrl(file);
-                      updateArticle({ cover: url });
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div>
-                <div className="mb-2 text-sm font-medium text-slate-700">摘要</div>
-                <textarea
-                  value={activeArticle.summary}
-                  onChange={(event) => updateArticle({ summary: event.target.value })}
-                  placeholder="写一段摘要，作为文章概览。"
-                  className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-indigo-400"
-                />
-              </div>
-
-              <div>
-                <div className="mb-2 text-sm font-medium text-slate-700">标签</div>
-                <Input
-                  value={activeArticle.tags.join(", ")}
-                  onChange={(event) => {
-                    const tags = event.target.value
-                      .split(",")
-                      .map((tag) => tag.trim())
-                      .filter(Boolean);
-                    updateArticle({ tags });
+              )}
+              <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+                <FileInput className="size-3.5" />
+                {t("articles.meta.uploadCover")}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (!file) return;
+                    const url = await fileToDataUrl(file);
+                    updateArticle({ cover: url });
+                    e.currentTarget.value = "";
                   }}
-                  placeholder="AI, Product, Draft"
-                  className="rounded-2xl"
                 />
-                <div className="mt-3 flex flex-wrap gap-2">
+              </label>
+            </div>
+
+            {/* Summary */}
+            <div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">{t("articles.meta.summary")}</div>
+              <textarea
+                value={activeArticle.summary}
+                onChange={(e) => updateArticle({ summary: e.target.value })}
+                placeholder={t("articles.meta.summaryPlaceholder")}
+                rows={4}
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-slate-700 outline-none transition focus:border-indigo-400"
+              />
+            </div>
+
+            {/* Tags */}
+            <div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">{t("articles.meta.tags")}</div>
+              <Input
+                value={activeArticle.tags.join(", ")}
+                onChange={(e) => {
+                  const tags = e.target.value
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean);
+                  updateArticle({ tags });
+                }}
+                placeholder="AI, Product, Draft"
+                className="h-8 rounded-xl text-sm"
+              />
+              {activeArticle.tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {activeArticle.tags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                    <span key={tag} className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-600">
                       {tag}
                     </span>
                   ))}
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">
-                <div className="flex items-center justify-between">
-                  <span>最后更新</span>
-                  <span className="font-medium text-slate-700">{formatTime(activeArticle.updatedAt)}</span>
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <span>字数</span>
-                  <span className="font-medium text-slate-700">{markdownSource.replace(/\s+/g, "").length}</span>
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <span>模式</span>
-                  <span className="font-medium text-slate-700">{mode === "write" ? "编辑" : mode === "split" ? "分栏" : "预览"}</span>
-                </div>
+            {/* Stats */}
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
+              <div className="flex items-center justify-between">
+                <span>{t("articles.meta.lastUpdated")}</span>
+                <span className="font-medium text-slate-700">{formatTime(activeArticle.updatedAt)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span>{t("articles.meta.wordCount")}</span>
+                <span className="font-medium text-slate-700">{markdownSource.replace(/\s+/g, "").length}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span>{t("articles.meta.mode")}</span>
+                <span className="font-medium text-slate-700">
+                  {mode === "write" ? t("articles.meta.modeEdit") : mode === "split" ? t("articles.meta.modeSplit") : t("articles.meta.modePreview")}
+                </span>
               </div>
             </div>
-          </Card>
+
+          </div>
         </div>
       </div>
     </div>

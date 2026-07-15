@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Header } from "@/components";
+import { useTranslation } from "react-i18next";
 import {
   getAllProviders,
   getProvider,
@@ -47,6 +47,7 @@ export const AIProviders = () => {
   const [isZtChecking, setIsZtChecking] = useState(false);
   const [ztResult, setZtResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [activeProvider, setActiveProviderState] = useState(() => getActiveProvider());
+  const { t } = useTranslation("pages");
 
   // Load stored config for the selected provider
   const loadConfig = useCallback((id: string) => {
@@ -88,7 +89,7 @@ export const AIProviders = () => {
     });
     setActiveProvider({ providerId: selectedId, model });
     setActiveProviderState({ providerId: selectedId, model });
-    setResult({ ok: true, msg: "已保存" });
+    setResult({ ok: true, msg: t("aiConfigs.saved") });
     setTimeout(() => setResult(null), 2000);
   };
 
@@ -129,7 +130,7 @@ export const AIProviders = () => {
     const mdl = def?.suggestedModels[0] ?? ztPlatform;
     setActiveProvider({ providerId, model: mdl });
     setActiveProviderState({ providerId, model: mdl });
-    setZtResult({ ok: true, msg: `已切换至 ${def?.name ?? providerId}` });
+      setZtResult({ ok: true, msg: t("aiConfigs.switchedTo", { name: def?.name ?? providerId }) });
     setTimeout(() => setZtResult(null), 2000);
   };
 
@@ -169,14 +170,14 @@ export const AIProviders = () => {
           : `${effectiveBaseUrl}/chat/completions`;
       const res = await fetch(endpoint, { method: "POST", headers, body });
       if (res.ok) {
-        setResult({ ok: true, msg: "连接成功 ✓" });
+        setResult({ ok: true, msg: t("aiConfigs.connectionOk") });
       } else {
         const err = await res.text().catch(() => res.statusText);
-        setResult({ ok: false, msg: `连接失败: ${res.status} ${err.slice(0, 120)}` });
+        setResult({ ok: false, msg: t("aiConfigs.connectionFail", { detail: `${res.status} ${err.slice(0, 120)}` }) });
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setResult({ ok: false, msg: `连接失败: ${msg}` });
+      setResult({ ok: false, msg: t("aiConfigs.connectionFail", { detail: msg }) });
     } finally {
       setIsTesting(false);
     }
@@ -184,19 +185,13 @@ export const AIProviders = () => {
 
   return (
     <div id="ai-providers" className="space-y-4">
-      <Header
-        title="AI Providers"
-        description="选择 AI 服务商并填写凭证，点击保存后立即生效。"
-        isMainTitle
-      />
-
       {/* ── Active provider banner ───────────────────────────────────────── */}
       {activeProvider && (() => {
         const activeDef = getProvider(activeProvider.providerId);
         return (
           <div className="flex items-center gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-            <span className="text-green-400 font-medium">当前激活：</span>
+            <span className="text-green-400 font-medium">{t("aiConfigs.activeLabel")}</span>
             <span className="text-foreground">{activeDef?.name ?? activeProvider.providerId}</span>
             {activeProvider.model && (
               <span className="ml-1 text-muted-foreground">/ {activeProvider.model}</span>
@@ -208,15 +203,15 @@ export const AIProviders = () => {
       {/* ── Web Provider (zero-token) ────────────────────────────────────── */}
       <fieldset className="border border-secondary/30 rounded-lg p-4 space-y-4 bg-card/50">
         <legend className="px-2 text-sm font-medium text-secondary">
-          Web Provider（浏览器登录，无需 API Key）
+          {t("aiConfigs.webProviderTitle")}
         </legend>
 
         <p className="text-xs text-muted-foreground">
-          通过内嵌浏览器窗口登录平台账号，无需 API Key 即可调用 AI。
+          {t("aiConfigs.webProviderDesc")}
         </p>
 
         <div className="space-y-1">
-          <label className="text-sm text-muted-foreground">平台</label>
+          <label className="text-sm text-muted-foreground">{t("aiConfigs.platform")}</label>
           <select
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             value={ztPlatform}
@@ -239,14 +234,14 @@ export const AIProviders = () => {
             onClick={handleZtUse}
             className="px-4 py-1.5 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-secondary/90 transition-colors"
           >
-            使用此平台
+            {t("aiConfigs.useThisPlatform")}
           </button>
           <button
             type="button"
             onClick={handleZtOpen}
             className="px-4 py-1.5 rounded-md border border-input text-sm hover:bg-accent transition-colors"
           >
-            打开浏览器登录
+            {t("aiConfigs.openBrowserLogin")}
           </button>
           <button
             type="button"
@@ -255,7 +250,7 @@ export const AIProviders = () => {
             className="px-4 py-1.5 rounded-md border border-input text-sm hover:bg-accent transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
             {isZtChecking && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            检查会话状态
+            {t("aiConfigs.checkSession")}
           </button>
         </div>
 
@@ -281,7 +276,7 @@ export const AIProviders = () => {
 
         {/* Provider select */}
         <div className="space-y-1">
-          <label className="text-sm text-muted-foreground">服务商</label>
+          <label className="text-sm text-muted-foreground">{t("aiConfigs.provider")}</label>
           <select
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             value={selectedId}
@@ -326,7 +321,7 @@ export const AIProviders = () => {
 
             {/* Base URL override */}
             <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">Base URL（可选，留空使用默认）</label>
+              <label className="text-sm text-muted-foreground">{t("aiConfigs.baseUrl")}</label>
               <input
                 type="text"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -335,14 +330,14 @@ export const AIProviders = () => {
                 onChange={(e) => setBaseUrl(e.target.value)}
               />
               <p className="text-xs text-muted-foreground/60">
-                兼容 OpenAI 协议的自定义端点，如 Azure、代理等
+                {t("aiConfigs.baseUrlHint")}
               </p>
             </div>
 
             {/* Model */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-sm text-muted-foreground">模型</label>
+                <label className="text-sm text-muted-foreground">{t("aiConfigs.model")}</label>
                 <button
                   type="button"
                   onClick={handleRefreshModels}
@@ -354,7 +349,7 @@ export const AIProviders = () => {
                   ) : (
                     <RefreshCw className="h-3 w-3" />
                   )}
-                  刷新模型
+                  {t("aiConfigs.refreshModels")}
                 </button>
               </div>
               {modelList.length > 0 ? (
@@ -387,7 +382,7 @@ export const AIProviders = () => {
                 onClick={handleSave}
                 className="px-4 py-1.5 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors"
               >
-                保存
+                {t("aiConfigs.save")}
               </button>
               <button
                 type="button"
@@ -396,7 +391,7 @@ export const AIProviders = () => {
                 className="px-4 py-1.5 rounded-md border border-input text-sm hover:bg-accent transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
                 {isTesting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                测试连接
+                {t("aiConfigs.testConnection")}
               </button>
             </div>
 

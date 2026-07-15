@@ -1,12 +1,11 @@
 import { Button, WingIcon } from "@/components";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMenuItems, useVersion } from "@/hooks";
 
 export const Sidebar = () => {
   const { version, isLoading } = useVersion();
-  const { menu, footerLinks, footerItems } = useMenuItems();
+  const { menu } = useMenuItems();
 
   const navigate = useNavigate();
   const activeRoute = useLocation().pathname;
@@ -55,62 +54,6 @@ export const Sidebar = () => {
           </button>
         ))}
       </nav>
-
-      <div className="flex flex-col space-y-1 px-3  pb-3">
-        <div className="flex flex-row justify-evenly items-center gap-2 mb-3">
-          {footerLinks.map((item, index) => (
-            <Button
-              key={`${item.title}-${index}`}
-              title={item.title}
-              size="sm"
-              variant="outline"
-              onClick={() => openUrl(item.link)}
-            >
-              <item.icon className="size-3 lg:size-4 transition-all duration-300" />
-            </Button>
-          ))}
-        </div>
-
-        {footerItems.map((item, index) => {
-          const handleClick = (e: React.MouseEvent) => {
-            if (item.action) {
-              e.preventDefault();
-              item.action();
-            }
-          };
-
-          return item.href ? (
-            <a
-              href={item.href}
-              onClick={handleClick}
-              target="_blank"
-              rel="noopener noreferrer"
-              key={`${item.label}-${index}`}
-              className={cn(
-                "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-xs lg:text-sm text-sidebar-foreground/70 transition-all duration-300 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground cursor-pointer"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className="size-3 lg:size-4 transition-all duration-300" />
-                {item.label}
-              </div>
-            </a>
-          ) : (
-            <button
-              onClick={handleClick}
-              key={`${item.label}-${index}`}
-              className={cn(
-                "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-xs lg:text-sm text-sidebar-foreground/70 transition-all duration-300 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground cursor-pointer"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className="size-3 lg:size-4 transition-all duration-300" />
-                {item.label}
-              </div>
-            </button>
-          );
-        })}
-      </div>
     </aside>
   );
 };

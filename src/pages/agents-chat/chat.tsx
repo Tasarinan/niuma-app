@@ -17,6 +17,7 @@
  *   Right  (220px, optional) – Members panel
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Button,
   Dialog,
@@ -249,6 +250,8 @@ function ChannelModal({
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [hiredCatalog, setHiredCatalog] = useState<CatalogAgent[]>([]);
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation("pages");
+  const { t: tCommon } = useTranslation("common");
 
   useEffect(() => {
     if (!open) return;
@@ -298,25 +301,25 @@ function ChannelModal({
       <DialogContent className="max-w-lg rounded-3xl">
         <DialogHeader>
           <DialogTitle className="text-base">
-            {initial ? "编辑频道" : "新建频道"}
+            {initial ? t("chatPage.editChannel") : t("chatPage.createChannel")}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 py-1">
           {/* Name */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-slate-500">频道名称 *</Label>
+            <Label className="text-xs font-medium text-slate-500">{t("chatPage.channelNameLabel")}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="起个好记的名字…"
+              placeholder={t("chatPage.channelNamePlaceholder")}
               className="rounded-xl"
             />
           </div>
 
           {/* Icon picker */}
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-slate-500">频道图标</Label>
+            <Label className="text-xs font-medium text-slate-500">{t("chatPage.channelIcon")}</Label>
             <ScrollArea className="h-36 rounded-2xl border border-slate-100 bg-slate-50/60 p-2">
               <div className="grid grid-cols-6 gap-2">
                 {CHANNEL_ICONS.map((ic, idx) => (
@@ -341,7 +344,7 @@ function ChannelModal({
           {/* Hired agent picker */}
           <div className="space-y-2">
             <Label className="text-xs font-medium text-slate-500">
-              在职智能体
+              {t("chatPage.activeAgents")}
               {selectedFiles.length > 0 && (
                 <span className="ml-1.5 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
                   {selectedFiles.length}
@@ -352,14 +355,14 @@ function ChannelModal({
             {loading ? (
               <div className="flex items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/60 py-6">
                 <Loader2 className="size-4 animate-spin text-slate-400" />
-                <span className="ml-2 text-xs text-slate-400">加载智能体…</span>
+                <span className="ml-2 text-xs text-slate-400">{t("chatPage.loadingAgents")}</span>
               </div>
             ) : hiredCatalog.length === 0 ? (
               <div className="rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-5 text-center">
                 <p className="text-xs text-slate-400">
-                  还没有在职智能体，请先在
-                  <span className="font-semibold text-indigo-500">智能体</span>
-                  页面雇佣
+                  {t("chatPage.noHiredAgents")}
+                  <span className="font-semibold text-indigo-500">{t("chatPage.noHiredAgentsLink")}</span>
+                  {t("chatPage.noHiredAgentsSuffix")}
                 </p>
               </div>
             ) : (
@@ -417,7 +420,7 @@ function ChannelModal({
             onClick={onClose}
             className="text-xs text-slate-400 hover:text-slate-700"
           >
-            取消
+            {tCommon("actions.cancel")}
           </button>
           <Button
             size="sm"
@@ -428,7 +431,7 @@ function ChannelModal({
             }}
             disabled={!name.trim()}
           >
-            保存
+            {tCommon("actions.save")}
           </Button>
         </div>
       </DialogContent>
@@ -458,6 +461,7 @@ export default function ChatPage() {
   const [editChannelState, setEditChannelState] = useState<GroupChannel | null>(null);
   const [showMembers, setShowMembers] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation("pages");
 
   const activeChannel = channels.find((c) => c.id === selectedId) ?? null;
   const activeMessages: GroupMessage[] = messages;
@@ -518,22 +522,22 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="flex h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.06),_transparent_40%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
+    <div className="flex h-full w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.06),_transparent_40%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
       {/* ── Left: conversation list ─────────────────────────────────────── */}
       <aside className="flex w-[280px] flex-shrink-0 flex-col border-r border-slate-100 bg-white/80 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-              频道
+              {t("chatPage.channels")}
             </p>
             <p className="text-base font-bold text-slate-900">
-              {channels.length > 0 ? `${channels.length} 个` : "暂无"}
+              {channels.length > 0 ? t("chatPage.channelCount", { count: channels.length }) : t("chatPage.none")}
             </p>
           </div>
           <button
             type="button"
             onClick={openCreate}
-            title="新建频道"
+            title={t("chatPage.newChannel")}
             className="flex size-8 items-center justify-center rounded-full bg-indigo-600 text-white shadow hover:bg-indigo-500 transition-colors"
           >
             <Plus className="size-4" />
@@ -544,7 +548,7 @@ export default function ChatPage() {
           {channels.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
               <MessageSquarePlus className="size-10 opacity-25" />
-              <p className="text-xs">暂无频道，点击 + 新建</p>
+              <p className="text-xs">{t("chatPage.noChannels")}</p>
             </div>
           ) : (
             channels.map((ch) => {
@@ -593,7 +597,7 @@ export default function ChatPage() {
                         isActive ? "text-indigo-200" : "text-slate-400"
                       )}
                     >
-                      {ch.agentIds.length} 名成员
+                      {t("chatPage.memberCount", { count: ch.agentIds.length })}
                     </p>
                   </div>
 
@@ -650,9 +654,9 @@ export default function ChatPage() {
             <Hash className="size-10 opacity-30" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-semibold text-slate-600">选择一个频道开始对话</p>
+            <p className="text-sm font-semibold text-slate-600">{t("chatPage.selectChannel")}</p>
             <p className="mt-1 text-xs text-slate-400">
-              或者新建一个频道，邀请你的智能体
+              {t("chatPage.orCreateChannel")}
             </p>
           </div>
           <Button
@@ -662,7 +666,7 @@ export default function ChatPage() {
             onClick={openCreate}
           >
             <Plus className="mr-1.5 size-3.5" />
-            新建频道
+            {t("chatPage.newChannel")}
           </Button>
         </div>
       ) : (
@@ -673,18 +677,18 @@ export default function ChatPage() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900">{activeChannel.name}</p>
               <p className="text-[11px] text-slate-400">
-                {activeChannel.agentIds.length} 名成员
+                {t("chatPage.memberCount", { count: activeChannel.agentIds.length })}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleExport}
-                title="导出为 Markdown"
+                title={t("chatPage.exportMarkdown")}
                 className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 shadow-sm hover:border-indigo-300 hover:text-indigo-600 transition-colors"
               >
                 <Download className="size-3.5" />
-                导出
+                {t("chatPage.export")}
               </button>
               <button
                 type="button"
@@ -716,7 +720,7 @@ export default function ChatPage() {
                         {activeChannel.name}
                       </p>
                       <p className="mt-1 text-xs">
-                        开始发送消息，智能体们将依次响应
+                        {t("chatPage.startMessaging")}
                       </p>
                     </div>
                   </div>
@@ -782,7 +786,7 @@ export default function ChatPage() {
                         void send();
                       }
                     }}
-                    placeholder={`发消息给 ${activeChannel.name}…`}
+                    placeholder={t("chatPage.inputPlaceholder", { name: activeChannel.name })}
                     rows={1}
                     className="min-h-[28px] max-h-40 flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
                   />
@@ -806,7 +810,7 @@ export default function ChatPage() {
                   )}
                 </div>
                 <p className="mt-2 text-center text-[10px] text-slate-400">
-                  按 Enter 发送 · Shift+Enter 换行 · @名字 指定回复
+                  {t("chatPage.inputHint")}
                 </p>
               </div>
             </div>
@@ -816,7 +820,7 @@ export default function ChatPage() {
               <aside className="flex w-56 flex-shrink-0 flex-col border-l border-slate-100 bg-white/80 backdrop-blur">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <span className="text-xs font-semibold text-slate-500">
-                    成员 ({activeChannel.agentIds.length})
+                    {t("chatPage.members", { count: activeChannel.agentIds.length })}
                   </span>
                   <button
                     type="button"

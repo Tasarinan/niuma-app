@@ -10,6 +10,7 @@ import { useApp } from "@/store";
 import { getPlatform } from "@/lib";
 import { CursorType } from "@/lib/storage";
 import { MousePointer, MousePointer2, Pointer, TextCursor } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface CursorSelectionProps {
   className?: string;
@@ -18,12 +19,13 @@ interface CursorSelectionProps {
 export const CursorSelection = ({ className }: CursorSelectionProps) => {
   const { customizable, setCursorType } = useApp();
   const platform = getPlatform();
+  const { t } = useTranslation("pages");
 
   return (
     <div id="cursor" className={`space-y-2 ${className}`}>
       <Header
-        title="Cursor"
-        description="Control Niuma cursor visibility"
+        title={t("shortcutsPage.cursor.title")}
+        description={t("shortcutsPage.cursor.description")}
         isMainTitle
         rightSlot={
           <Select
@@ -31,22 +33,22 @@ export const CursorSelection = ({ className }: CursorSelectionProps) => {
             onValueChange={(value) => setCursorType(value as CursorType)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select a cursor type" />
+              <SelectValue placeholder={t("shortcutsPage.cursor.selectType")} />
             </SelectTrigger>
             <SelectContent position="popper" align="end">
               <SelectItem value="invisible" disabled={platform === "linux"}>
-                Invisible (<MousePointer2 className="size-3 px-0" />){" "}
+                {t("shortcutsPage.cursor.invisible")} (<MousePointer2 className="size-3 px-0" />){" "}
                 {platform === "linux" && (
                   <span className="text-xs text-muted-foreground">
-                    Not supported on Linux
+                    {t("shortcutsPage.cursor.notSupportedLinux")}
                   </span>
                 )}
               </SelectItem>
               <SelectItem value="default">
-                Default (<MousePointer className="size-3" />)
+                {t("shortcutsPage.cursor.default")} (<MousePointer className="size-3" />)
               </SelectItem>
               <SelectItem value="auto">
-                Auto (
+                {t("shortcutsPage.cursor.auto")} (
                 <MousePointer className="size-3" />/
                 <TextCursor className="size-3" /> /
                 <Pointer className="size-3" />)
