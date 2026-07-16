@@ -35,7 +35,7 @@ import { useSkillStore } from "@/store";
 import type { UsageData, TranscriptEntry, SpeakerInfo, AgentDefinition } from "@/types";
 import { SpeakerIdFactory } from "@/types";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 
 // Types for completion
 interface AttachedFile {
@@ -1374,14 +1374,39 @@ export const useCompletion = () => {
     setIsFilesPopoverOpen(false);
   };
 
+  /**
+   * Routes plain typed text from the toolbar's "Ask me anything" input into
+   * the AgentChat window's single-agent "main chat" channel instead of
+   * running the local one-shot completion popover. Opens/focuses the
+   * AgentChat window so the user sees the conversation there.
+   *
+   * `text` may be empty — in that case no message is sent, but the window is
+   * still opened/focused, so the toolbar can act as a plain "open agent-chat"
+   * shortcut even with nothing typed.
+   */
+  const sendToMainChat = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    try {
+      if (trimmed) {
+        await emit("agent-chat:incoming-message", { text: trimmed });
+      }
+      await invoke("open_agent_chat_window");
+    } catch (err) {
+      console.error("Failed to route message to AgentChat:", err);
+    }
+  }, []);
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!state.isLoading && state.input.trim()) {
-        submit();
+      if (!state.isLoading) {
+        const text = state.input;
+        setState((prev) => ({ ...prev, input: "" }));
+        void sendToMainChat(text);
       }
     }
   };
+
 
   const handlePaste = useCallback(
     async (e: React.ClipboardEvent) => {

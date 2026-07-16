@@ -4,6 +4,7 @@ mod api;
 mod capture;
 mod db;
 mod fs_tools;
+mod http_tools;
 mod mcp;
 mod sandbox;
 mod search_tools;
@@ -215,6 +216,7 @@ pub fn run() {
             fs_tools::list_directory,
             search_tools::search_local_files,
             search_tools::web_search,
+            http_tools::http_request,
             get_clawpacks_agents_dir,
             get_clawpacks_skills_dir,
             get_user_agents_dir,

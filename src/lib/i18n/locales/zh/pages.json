@@ -101,7 +101,9 @@
     "export": "导出",
     "startMessaging": "开始发送消息，智能体们将依次响应",
     "inputPlaceholder": "发消息给 {{name}}…",
-    "inputHint": "按 Enter 发送 · Shift+Enter 换行 · @名字 指定回复"
+    "inputHint": "按 Enter 发送 · Shift+Enter 换行 · @名字 指定回复 · /技能 插入技能",
+    "skillMenuTitle": "已安装的技能",
+    "skillMenuEmpty": "没有匹配的技能"
   },
   "articles": {
     "untitled": "未命名文章",

@@ -77,6 +77,7 @@
     "skillMdError": "⚠️ 无法获取 SKILL.md，请检查网络连接"
   },
   "chatPage": {
+    "mainChannelName": "主对话",
     "channels": "频道",
     "none": "暂无",
     "channelCount": "{{count}} 个",

@@ -32,4 +32,5 @@ export type {
   RequestCheckpoint,
 } from "./tools/internal";
 export { buildMcpTools, prewarmMcpServers } from "./tools/mcp";
-export { buildLoadSkillTool, formatSkillsPrompt } from "./tools/skills";
+export { buildLoadSkillTool, buildRunSkillTool, formatSkillsPrompt } from "./tools/skills";
+export { bridgeEnabledClawpackSkills } from "./skill-bridge";

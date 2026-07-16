@@ -63,9 +63,13 @@ export interface Skill extends BaseEntity {
   enabled: boolean;
   tags: string[];
   content?: string;
-  /** How the skill was obtained. Absent means manual. */
-  sourceType?: "manual" | "github";
-  /** For github skills: "owner/repo". */
+  /**
+   * How the skill was obtained. Absent means manual. "clawpack" means it was
+   * bridged from a clawpacks/skills/<slug>/SKILL.md entry (see
+   * `bridgeEnabledClawpackSkills`) — `source` holds the clawpack slug.
+   */
+  sourceType?: "manual" | "github" | "clawpack";
+  /** For github skills: "owner/repo". For clawpack skills: the slug. */
   source?: string;
   /** For github skills: path to SKILL.md within the repo. */
   skillPath?: string;

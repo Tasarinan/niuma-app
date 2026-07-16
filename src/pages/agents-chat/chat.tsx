@@ -18,6 +18,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { listen } from "@tauri-apps/api/event";
 import {
   Button,
   Dialog,
@@ -26,6 +27,9 @@ import {
   DialogTitle,
   Input,
   Label,
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
   ScrollArea,
   Textarea,
 } from "@/components/ui";
@@ -34,7 +38,9 @@ import { useAgents, useGroupChat } from "@/hooks";
 import type { AgentInput } from "@/hooks";
 import { MeetingChannelView } from "./components/meeting";
 import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
-import type { AgentDefinition, GroupChannel, GroupMessage, SandboxMode } from "@/types";
+import { fetchClawpackSkillCatalog, type ClawpackSkill } from "@/lib/data";
+import { loadDisabledSkillSlugs, loadHiredAgentFiles } from "@/lib/storage";
+import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, SandboxMode } from "@/types";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { MAX_FILES } from "@/config";
 import {
@@ -76,16 +82,11 @@ function isIconUrl(s: string) {
 }
 
 // ─── Hired-agents helpers ─────────────────────────────────────────────────────
-const LS_HIRED = "niuma-hired-agents";
 
-function loadHiredSet(): Set<string> {
-  try {
-    const raw = localStorage.getItem(LS_HIRED);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-  } catch {
-    return new Set();
-  }
-}
+/** Event emitted by the main toolbar (Toolbar.tsx) when the user submits plain
+ *  text via the "Ask me anything" input. Payload carries the raw text; this
+ *  page owns the actual single-agent "main chat" channel + sending logic. */
+const TOOLBAR_MESSAGE_EVENT = "agent-chat:incoming-message";
 
 /**
  * For a given CatalogAgent, find the matching AgentDefinition by name,
@@ -114,7 +115,7 @@ async function bridgeCatalogAgent(
     systemPrompt: ca.systemPrompt ?? "",
     providerId: ca.providerId ?? "",
     modelId: ca.modelId ?? "",
-    enabledInternalTools: [],
+    enabledInternalTools: (ca.enabledInternalTools ?? []) as AgentInternalToolId[],
     enabledSkillIds: ca.enabledSkillIds ?? [],
     enabledMcpServerIds: ca.enabledMcpServerIds ?? [],
     sandboxMode: (ca.sandboxMode ?? "read-only") as SandboxMode,
@@ -274,7 +275,7 @@ function ChannelModal({
     );
     setKind(initial?.kind ?? "chat");
     setLoading(true);
-    const hiredSet = loadHiredSet();
+    const hiredSet = loadHiredAgentFiles();
     loadAgentCatalog()
       .then((all) => {
         const hired = all.filter((a) => hiredSet.has(a.file));
@@ -504,7 +505,13 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export default function ChatPage() {
+export default function ChatPage({
+  onExternalActivate,
+}: {
+  /** Called when an external source (e.g. the main toolbar) routes a message
+   *  into this page, so the parent can bring the "chat" section into view. */
+  onExternalActivate?: () => void;
+} = {}) {
   const { agents, create: createAgent } = useAgents();
   const {
     channels,
@@ -522,6 +529,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editChannelState, setEditChannelState] = useState<GroupChannel | null>(null);
   const [showMembers, setShowMembers] = useState(false);
@@ -540,6 +548,65 @@ export default function ChatPage() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [activeMessages]);
 
+  // ─── "/" skill picker (compose box) ────────────────────────────────────────
+  // Lists every installed clawpack skill (from the Skills page's catalog,
+  // minus anything the user disabled there) so it can be referenced by typing
+  // "/" followed by a few characters.
+  const [installedSkills, setInstalledSkills] = useState<ClawpackSkill[]>([]);
+  const [skillMenu, setSkillMenu] = useState<{ query: string; start: number } | null>(null);
+  const [skillMenuIndex, setSkillMenuIndex] = useState(0);
+
+  useEffect(() => {
+    fetchClawpackSkillCatalog()
+      .then(setInstalledSkills)
+      .catch(() => setInstalledSkills([]));
+  }, []);
+
+  const enabledInstalledSkills = useMemo(() => {
+    const disabled = loadDisabledSkillSlugs();
+    return installedSkills.filter((s) => s.enabled !== false && !disabled.has(s.slug));
+  }, [installedSkills]);
+
+  const filteredSkillMenu = useMemo(() => {
+    if (!skillMenu) return [];
+    const q = skillMenu.query.toLowerCase();
+    return enabledInstalledSkills
+      .filter(
+        (s) =>
+          !q ||
+          s.name.toLowerCase().includes(q) ||
+          s.slug.toLowerCase().includes(q) ||
+          (s.command || "").toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [skillMenu, enabledInstalledSkills]);
+
+  const SKILL_TRIGGER_RE = /(^|\s)\/([a-zA-Z0-9_-]*)$/;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    const cursor = e.target.selectionStart ?? value.length;
+    const match = SKILL_TRIGGER_RE.exec(value.slice(0, cursor));
+    setSkillMenu(match ? { query: match[2], start: match.index + match[1].length } : null);
+    setSkillMenuIndex(0);
+  };
+
+  const selectSkillMenuItem = (skill: ClawpackSkill) => {
+    if (!skillMenu) return;
+    const cursor = textareaRef.current?.selectionStart ?? input.length;
+    const before = input.slice(0, skillMenu.start);
+    const after = input.slice(cursor);
+    const inserted = `/${skill.command || skill.slug} `;
+    setInput(`${before}${inserted}${after}`);
+    setSkillMenu(null);
+    requestAnimationFrame(() => {
+      const pos = before.length + inserted.length;
+      textareaRef.current?.setSelectionRange(pos, pos);
+      textareaRef.current?.focus();
+    });
+  };
+
   const send = async () => {
     if ((!input.trim() && attachedImages.length === 0) || !selectedId || isSending) return;
     const text = input.trim();
@@ -548,6 +615,7 @@ export default function ChatPage() {
       : undefined;
     setInput("");
     setAttachedImages([]);
+    setSkillMenu(null);
     await sendMessage(text, images);
   };
 
@@ -597,7 +665,7 @@ export default function ChatPage() {
   const handleChannelSave = useCallback(
     async (name: string, selectedFiles: string[], avatar: string, kind: "chat" | "meeting") => {
       // Load hired catalog to get full CatalogAgent objects
-      const hiredSet = loadHiredSet();
+      const hiredSet = loadHiredAgentFiles();
       const all = await loadAgentCatalog();
       const hired = all.filter((a) => hiredSet.has(a.file));
 
@@ -618,10 +686,59 @@ export default function ChatPage() {
     [agents, editChannelState, hookEditChannel, createChannel, createAgent]
   );
 
+  /**
+   * Finds (or lazily creates) the single-agent "main chat" channel used by the
+   * main toolbar's "Ask me anything" input, and sends `text` into it.
+   * Default agent = the built-in "Assistant" (assistant.json), falling back
+   * to the first hired agent, then the first catalog agent, if it's missing.
+   */
+  const ensureMainChannelAndSend = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      const mainName = t("chatPage.mainChannelName");
+      let channel = channels.find((c) => c.name === mainName);
+
+      if (!channel) {
+        const hiredSet = loadHiredAgentFiles();
+        const all = await loadAgentCatalog();
+        const hired = all.filter((a) => hiredSet.has(a.file));
+        // Default agent for the main chat is always the built-in "Assistant"
+        // (general Q&A + local/web search), regardless of what's hired.
+        const defaultAgent = all.find((a) => a.file === "assistant.json");
+        const candidate = defaultAgent ?? hired[0] ?? all[0];
+
+        const agentIds: string[] = [];
+        if (candidate) {
+          const id = await bridgeCatalogAgent(candidate, agents, createAgent);
+          agentIds.push(id);
+        }
+        channel = createChannel(mainName, agentIds, randomIcon(), "chat");
+      } else {
+        selectChannel(channel.id);
+      }
+
+      onExternalActivate?.();
+      await sendMessage(trimmed, undefined, channel.id);
+    },
+    [channels, agents, createAgent, createChannel, selectChannel, sendMessage, onExternalActivate, t]
+  );
+
+  // Listen for text routed in from the main toolbar's input.
+  useEffect(() => {
+    const unlisten = listen<{ text: string }>(TOOLBAR_MESSAGE_EVENT, (event) => {
+      void ensureMainChannelAndSend(event.payload?.text ?? "");
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [ensureMainChannelAndSend]);
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.06),_transparent_40%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
       {/* ── Left: conversation list ─────────────────────────────────────── */}
-      <aside className="flex w-[280px] flex-shrink-0 flex-col border-r border-slate-100 bg-white/80 backdrop-blur">
+      <aside className="flex w-[187px] flex-shrink-0 flex-col border-r border-slate-100 bg-white/80 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
@@ -850,13 +967,13 @@ export default function ChatPage() {
                             )}
                           >
                             {!isUser && (
-                              <span className="text-[11px] font-semibold text-slate-500">
+                              <span className="text-sm font-semibold text-slate-700">
                                 {msg.agentName ?? agent?.name}
                               </span>
                             )}
                             <div
                               className={cn(
-                                "rounded-2xl px-4 py-2.5 text-sm shadow-sm",
+                                "rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
                                 isUser
                                   ? "bg-indigo-600 text-white rounded-tr-sm"
                                   : "bg-white text-slate-800 rounded-tl-sm ring-1 ring-slate-100"
@@ -876,7 +993,7 @@ export default function ChatPage() {
                               )}
                               {msg.content && <Markdown>{msg.content}</Markdown>}
                             </div>
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-xs text-slate-400">
                               {moment(msg.timestamp).format("HH:mm")}
                             </span>
                           </div>
@@ -909,65 +1026,137 @@ export default function ChatPage() {
                       ))}
                     </div>
                   )}
-                  <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      title={
-                        attachedImages.length >= MAX_FILES
-                          ? t("chatPage.maxImagesReached", { max: MAX_FILES })
-                          : t("chatPage.attachImage")
-                      }
-                      disabled={attachedImages.length >= MAX_FILES}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="relative flex size-8 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  <Popover
+                    open={!!skillMenu && filteredSkillMenu.length > 0}
+                    onOpenChange={(open) => {
+                      if (!open) setSkillMenu(null);
+                    }}
+                  >
+                    <PopoverAnchor asChild>
+                      <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          title={
+                            attachedImages.length >= MAX_FILES
+                              ? t("chatPage.maxImagesReached", { max: MAX_FILES })
+                              : t("chatPage.attachImage")
+                          }
+                          disabled={attachedImages.length >= MAX_FILES}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="relative flex size-8 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Paperclip className="size-3.5" />
+                          {attachedImages.length > 0 && (
+                            <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-semibold text-white">
+                              {attachedImages.length}
+                            </span>
+                          )}
+                        </button>
+                        <Textarea
+                          ref={textareaRef}
+                          value={input}
+                          onChange={handleInputChange}
+                          onKeyDown={(e) => {
+                            if (skillMenu && filteredSkillMenu.length > 0) {
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setSkillMenuIndex((i) => (i + 1) % filteredSkillMenu.length);
+                                return;
+                              }
+                              if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setSkillMenuIndex(
+                                  (i) => (i - 1 + filteredSkillMenu.length) % filteredSkillMenu.length
+                                );
+                                return;
+                              }
+                              if (e.key === "Enter" || e.key === "Tab") {
+                                e.preventDefault();
+                                selectSkillMenuItem(filteredSkillMenu[skillMenuIndex]);
+                                return;
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                setSkillMenu(null);
+                                return;
+                              }
+                            }
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              void send();
+                            }
+                          }}
+                          placeholder={t("chatPage.inputPlaceholder", { name: activeChannel.name })}
+                          rows={1}
+                          className="min-h-[28px] max-h-40 flex-1 resize-none border-0 bg-transparent p-0 text-[15px] shadow-none focus-visible:ring-0"
+                        />
+                        {isSending ? (
+                          <button
+                            type="button"
+                            onClick={() => stopGeneration()}
+                            className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-500 transition-colors hover:bg-red-200"
+                          >
+                            <Square className="size-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void send()}
+                            disabled={!input.trim() && attachedImages.length === 0}
+                            className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow transition-all hover:bg-indigo-500 disabled:opacity-40 disabled:shadow-none"
+                          >
+                            <Send className="size-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </PopoverAnchor>
+                    <PopoverContent
+                      side="top"
+                      align="start"
+                      sideOffset={8}
+                      className="w-72 p-1"
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                      onCloseAutoFocus={(e) => e.preventDefault()}
                     >
-                      <Paperclip className="size-3.5" />
-                      {attachedImages.length > 0 && (
-                        <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-semibold text-white">
-                          {attachedImages.length}
-                        </span>
-                      )}
-                    </button>
-                    <Textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void send();
-                        }
-                      }}
-                      placeholder={t("chatPage.inputPlaceholder", { name: activeChannel.name })}
-                      rows={1}
-                      className="min-h-[28px] max-h-40 flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
-                    />
-                    {isSending ? (
-                      <button
-                        type="button"
-                        onClick={() => stopGeneration()}
-                        className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-500 transition-colors hover:bg-red-200"
-                      >
-                        <Square className="size-3.5" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void send()}
-                        disabled={!input.trim() && attachedImages.length === 0}
-                        className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow transition-all hover:bg-indigo-500 disabled:opacity-40 disabled:shadow-none"
-                      >
-                        <Send className="size-3.5" />
-                      </button>
-                    )}
-                  </div>
+                      <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                        {t("chatPage.skillMenuTitle")}
+                      </p>
+                      <div className="max-h-56 space-y-0.5 overflow-y-auto">
+                        {filteredSkillMenu.map((skill, idx) => (
+                          <button
+                            key={skill.slug}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectSkillMenuItem(skill);
+                            }}
+                            className={cn(
+                              "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                              idx === skillMenuIndex ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100"
+                            )}
+                          >
+                            <span className="text-sm leading-none">{skill.icon || "⚡"}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium text-slate-800">
+                                /{skill.command || skill.slug}
+                              </span>
+                              <span className="block truncate text-[11px] text-slate-400">
+                                {skill.description}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <p className="mt-2 text-center text-[10px] text-slate-400">
                     {t("chatPage.inputHint")}
                   </p>

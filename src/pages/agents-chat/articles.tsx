@@ -418,18 +418,28 @@ export default function ArticlesPage() {
 
         {/* Editor / Preview area */}
         <div className={cn("min-h-0 flex-1 overflow-hidden", mode === "split" ? "grid grid-cols-2" : "grid grid-cols-1")}>
-          {mode !== "preview" && (
-            <div className={cn("min-w-0 overflow-y-auto", mode === "split" && "border-r border-slate-100")}>
-              <ArticleEditor
-                content={activeArticle.content}
-                onUpdate={handleEditorUpdate}
-                onCreate={handleEditorCreate}
-                onEditorReady={setEditor}
-                onDropFile={handleDropFile}
-                onPasteFile={handlePasteFile}
-              />
-            </div>
-          )}
+          {/* The editor stays mounted at all times so switching modes never destroys
+              and recreates the tiptap instance — doing that forced a lossy
+              markdown -> ProseMirror -> markdown round-trip on every toggle,
+              which compounded into corrupted formatting (e.g. everything bold)
+              after switching modes a couple of times. We just hide it with CSS
+              when the preview-only mode is active. */}
+          <div
+            className={cn(
+              "min-w-0 overflow-y-auto",
+              mode === "split" && "border-r border-slate-100",
+              mode === "preview" && "hidden"
+            )}
+          >
+            <ArticleEditor
+              content={activeArticle.content}
+              onUpdate={handleEditorUpdate}
+              onCreate={handleEditorCreate}
+              onEditorReady={setEditor}
+              onDropFile={handleDropFile}
+              onPasteFile={handlePasteFile}
+            />
+          </div>
           {mode !== "write" && (
             <div className={cn("min-w-0 overflow-y-auto", mode === "split" ? "bg-slate-50/80" : "bg-white")}>
               <div className="mx-auto max-w-3xl px-8 py-8">

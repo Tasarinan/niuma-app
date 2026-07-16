@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Input, ScrollArea, Switch } from "@/components/ui";
 import { fetchClawpackSkillCatalog, installSkillToClawpacks, type ClawpackSkill } from "@/lib/data";
+import { loadDisabledSkillSlugs, saveDisabledSkillSlugs } from "@/lib/storage";
 import { Check, CloudDownload, ExternalLink, Loader2, Search, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -61,21 +62,6 @@ async function fetchSkillMd(skill: HubSkill): Promise<string> {
   return response.text();
 }
 
-const LS_KEY = "niuma-disabled-skills";
-
-function loadDisabled(): Set<string> {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveDisabled(set: Set<string>) {
-  localStorage.setItem(LS_KEY, JSON.stringify([...set]));
-}
-
 type HubTab = "builtin" | "online";
 
 export default function SkillsPage() {
@@ -83,7 +69,7 @@ export default function SkillsPage() {
   const [builtinLoading, setBuiltinLoading] = useState(true);
   const [builtinSearch, setBuiltinSearch] = useState("");
   const [builtinPreview, setBuiltinPreview] = useState<ClawpackSkill | null>(null);
-  const [disabledSlugs, setDisabledSlugs] = useState<Set<string>>(loadDisabled);
+  const [disabledSlugs, setDisabledSlugs] = useState<Set<string>>(loadDisabledSkillSlugs);
 
   const [hubTab, setHubTab] = useState<HubTab>("builtin");
   const [hubQuery, setHubQuery] = useState("");
@@ -107,7 +93,7 @@ export default function SkillsPage() {
       const next = new Set(prev);
       if (next.has(slug)) next.delete(slug);
       else next.add(slug);
-      saveDisabled(next);
+      saveDisabledSkillSlugs(next);
       return next;
     });
   };

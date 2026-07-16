@@ -9,3 +9,5 @@ export * from "./pricing.storage";
 export * from "./speaker-profiles.storage";
 export * from "./user-identity.storage";
 export * from "./meeting-vad-settings.storage";
+export * from "./skill-prefs.storage";
+export * from "./hired-agents.storage";

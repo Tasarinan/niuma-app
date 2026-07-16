@@ -77,6 +77,7 @@
     "skillMdError": "\u26a0\ufe0f Unable to fetch SKILL.md, please check your network"
   },
   "chatPage": {
+    "mainChannelName": "Main Chat",
     "channels": "Channels",
     "none": "None",
     "channelCount": "{{count}}",

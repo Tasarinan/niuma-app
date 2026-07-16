@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useSkillStore, useMcpStore } from "@/store";
 import { useAgents } from "./useAgents";
-import { createAgentRuntime } from "@/lib/agent";
+import { createAgentRuntime, bridgeEnabledClawpackSkills } from "@/lib/agent";
 import { getActiveProvider } from "@/lib/providers/storage";
 import type { Message } from "@/types";
 import type { AgentDefinition, GroupChannel, GroupMessage } from "@/types";
@@ -107,16 +107,21 @@ export function useGroupChat() {
   // ─── Send message ──────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (content: string, images?: ImageContent[]) => {
-      if (!selectedId || !content.trim() || isSending) return;
+    async (content: string, images?: ImageContent[], channelIdOverride?: string) => {
+      const targetId = channelIdOverride ?? selectedId;
+      if (!targetId || !content.trim() || isSending) return;
 
-      const channel = channels.find((c) => c.id === selectedId);
+      // Fall back to a fresh storage read in case the caller just created the
+      // channel in this same tick (channels state may not have re-rendered yet).
+      const channel =
+        channels.find((c) => c.id === targetId) ??
+        loadChannels().find((c) => c.id === targetId);
       if (!channel) return;
 
       // Add user message
       const userMsg: GroupMessage = {
         id: crypto.randomUUID(),
-        channelId: selectedId,
+        channelId: targetId,
         role: "user",
         content: content.trim(),
         images: images?.length
@@ -124,7 +129,12 @@ export function useGroupChat() {
           : undefined,
         timestamp: new Date().toISOString(),
       };
-      const msgsAfterUser = [...messages, userMsg];
+      // If the target channel isn't the one currently loaded into `messages`
+      // (e.g. we just created/switched to it in this same tick), read its
+      // history fresh from storage instead of appending onto the wrong
+      // channel's in-memory message list.
+      const baseMessages = targetId === selectedId ? messages : loadMessages(targetId);
+      const msgsAfterUser = [...baseMessages, userMsg];
       appendMessage(userMsg);
       setMessages(msgsAfterUser);
 
@@ -146,6 +156,15 @@ export function useGroupChat() {
           return mentions.some((mn) => agent!.name.toLowerCase().includes(mn));
         });
 
+      // Bridge the Skills page's enabled clawpack skills (file-based) into the
+      // DB-backed Skill store so `resolveAgent`'s load_skill/run_skill tools
+      // actually pick them up for this turn — without persisting the change
+      // to any agent's stored `enabledSkillIds`.
+      const bridgedSkillIds =
+        respondingAgents.length > 0
+          ? await bridgeEnabledClawpackSkills().catch(() => [])
+          : [];
+
       // Call each agent sequentially
       let currentMsgs = msgsAfterUser;
       for (const agent of respondingAgents) {
@@ -156,7 +175,7 @@ export function useGroupChat() {
         const placeholderId = crypto.randomUUID();
         const placeholder: GroupMessage = {
           id: placeholderId,
-          channelId: selectedId,
+          channelId: targetId,
           role: "agent",
           agentId: agent.id,
           agentName: agent.name,
@@ -195,6 +214,9 @@ export function useGroupChat() {
           providerId: agentProviderId,
           modelId: agentModelId,
           systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock,
+          enabledSkillIds: Array.from(
+            new Set([...(agent.enabledSkillIds ?? []), ...bridgedSkillIds])
+          ),
         };
 
         let fullContent = "";
@@ -263,7 +285,7 @@ export function useGroupChat() {
       }
 
       // Persist final state
-      saveMessages(selectedId, currentMsgs);
+      saveMessages(targetId, currentMsgs);
       setIsSending(false);
     },
     [selectedId, channels, messages, isSending, agents]

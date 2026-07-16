@@ -11,7 +11,7 @@ import type { AgentDefinition, McpServer, Skill } from "@/types";
 import { buildInternalTools } from "./tools/internal";
 import type { RequestCheckpoint } from "./tools/internal";
 import { buildMcpTools } from "./tools/mcp";
-import { buildLoadSkillTool, formatSkillsPrompt } from "./tools/skills";
+import { buildLoadSkillTool, buildRunSkillTool, formatSkillsPrompt } from "./tools/skills";
 
 export interface ResolveAgentDeps {
   /** All known skills (filtered to the definition's enabled set). */
@@ -78,6 +78,7 @@ export async function resolveAgent(
 
   if (skills.length > 0) {
     tools.push(buildLoadSkillTool(skills));
+    tools.push(buildRunSkillTool(skills));
   }
 
   const mcp = await buildMcpTools(servers);

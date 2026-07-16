@@ -197,8 +197,8 @@ pub fn create_agent_chat_window<R: Runtime>(
         .title("AgentChat")
         .center()
         .decorations(true)
-        .inner_size(1100.0, 780.0)
-        .min_inner_size(860.0, 600.0)
+        .inner_size(1200.0, 800.0)
+        .min_inner_size(800.0, 600.0)
         .hidden_title(true)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .content_protected(true)
@@ -210,8 +210,8 @@ pub fn create_agent_chat_window<R: Runtime>(
         .title("AgentChat")
         .center()
         .decorations(true)
-        .inner_size(1100.0, 780.0)
-        .min_inner_size(860.0, 600.0)
+        .inner_size(800.0, 600.0)
+        .min_inner_size(800.0, 600.0)
         .content_protected(true)
         .visible(visible);
 
@@ -283,8 +283,6 @@ pub fn open_agent_chat_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("agent-chat") {
         win.show().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
-        #[cfg(debug_assertions)]
-        win.open_devtools();
         return Ok(());
     }
     // Fallback: create it now if somehow missing.

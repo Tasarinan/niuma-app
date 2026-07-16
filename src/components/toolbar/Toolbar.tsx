@@ -12,7 +12,6 @@ import {
   VolumeX,
   Camera,
   Loader2,
-  Palette,
   X,
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -72,14 +71,6 @@ export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProp
       await invoke("open_dashboard");
     } catch (error) {
       console.error("Failed to open dashboard:", error);
-    }
-  }, []);
-
-  const handleOpenStudio = useCallback(async () => {
-    try {
-      await invoke("open_agent_chat_window");
-    } catch (error) {
-      console.error("Failed to open AgentChat:", error);
     }
   }, []);
 
@@ -207,15 +198,6 @@ export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProp
         className="relative z-10 flex items-center gap-1 shrink-0"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        {/* Cowork */}
-        <ToolbarButton
-          title="Cowork"
-          aria-label="Open cowork"
-          onClick={handleOpenStudio}
-        >
-          <Palette className="h-4 w-4" aria-hidden="true" />
-        </ToolbarButton>
-
         {/* Dashboard */}
         <ToolbarButton
           title="Open dashboard"

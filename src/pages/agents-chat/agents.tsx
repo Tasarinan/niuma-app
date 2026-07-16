@@ -3,21 +3,16 @@
  *
  * Full-width catalog grid loaded from clawpacks/agents/*.json.
  * Each card has a 雇佣 / 取消雇佣 toggle.
- * Hired agent files persisted in localStorage under "niuma-hired-agents".
+ * Hired agent files persisted in localStorage under "niuma-hired-agents"
+ * (see @/lib/storage/hired-agents.storage.ts).
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Input } from "@/components/ui";
 import { loadAgentCatalog, invalidateAgentCatalogCache, type CatalogAgent } from "@/lib/data/agent-loader";
+import { loadHiredAgentFiles, saveHiredAgentFiles } from "@/lib/storage";
 import { Bot, BriefcaseBusiness, Loader2, RefreshCw, Search, UserCheck, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ─── Hired-agents persistence ─────────────────────────────────────────────────
-const LS_HIRED = "niuma-hired-agents";
-function loadHired(): Set<string> {
-  try { const raw = localStorage.getItem(LS_HIRED); return raw ? new Set(JSON.parse(raw) as string[]) : new Set(); } catch { return new Set(); }
-}
-function saveHired(set: Set<string>) { localStorage.setItem(LS_HIRED, JSON.stringify([...set])); }
 
 function isImg(av?: string) { return !!av && (av.startsWith("/") || av.startsWith("http") || av.startsWith("data:")); }
 
@@ -25,7 +20,7 @@ export default function AgentsPage() {
   const [catalog, setCatalog] = useState<CatalogAgent[]>([]);
   const [cLoading, setCLoading] = useState(true);
   const [cSearch, setCSearch] = useState("");
-  const [hiredFiles, setHiredFiles] = useState<Set<string>>(loadHired);
+  const [hiredFiles, setHiredFiles] = useState<Set<string>>(loadHiredAgentFiles);
   const { t } = useTranslation("pages");
 
   useEffect(() => { loadAgentCatalog().then(setCatalog).finally(() => setCLoading(false)); }, []);
@@ -38,10 +33,11 @@ export default function AgentsPage() {
     setHiredFiles((prev) => {
       const next = new Set(prev);
       if (next.has(file)) { next.delete(file); } else { next.add(file); }
-      saveHired(next);
+      saveHiredAgentFiles(next);
       return next;
     });
   };
+
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-muted/20">
