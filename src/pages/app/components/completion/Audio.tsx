@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { InfoIcon, MicIcon, LoaderCircleIcon, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation as useI18n } from "react-i18next";
 import {
   Popover,
   PopoverContent,
@@ -31,6 +32,7 @@ export const Audio = ({
   const { selectedSttProvider, allSttProviders, NiumaApiEnabled, selectedAudioDevices, sttLanguage } =
     useApp();
   const { translate, isEnabled: translationEnabled } = useTranslation();
+  const { t } = useI18n("pages");
 
   // Phase 3: Check if diarization is enabled
   const diarizationEnabled = useMemo(() => {
@@ -167,7 +169,7 @@ export const Audio = ({
                 }
               }}
               className="cursor-pointer"
-              title={canUseVoice ? "Toggle voice input" : "Configure speech provider first"}
+              title={canUseVoice ? t("speechInputStatus.toggleVoiceInput") : t("speechInputStatus.configureProviderFirst")}
             >
               <MicIcon className="h-4 w-4" />
             </Button>
@@ -182,7 +184,7 @@ export const Audio = ({
         >
           <div className="text-sm select-none">
             <div className="font-semibold text-orange-600 mb-1">
-              Speech Provider Configuration Required
+              {t("speechInputStatus.configRequiredTitle")}
             </div>
             <p className="text-muted-foreground">
               {!speechProviderStatus ? (
@@ -190,13 +192,12 @@ export const Audio = ({
                   <div className="mt-2 flex flex-row gap-1 items-center text-orange-600">
                     <InfoIcon size={16} />
                     {selectedSttProvider.provider ? null : (
-                      <p>PROVIDER IS MISSING</p>
+                      <p>{t("speechInputStatus.providerMissing")}</p>
                     )}
                   </div>
 
                   <span className="block mt-2">
-                    Please go to settings and configure your speech provider to
-                    enable voice input.
+                    {t("speechInputStatus.configureHint")}
                   </span>
                 </>
               ) : null}
@@ -212,7 +213,7 @@ export const Audio = ({
           variant="outline"
           disabled
           className="cursor-default"
-          title={isProcessingSystemAudio ? "Processing guest audio..." : "Listening for guest audio"}
+          title={isProcessingSystemAudio ? t("speechInputStatus.processingGuestAudio") : t("speechInputStatus.listeningGuestAudio")}
         >
           {isProcessingSystemAudio ? (
             <LoaderCircleIcon className="h-4 w-4 animate-spin text-blue-500" />

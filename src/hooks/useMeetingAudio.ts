@@ -14,6 +14,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { fetchSTT } from '@/lib';
+import { getMeetingVadSettings } from '@/lib/storage';
 import type { TYPE_PROVIDER } from '@/types';
 import type { DiarizationAudioBuffer } from '@/lib/functions/audio-buffer';
 
@@ -41,7 +42,9 @@ interface UseMeetingAudioProps {
   audioBuffer?: DiarizationAudioBuffer | null;
 }
 
-// VAD configuration optimized for meeting audio
+// VAD configuration optimized for meeting audio. sensitivity_rms/silence_chunks
+// are overridden at capture-start time with the user's persisted settings
+// from the /audio page (see getMeetingVadSettings).
 const MEETING_VAD_CONFIG = {
   enabled: true,
   hop_size: 1024,
@@ -187,8 +190,13 @@ export function useMeetingAudio({
           ? outputDeviceId
           : null;
 
+        const vadSettings = getMeetingVadSettings();
         await invoke('start_system_audio_capture', {
-          vadConfig: MEETING_VAD_CONFIG,
+          vadConfig: {
+            ...MEETING_VAD_CONFIG,
+            sensitivity_rms: vadSettings.sensitivityRms,
+            silence_chunks: vadSettings.silenceChunks,
+          },
           deviceId,
         });
 

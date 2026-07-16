@@ -8,11 +8,9 @@
   "contextMemory": "Context Memory",
   "screenshot": "Screenshot",
   "audio": "Audio",
-  "speakers": "Speakers",
-  "language": "Language",
+  "speechRecognition": "Speech Recognition",
   "shortcuts": "Cursor & Shortcuts",
   "agents": "Agents",
-  "devSpace": "AI Providers",
   "footer": {
     "contactSupport": "Contact Support",
     "reportBug": "Report a bug",

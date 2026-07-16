@@ -4,7 +4,7 @@
  * Layout (left → center → right):
  *   [Mic] [Speak] [Screenshot] [Chat] [Meeting] | [Input] | [Dashboard] [Close]
  */
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Mic,
   MicOff,
@@ -20,9 +20,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { ToolbarButton } from "./ToolbarButton";
 import { DragButton, WingIcon } from "@/components";
 import { UseTTSReturn } from "@/hooks/useTTS";
+import { useApp } from "@/store";
 import type { UseCompletionReturn } from "@/types";
 import { Input } from "@/pages/app/components/completion/Input";
-import { Files } from "@/pages/app/components/completion/Files";
+import {
+  AutoSpeechVADHeadless,
+  type AutoSpeechVADState,
+} from "@/pages/app/components/completion/AutoSpeechVad";
 import { UseQuickActionsReturn } from "@/hooks/useQuickActions";
 import { MAX_FILES } from "@/config";
 
@@ -36,6 +40,33 @@ interface ToolbarProps {
 }
 
 export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProps) {
+  const { selectedAudioDevices, sttLanguage } = useApp();
+
+  // Real VAD capture state, reported by the headless controller mounted
+  // below whenever completion.enableVAD is true. Drives the existing
+  // mic ToolbarButton UI without changing its markup/styling.
+  const [vadState, setVadState] = useState<AutoSpeechVADState>({
+    listening: false,
+    userSpeaking: false,
+    isTranscribing: false,
+    start: () => {},
+    pause: () => {},
+  });
+
+  // Auto-speak the AI response via TTS once it finishes streaming, when enabled.
+  const wasLoadingRef = useRef(false);
+  useEffect(() => {
+    if (
+      wasLoadingRef.current &&
+      !completion.isLoading &&
+      tts.isEnabled &&
+      completion.response
+    ) {
+      tts.speak(completion.response);
+    }
+    wasLoadingRef.current = completion.isLoading;
+  }, [completion.isLoading, completion.response, tts.isEnabled, tts]);
+
   const handleOpenDashboard = useCallback(async () => {
     try {
       await invoke("open_dashboard");
@@ -88,17 +119,38 @@ export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProp
         className="relative z-10 flex items-center gap-1 shrink-0"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        {/* Mic / recording */}
+        {/* Mic / recording — headless controller runs real VAD capture; no UI of its own */}
+        {completion.enableVAD && (
+          <AutoSpeechVADHeadless
+            key={selectedAudioDevices.input}
+            submit={completion.submit}
+            setState={completion.setState}
+            microphoneDeviceId={selectedAudioDevices.input}
+            meetingAssistMode={completion.meetingAssistMode}
+            addMeetingTranscript={completion.addMeetingTranscript}
+            updateTranscriptTranslation={completion.updateTranscriptTranslation}
+            sttLanguage={sttLanguage}
+            onStateChange={setVadState}
+          />
+        )}
         <ToolbarButton
-          active={completion.micOpen}
+          active={vadState.listening}
           activeColor="red"
-          indicator={completion.micOpen}
+          indicator={vadState.listening}
           indicatorColor="bg-red-500"
-          title={completion.micOpen ? "Stop recording" : "Start recording"}
+          title={vadState.listening ? "Stop recording" : "Start recording"}
           aria-label="Toggle microphone"
-          onClick={() => completion.setMicOpen(!completion.micOpen)}
+          onClick={() => {
+            if (vadState.listening) {
+              vadState.pause();
+              setVadState((s) => ({ ...s, listening: false, userSpeaking: false, isTranscribing: false }));
+              completion.setEnableVAD(false);
+            } else {
+              completion.setEnableVAD(true);
+            }
+          }}
         >
-          {completion.micOpen ? (
+          {vadState.listening ? (
             <MicOff className="h-4 w-4" aria-hidden="true" />
           ) : (
             <Mic className="h-4 w-4" aria-hidden="true" />
@@ -142,7 +194,6 @@ export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProp
         className="relative z-10 flex-1 flex items-center gap-2 min-w-0"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <Files {...completion} />
         <Input
           {...completion}
           isHidden={isHidden}

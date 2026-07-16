@@ -11,7 +11,6 @@ import {
   CostTracking,
   ContextMemory,
   Speakers,
-  Language,
 } from "@/pages";
 import { DashboardLayout } from "@/components/layouts";
 
@@ -32,7 +31,6 @@ export default function AppRoutes() {
           <Route path="/cost-tracking" element={<CostTracking />} />
           <Route path="/context-memory" element={<ContextMemory />} />
           <Route path="/speakers" element={<Speakers />} />
-          <Route path="/language" element={<Language />} />
         </Route>
       </Routes>
     </Router>

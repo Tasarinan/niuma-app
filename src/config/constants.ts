@@ -45,6 +45,9 @@ export const STORAGE_KEYS = {
   ASSEMBLYAI_API_KEY: "assemblyai_api_key",
   PREVIOUS_STT_PROVIDER: "previous_stt_provider",
 
+  // Meeting system-audio VAD sensitivity settings
+  MEETING_VAD_SETTINGS: "meeting_vad_settings",
+
   // User Identity settings
   USER_IDENTITY: "user_identity",
 
@@ -54,6 +57,13 @@ export const STORAGE_KEYS = {
   AGENT_MCP_SERVERS: "agent_mcp_servers",
   SELECTED_AGENT_ID: "selected_agent_id",
 } as const;
+
+// Local-dev-only default ElevenLabs API key. Sourced from the gitignored
+// .env.local file (VITE_ELEVENLABS_API_KEY) - never hardcode the raw key
+// value here, this file is tracked by git.
+export const DEFAULT_ELEVENLABS_API_KEY: string =
+  import.meta.env.VITE_ELEVENLABS_API_KEY ?? "";
+
 
 // Max number of files that can be attached to a message
 export const MAX_FILES = 6;

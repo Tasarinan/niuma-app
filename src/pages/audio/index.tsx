@@ -1,4 +1,4 @@
-import { AudioSelection } from "./components";
+import { AudioSelection, VadSensitivitySettings } from "./components";
 import { PageLayout } from "@/components/layouts";
 import { useTranslation } from "react-i18next";
 
@@ -10,6 +10,7 @@ const Audio = () => {
       description={t("audioPage.description")}
     >
       <AudioSelection />
+      <VadSensitivitySettings />
     </PageLayout>
   );
 };

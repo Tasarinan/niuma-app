@@ -5,10 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { InfoIcon, UsersIcon, DollarSignIcon, KeyIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { STORAGE_KEYS } from "@/config";
 import { safeLocalStorage, secureGet, secureSet, migrateFromLocalStorage } from "@/lib";
 
 export function DiarizationSettings() {
+  const { t } = useTranslation("pages");
   const [diarizationEnabled, setDiarizationEnabled] = useState(() => {
     return safeLocalStorage.getItem(STORAGE_KEYS.SPEAKER_DIARIZATION_ENABLED) === "true";
   });
@@ -28,8 +30,8 @@ export function DiarizationSettings() {
         setAssemblyAIKey(key || "");
       } catch (error) {
         console.error("[DiarizationSettings] Failed to load API key from secure storage:", error);
-        toast.error("Failed to load API key", {
-          description: "Secure storage error. Please restart the application.",
+        toast.error(t("speakersPage.diarization.loadKeyError"), {
+          description: t("speakersPage.diarization.loadKeyErrorDesc"),
         });
         // DO NOT fallback to localStorage - this would defeat the security purpose
         setAssemblyAIKey("");
@@ -62,8 +64,8 @@ export function DiarizationSettings() {
         }
       } catch (error) {
         console.error("[DiarizationSettings] CRITICAL: Failed to save API key to secure storage:", error);
-        toast.error("Failed to save API key", {
-          description: "Secure storage error. Your API key was not saved. Please try again or restart the application.",
+        toast.error(t("speakersPage.diarization.saveKeyError"), {
+          description: t("speakersPage.diarization.saveKeyErrorDesc"),
         });
         // DO NOT fallback to localStorage - this would defeat the security purpose
         // User will need to re-enter the key or restart the application
@@ -76,8 +78,8 @@ export function DiarizationSettings() {
   return (
     <div className="space-y-4">
       <Header
-        title="Speaker Diarization"
-        description="Automatically identify who is speaking in your meetings."
+        title={t("speakersPage.diarization.title")}
+        description={t("speakersPage.diarization.description")}
       />
 
       <div className="p-4 border rounded-lg space-y-4">
@@ -85,10 +87,10 @@ export function DiarizationSettings() {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <Label htmlFor="diarization-toggle" className="font-medium">
-              Enable Speaker Diarization
+              {t("speakersPage.diarization.enable")}
             </Label>
             <p className="text-xs text-muted-foreground">
-              Identify different speakers in meeting transcripts
+              {t("speakersPage.diarization.enableDesc")}
             </p>
           </div>
           <Switch
@@ -106,30 +108,30 @@ export function DiarizationSettings() {
             <div className="space-y-2">
               <Label htmlFor="assemblyai-key" className="font-medium flex items-center gap-2">
                 <KeyIcon className="h-4 w-4" />
-                AssemblyAI API Key
+                {t("speakersPage.diarization.apiKeyLabel")}
               </Label>
               <Input
                 id="assemblyai-key"
                 type="password"
-                placeholder="Enter your AssemblyAI API key..."
+                placeholder={t("speakersPage.diarization.apiKeyPlaceholder")}
                 value={assemblyAIKey}
                 onChange={(e) => setAssemblyAIKey(e.target.value)}
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Get your API key from{" "}
+                {t("speakersPage.diarization.apiKeyHint")}{" "}
                 <a
                   href="https://www.assemblyai.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"
                 >
-                  assemblyai.com
+                  {t("speakersPage.diarization.apiKeyLink")}
                 </a>
               </p>
               {!assemblyAIKey && (
                 <p className="text-xs text-orange-600">
-                  ⚠️ API key required for diarization to work
+                  {t("speakersPage.diarization.apiKeyWarning")}
                 </p>
               )}
             </div>
@@ -141,10 +143,9 @@ export function DiarizationSettings() {
               <div className="flex items-start gap-2 text-xs">
                 <InfoIcon className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="font-medium">Requirements</p>
+                  <p className="font-medium">{t("speakersPage.diarization.requirements")}</p>
                   <p className="text-muted-foreground">
-                    Speaker diarization requires AssemblyAI as your STT provider.
-                    Select "AssemblyAI (with Speaker Diarization)" in STT Providers above.
+                    {t("speakersPage.diarization.requirementsDesc")}
                   </p>
                 </div>
               </div>
@@ -152,12 +153,12 @@ export function DiarizationSettings() {
               <div className="flex items-start gap-2 text-xs">
                 <DollarSignIcon className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="font-medium">Pricing</p>
+                  <p className="font-medium">{t("speakersPage.diarization.pricing")}</p>
                   <p className="text-muted-foreground">
-                    AssemblyAI Universal with Speaker Labels: $0.17/hr ($0.00283/min)
+                    {t("speakersPage.diarization.pricingDesc")}
                   </p>
                   <p className="text-muted-foreground">
-                    This includes the base transcription + speaker diarization addon.
+                    {t("speakersPage.diarization.pricingNote")}
                   </p>
                 </div>
               </div>
@@ -165,14 +166,14 @@ export function DiarizationSettings() {
               <div className="flex items-start gap-2 text-xs">
                 <UsersIcon className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="font-medium">How it works</p>
+                  <p className="font-medium">{t("speakersPage.diarization.howItWorks")}</p>
                   <ul className="text-muted-foreground space-y-0.5 list-disc list-inside">
-                    <li>Your microphone audio is labeled as "You"</li>
-                    <li>System audio (guests) is analyzed every 30 seconds</li>
-                    <li>Voice pitch is analyzed to automatically identify speakers</li>
-                    <li>Unknown speakers are auto-created as "Speaker N (Unnamed)"</li>
-                    <li>Name them in the Speakers page for persistent recognition</li>
-                    <li>Once named, they'll be recognized automatically in future meetings</li>
+                    <li>{t("speakersPage.diarization.howItWorksMic")}</li>
+                    <li>{t("speakersPage.diarization.howItWorksSystemAudio")}</li>
+                    <li>{t("speakersPage.diarization.howItWorksPitch")}</li>
+                    <li>{t("speakersPage.diarization.howItWorksAutoCreate")}</li>
+                    <li>{t("speakersPage.diarization.howItWorksName")}</li>
+                    <li>{t("speakersPage.diarization.howItWorksFuture")}</li>
                   </ul>
                 </div>
               </div>

@@ -18,6 +18,15 @@ import { getUserIdentity, hasUserIdentity } from "@/lib/storage";
 // Minimum number of exchanges (user+assistant pairs) required to trigger summarization
 const MIN_EXCHANGES_FOR_SUMMARY = 2;
 
+// Minimum number of transcript segments required to trigger a meeting-transcript summary
+const MIN_SEGMENTS_FOR_MEETING_SUMMARY = 4;
+
+/** A single labeled line of a multi-speaker meeting transcript. */
+export interface MeetingTranscriptLine {
+  speakerLabel: string;
+  text: string;
+}
+
 /**
  * Filters the user's name from a list of participants (case-insensitive).
  */
@@ -171,28 +180,24 @@ function parseSummarizationResponse(response: string): SummarizationResult | nul
   }
 }
 
+type SummaryProviderConfig = {
+  provider: any;
+  selectedProvider: {
+    provider: string;
+    variables: Record<string, string>;
+  };
+};
+
 /**
- * Generates a summary for a conversation using AI
+ * Shared core: runs the summarization prompt against already-formatted
+ * conversation text and parses the result. Used by both the chat-message
+ * summarizer and the meeting-transcript summarizer below.
  */
-export async function generateConversationSummary(
+async function runSummarization(
   conversationId: string,
-  messages: Message[],
-  providerConfig?: {
-    provider: any;
-    selectedProvider: {
-      provider: string;
-      variables: Record<string, string>;
-    };
-  }
+  conversationText: string,
+  providerConfig?: SummaryProviderConfig
 ): Promise<SummarizationResult | null> {
-  const exchangeCount = countExchanges(messages);
-
-  // Check if we have enough exchanges
-  if (exchangeCount < MIN_EXCHANGES_FOR_SUMMARY) {
-    console.log(`Skipping summarization: only ${exchangeCount} exchanges (need ${MIN_EXCHANGES_FOR_SUMMARY})`);
-    return null;
-  }
-
   // Check if we already have a summary for this conversation
   const existingSummary = await getMeetingSummaryByConversation(conversationId);
   if (existingSummary) {
@@ -200,7 +205,6 @@ export async function generateConversationSummary(
     return null;
   }
 
-  const conversationText = formatConversationForSummary(messages);
   const userMessage = `CONVERSATION:\n${conversationText}\n\nProvide the JSON summary:`;
 
   try {
@@ -242,6 +246,50 @@ export async function generateConversationSummary(
     console.error("Error generating conversation summary:", error);
     return null;
   }
+}
+
+/**
+ * Generates a summary for a conversation using AI
+ */
+export async function generateConversationSummary(
+  conversationId: string,
+  messages: Message[],
+  providerConfig?: SummaryProviderConfig
+): Promise<SummarizationResult | null> {
+  const exchangeCount = countExchanges(messages);
+
+  // Check if we have enough exchanges
+  if (exchangeCount < MIN_EXCHANGES_FOR_SUMMARY) {
+    console.log(`Skipping summarization: only ${exchangeCount} exchanges (need ${MIN_EXCHANGES_FOR_SUMMARY})`);
+    return null;
+  }
+
+  const conversationText = formatConversationForSummary(messages);
+  return runSummarization(conversationId, conversationText, providerConfig);
+}
+
+/**
+ * Generates a summary for a multi-speaker meeting transcript (Meeting Channel).
+ * Unlike generateConversationSummary, this preserves real speaker labels
+ * (e.g. "You", "Guest", diarized names) instead of generic User/Assistant roles.
+ */
+export async function generateMeetingTranscriptSummary(
+  conversationId: string,
+  transcript: MeetingTranscriptLine[],
+  providerConfig?: SummaryProviderConfig
+): Promise<SummarizationResult | null> {
+  if (transcript.length < MIN_SEGMENTS_FOR_MEETING_SUMMARY) {
+    console.log(
+      `Skipping meeting summarization: only ${transcript.length} segments (need ${MIN_SEGMENTS_FOR_MEETING_SUMMARY})`
+    );
+    return null;
+  }
+
+  const conversationText = transcript
+    .map((line) => `${line.speakerLabel}: ${line.text}`)
+    .join("\n\n");
+
+  return runSummarization(conversationId, conversationText, providerConfig);
 }
 
 /**
@@ -297,13 +345,7 @@ export async function saveSummarizationResult(
 export async function summarizeConversation(
   conversationId: string,
   messages: Message[],
-  providerConfig?: {
-    provider: any;
-    selectedProvider: {
-      provider: string;
-      variables: Record<string, string>;
-    };
-  }
+  providerConfig?: SummaryProviderConfig
 ): Promise<boolean> {
   try {
     // Generate the summary
@@ -329,8 +371,45 @@ export async function summarizeConversation(
 }
 
 /**
+ * Main function to summarize and save a multi-speaker meeting transcript
+ * (Meeting Channel). Call this when a meeting recording stops.
+ */
+export async function summarizeMeetingTranscript(
+  conversationId: string,
+  transcript: MeetingTranscriptLine[],
+  providerConfig?: SummaryProviderConfig
+): Promise<boolean> {
+  try {
+    const result = await generateMeetingTranscriptSummary(
+      conversationId,
+      transcript,
+      providerConfig
+    );
+
+    if (!result) {
+      return false;
+    }
+
+    const summaryId = await saveSummarizationResult(conversationId, result, transcript.length);
+
+    return summaryId !== null;
+  } catch (error) {
+    console.error("Error in summarizeMeetingTranscript:", error);
+    return false;
+  }
+}
+
+/**
  * Checks if a conversation should be summarized based on exchange count
  */
 export function shouldSummarize(messages: Message[]): boolean {
   return countExchanges(messages) >= MIN_EXCHANGES_FOR_SUMMARY;
 }
+
+/**
+ * Checks if a meeting transcript should be summarized based on segment count
+ */
+export function shouldSummarizeMeeting(transcript: MeetingTranscriptLine[]): boolean {
+  return transcript.length >= MIN_SEGMENTS_FOR_MEETING_SUMMARY;
+}
+

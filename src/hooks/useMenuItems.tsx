@@ -10,7 +10,6 @@ import {
   MessageSquareTextIcon,
   DollarSignIcon,
   BrainIcon,
-  UsersIcon,
   LanguagesIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -59,14 +58,9 @@ export const useMenuItems = () => {
       href: "/audio",
     },
     {
-      icon: UsersIcon,
-      label: t("speakers"),
-      href: "/speakers",
-    },
-    {
       icon: LanguagesIcon,
-      label: t("language"),
-      href: "/language",
+      label: t("speechRecognition"),
+      href: "/speakers",
     },
     {
       icon: SquareSlashIcon,

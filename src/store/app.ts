@@ -118,7 +118,12 @@ export const useAppStore = create<IContextType>((set, get) => ({
   customAiProviders: [],
   selectedAIProvider: { provider: "", variables: {} },
   customSttProviders: [],
-  selectedSttProvider: { provider: "", variables: {} },
+  // Default STT provider: ElevenLabs Scribe V1 (mirrors niuma (Vue)'s
+  // defaultSettings.sttApi default). Only applies to fresh installs - users
+  // who already saved a selection load it from localStorage below and this
+  // initial value is never used. The API key is intentionally left blank
+  // for the user to fill in.
+  selectedSttProvider: { provider: "elevenlabs-stt", variables: { model: "scribe_v1" } },
   screenshotConfiguration: {
     mode: "manual",
     autoPrompt: "Analyze this screenshot and provide insights",

@@ -1,6 +1,5 @@
 import { useCompletion, useQuickActions } from "@/hooks";
 import { Screenshot } from "./Screenshot";
-import { Files } from "./Files";
 import { Audio } from "./Audio";
 import { Input } from "./Input";
 import { MeetingAssistToggle } from "./MeetingAssistToggle";
@@ -35,7 +34,6 @@ export const Completion = ({ isHidden }: { isHidden: boolean }) => {
         onQuickActionClick={handleQuickAction}
       />
       <Screenshot {...completion} />
-      <Files {...completion} />
     </>
   );
 };

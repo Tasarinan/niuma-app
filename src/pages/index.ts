@@ -9,5 +9,4 @@ export { default as Responses } from "./responses";
 export { default as CostTracking } from "./cost-tracking";
 export { default as ContextMemory } from "./context-memory";
 export { default as Speakers } from "./speakers";
-export { default as Language } from "./language";
 export { default as Providers } from "./providers";

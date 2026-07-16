@@ -21,7 +21,8 @@ export function saveChannels(channels: GroupChannel[]): void {
 export function createChannel(
   name: string,
   agentIds: string[],
-  avatar = "💬"
+  avatar = "💬",
+  kind: GroupChannel["kind"] = "chat"
 ): GroupChannel {
   const now = new Date().toISOString();
   const channel: GroupChannel = {
@@ -29,6 +30,7 @@ export function createChannel(
     name,
     avatar,
     agentIds,
+    kind,
     createdAt: now,
     updatedAt: now,
   };
@@ -38,7 +40,7 @@ export function createChannel(
 
 export function updateChannel(
   id: string,
-  patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds">>
+  patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind">>
 ): void {
   const channels = loadChannels().map((c) =>
     c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c

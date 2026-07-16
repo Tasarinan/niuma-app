@@ -1,9 +1,11 @@
 import { useState, useCallback, useRef } from "react";
-import { useApp } from "@/store";
+import { useSkillStore, useMcpStore } from "@/store";
 import { useAgents } from "./useAgents";
-import { fetchAIResponse } from "@/lib";
+import { createAgentRuntime } from "@/lib/agent";
+import { getActiveProvider } from "@/lib/providers/storage";
 import type { Message } from "@/types";
-import type { GroupChannel, GroupMessage } from "@/types";
+import type { AgentDefinition, GroupChannel, GroupMessage } from "@/types";
+import type { ImageContent } from "@earendil-works/pi-ai";
 import {
   loadChannels,
   createChannel as storageCreateChannel,
@@ -37,7 +39,6 @@ function buildHistory(
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGroupChat() {
-  const { selectedAIProvider, allAiProviders } = useApp();
   const { agents } = useAgents();
 
   const [channels, setChannels] = useState<GroupChannel[]>(() => loadChannels());
@@ -62,8 +63,8 @@ export function useGroupChat() {
   }, []);
 
   const createChannel = useCallback(
-    (name: string, agentIds: string[], avatar?: string) => {
-      const channel = storageCreateChannel(name, agentIds, avatar);
+    (name: string, agentIds: string[], avatar?: string, kind?: GroupChannel["kind"]) => {
+      const channel = storageCreateChannel(name, agentIds, avatar, kind);
       setChannels(loadChannels());
       setSelectedId(channel.id);
       setMessages([]);
@@ -73,7 +74,7 @@ export function useGroupChat() {
   );
 
   const editChannel = useCallback(
-    (id: string, patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds">>) => {
+    (id: string, patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind">>) => {
       storageUpdateChannel(id, patch);
       const updated = loadChannels();
       setChannels(updated);
@@ -106,7 +107,7 @@ export function useGroupChat() {
   // ─── Send message ──────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, images?: ImageContent[]) => {
       if (!selectedId || !content.trim() || isSending) return;
 
       const channel = channels.find((c) => c.id === selectedId);
@@ -118,6 +119,9 @@ export function useGroupChat() {
         channelId: selectedId,
         role: "user",
         content: content.trim(),
+        images: images?.length
+          ? images.map((img) => ({ mimeType: img.mimeType, data: img.data }))
+          : undefined,
         timestamp: new Date().toISOString(),
       };
       const msgsAfterUser = [...messages, userMsg];
@@ -166,19 +170,11 @@ export function useGroupChat() {
 
         const history = buildHistory(currentMsgs.slice(0, -1), agent.id);
 
-        // Resolve provider for this agent: prefer agent's own providerId, fall
-        // back to the globally selected provider.
-        const agentProviderId = agent.providerId || selectedAIProvider.provider;
-        const agentProvider = allAiProviders.find((p) => p.id === agentProviderId);
-        // Inject the agent's modelId into variables so {{MODEL}} templates work.
-        const agentVariables: Record<string, string> = {
-          ...selectedAIProvider.variables,
-          ...(agent.modelId ? { MODEL: agent.modelId, model: agent.modelId } : {}),
-        };
-        const agentSelectedProvider = {
-          provider: agentProviderId,
-          variables: agentVariables,
-        };
+        // Resolve provider for this agent: prefer the agent's own providerId,
+        // fall back to the globally active provider (registry-based system).
+        const activeProvider = getActiveProvider();
+        const agentProviderId = agent.providerId || activeProvider?.providerId || "";
+        const agentModelId = agent.modelId || activeProvider?.model || "";
 
         // Group context appended to agent's own system prompt
         const otherMembers = respondingAgents
@@ -189,24 +185,61 @@ export function useGroupChat() {
           ? `\n\nYou are in a group chat channel named "${channel.name}". Other participants: ${otherMembers}. Respond as ${agent.name} (${agent.role ?? "AI assistant"}). Be concise and in-character.`
           : `\n\nYou are in a channel named "${channel.name}". Respond as ${agent.name}.`;
 
+        const transcript = history
+          .map((h) => (h.role === "assistant" ? `${agent.name}: ${h.content}` : h.content))
+          .join("\n");
+        const historyBlock = transcript ? `\n\nConversation history:\n${transcript}` : "";
+
+        const runtimeDef: AgentDefinition = {
+          ...agent,
+          providerId: agentProviderId,
+          modelId: agentModelId,
+          systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock,
+        };
+
         let fullContent = "";
+        let runtimeError: string | null = null;
         try {
-          for await (const chunk of fetchAIResponse({
-            provider: agentProvider,
-            selectedProvider: agentSelectedProvider,
-            systemPrompt: (agent.systemPrompt ?? "") + groupCtx,
-            history,
-            userMessage: content.trim(),
-            signal,
-          })) {
-            if (signal.aborted) break;
-            fullContent += chunk;
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === placeholderId ? { ...msg, content: fullContent } : msg
-              )
+          if (!agentProviderId) {
+            throw new Error(
+              "No AI provider configured. Please configure one in Settings → AI Providers."
             );
           }
+          const runtime = await createAgentRuntime(
+            runtimeDef,
+            {
+              onAssistantDelta: (text) => {
+                if (signal.aborted) return;
+                fullContent = text;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === placeholderId ? { ...msg, content: fullContent } : msg
+                  )
+                );
+              },
+              onAssistantEnd: (text) => {
+                fullContent = text;
+              },
+              onError: (message) => {
+                runtimeError = message;
+              },
+            },
+            {
+              skills: useSkillStore.getState().items,
+              mcpServers: useMcpStore.getState().items,
+              providerVariables: {},
+            }
+          );
+
+          const onAbort = () => runtime.abort();
+          signal.addEventListener("abort", onAbort, { once: true });
+          try {
+            await runtime.prompt(content.trim(), images);
+            await runtime.waitForIdle();
+          } finally {
+            signal.removeEventListener("abort", onAbort);
+          }
+          if (runtimeError) throw new Error(runtimeError);
         } catch (err) {
           fullContent = `[Error: ${err instanceof Error ? err.message : String(err)}]`;
           setMessages((prev) =>
@@ -233,7 +266,7 @@ export function useGroupChat() {
       saveMessages(selectedId, currentMsgs);
       setIsSending(false);
     },
-    [selectedId, channels, messages, isSending, agents, allAiProviders, selectedAIProvider]
+    [selectedId, channels, messages, isSending, agents]
   );
 
   const stopGeneration = useCallback(() => {

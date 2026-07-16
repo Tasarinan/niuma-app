@@ -6,6 +6,7 @@ mod db;
 mod fs_tools;
 mod mcp;
 mod sandbox;
+mod search_tools;
 mod shortcuts;
 mod unified;
 mod window;
@@ -212,6 +213,8 @@ pub fn run() {
             fs_tools::read_text_file,
             fs_tools::write_text_file,
             fs_tools::list_directory,
+            search_tools::search_local_files,
+            search_tools::web_search,
             get_clawpacks_agents_dir,
             get_clawpacks_skills_dir,
             get_user_agents_dir,

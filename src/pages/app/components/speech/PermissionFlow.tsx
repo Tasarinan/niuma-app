@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Card } from "@/components";
 import { CheckCircle2Icon, LoaderIcon, ShieldAlertIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 
 interface PermissionFlowProps {
   onPermissionGranted: () => void;
@@ -14,6 +15,7 @@ export const PermissionFlow = ({
   onPermissionGranted,
   onPermissionDenied,
 }: PermissionFlowProps) => {
+  const { t } = useTranslation("pages");
   const [permissionState, setPermissionState] =
     useState<PermissionState>("checking");
   const [checkAttempts, setCheckAttempts] = useState(0);
@@ -87,10 +89,10 @@ export const PermissionFlow = ({
               <LoaderIcon className="w-6 h-6 text-blue-600 animate-spin flex-shrink-0" />
               <div>
                 <h3 className="font-semibold text-sm text-blue-900 mb-1">
-                  Checking Permissions
+                  {t("systemAudioPermission.checkingTitle")}
                 </h3>
                 <p className="text-xs text-blue-800 leading-relaxed">
-                  Verifying system audio access permissions...
+                  {t("systemAudioPermission.checkingDesc")}
                 </p>
               </div>
             </div>
@@ -104,10 +106,10 @@ export const PermissionFlow = ({
               <CheckCircle2Icon className="w-6 h-6 text-green-600 flex-shrink-0" />
               <div>
                 <h3 className="font-semibold text-sm text-green-900 mb-1">
-                  Permission Granted!
+                  {t("systemAudioPermission.grantedTitle")}
                 </h3>
                 <p className="text-xs text-green-800 leading-relaxed">
-                  System audio access is enabled. Starting capture...
+                  {t("systemAudioPermission.grantedDesc")}
                 </p>
               </div>
             </div>
@@ -121,28 +123,32 @@ export const PermissionFlow = ({
               <LoaderIcon className="w-6 h-6 text-orange-600 animate-spin flex-shrink-0" />
               <div className="flex-1">
                 <h3 className="font-semibold text-sm text-orange-900 mb-2">
-                  Waiting for Permission
+                  {t("systemAudioPermission.waitingTitle")}
                 </h3>
                 <p className="text-xs text-orange-800 leading-relaxed mb-3">
-                  System Settings should have opened. Please:
+                  {t("systemAudioPermission.waitingDesc")}
                 </p>
                 <ol className="text-xs text-orange-800 space-y-1 list-decimal list-inside mb-3">
                   <li>
-                    Go to <strong>Privacy & Security</strong>
+                    {t("systemAudioPermission.stepPrivacy")}{" "}
+                    <strong>{t("systemAudioPermission.privacySecurity")}</strong>
                   </li>
                   <li>
-                    Select <strong>Screen & System Audio Recording</strong>
+                    {t("systemAudioPermission.stepScreenRecording")}{" "}
+                    <strong>{t("systemAudioPermission.screenAudioRecording")}</strong>
                   </li>
                   <li>
-                    Find <strong>Niuma</strong> and enable it
+                    {t("systemAudioPermission.stepFindApp")}{" "}
+                    <strong>{t("systemAudioPermission.appName")}</strong>{" "}
+                    {t("systemAudioPermission.stepFindAppSuffix")}
                   </li>
                   <li className="font-semibold text-orange-900">
-                    Return here - we'll detect it automatically!
+                    {t("systemAudioPermission.stepReturn")}
                   </li>
                 </ol>
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-orange-700">
-                    Checking... ({checkAttempts}/20)
+                    {t("systemAudioPermission.checkingAttempts", { count: checkAttempts })}
                   </p>
                   <Button
                     variant="outline"
@@ -150,7 +156,7 @@ export const PermissionFlow = ({
                     onClick={checkPermission}
                     className="text-xs"
                   >
-                    Check Now
+                    {t("systemAudioPermission.checkNow")}
                   </Button>
                 </div>
               </div>
@@ -165,11 +171,10 @@ export const PermissionFlow = ({
               <ShieldAlertIcon className="w-6 h-6 text-red-600 flex-shrink-0" />
               <div className="flex-1">
                 <h3 className="font-semibold text-sm text-red-900 mb-2">
-                  Permission Required
+                  {t("systemAudioPermission.deniedTitle")}
                 </h3>
                 <p className="text-xs text-red-800 leading-relaxed mb-3">
-                  Niuma needs permission to capture system audio. This is
-                  required for the system audio feature to work.
+                  {t("systemAudioPermission.deniedDesc")}
                 </p>
 
                 <div className="space-y-3">
@@ -178,31 +183,35 @@ export const PermissionFlow = ({
                     className="w-full"
                     size="sm"
                   >
-                    Grant Permission
+                    {t("systemAudioPermission.grantPermission")}
                   </Button>
 
                   <details className="text-xs text-red-800">
                     <summary className="cursor-pointer font-medium mb-2">
-                      Manual Setup Instructions
+                      {t("systemAudioPermission.manualSetupInstructions")}
                     </summary>
                     <ol className="list-decimal list-inside space-y-1 mt-2 pl-2">
                       <li>
-                        Open <strong>System Settings</strong>
+                        {t("systemAudioPermission.stepOpenSettings")}{" "}
+                        <strong>{t("systemAudioPermission.systemSettings")}</strong>
                       </li>
                       <li>
-                        Navigate to <strong>Privacy & Security</strong>
+                        {t("systemAudioPermission.stepNavigatePrivacy")}{" "}
+                        <strong>{t("systemAudioPermission.privacySecurity")}</strong>
                       </li>
                       <li>
-                        Click on{" "}
-                        <strong>Screen & System Audio Recording</strong>
+                        {t("systemAudioPermission.stepClickScreenRecording")}{" "}
+                        <strong>{t("systemAudioPermission.screenAudioRecording")}</strong>
                       </li>
                       <li>
-                        Find <strong>Niuma</strong> in the list
+                        {t("systemAudioPermission.stepFindInList")}{" "}
+                        <strong>{t("systemAudioPermission.appName")}</strong>
                       </li>
                       <li>
-                        Toggle the switch to <strong>ON</strong>
+                        {t("systemAudioPermission.stepToggleOn")}{" "}
+                        <strong>{t("systemAudioPermission.on")}</strong>
                       </li>
-                      <li>Restart Niuma if needed</li>
+                      <li>{t("systemAudioPermission.stepRestart")}</li>
                     </ol>
                   </details>
                 </div>

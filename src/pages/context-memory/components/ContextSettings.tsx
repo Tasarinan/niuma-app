@@ -10,13 +10,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { Trash2, RefreshCcw } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import {
   getContextMemorySettings,
   setContextMemorySettings,
   invalidateContextCache,
 } from "@/lib/functions/context-builder";
-import { runCompactionIfNeeded } from "@/lib/functions/knowledge-compactor";
 import { deleteAllMeetingContextData } from "@/lib/database";
 
 interface ContextSettingsProps {
@@ -27,7 +26,6 @@ export const ContextSettings = ({ onSettingsChange }: ContextSettingsProps) => {
   const [enabled, setEnabled] = useState(true);
   const [maxTokens, setMaxTokens] = useState(1500);
   const [days, setDays] = useState(30);
-  const [isCompacting, setIsCompacting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -55,19 +53,6 @@ export const ContextSettings = ({ onSettingsChange }: ContextSettingsProps) => {
     setDays(newValue);
     setContextMemorySettings({ days: newValue });
     onSettingsChange?.();
-  };
-
-  const handleCompactNow = async () => {
-    setIsCompacting(true);
-    try {
-      await runCompactionIfNeeded();
-      invalidateContextCache();
-      onSettingsChange?.();
-    } catch (error) {
-      console.error("Compaction failed:", error);
-    } finally {
-      setIsCompacting(false);
-    }
   };
 
   const handleDeleteAll = async () => {
@@ -151,15 +136,6 @@ export const ContextSettings = ({ onSettingsChange }: ContextSettingsProps) => {
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCompactNow}
-            disabled={isCompacting || !enabled}
-          >
-            <RefreshCcw className={`h-4 w-4 mr-2 ${isCompacting ? "animate-spin" : ""}`} />
-            {isCompacting ? "Compacting..." : "Compact Now"}
-          </Button>
           <Button
             variant="destructive"
             size="sm"

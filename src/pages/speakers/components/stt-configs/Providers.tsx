@@ -219,7 +219,7 @@ export const Providers = ({
           ?.filter(
             (variable) =>
               variable?.key !== findKeyAndValue("api_key")?.key &&
-              variable?.key !== "language" // Language is configured on the Language page
+              variable?.key !== "language" // Language is configured in the Speech Recognition Language section below
           )
           .map((variable) => {
             const getVariableValue = () => {

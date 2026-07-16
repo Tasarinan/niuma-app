@@ -52,6 +52,8 @@ export const INTERNAL_TOOL_IDS: InternalToolId[] = [
   "edit",
   "ls",
   "grep",
+  "file_search",
+  "web_search",
 ];
 
 export interface InternalToolDeps {
@@ -385,6 +387,83 @@ function grepTool(deps: InternalToolDeps): AgentTool {
   });
 }
 
+interface FileSearchEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+}
+interface FileSearchResponse {
+  entries: FileSearchEntry[];
+  truncated: boolean;
+  scannedRoots: string[];
+}
+
+function fileSearchTool(): AgentTool {
+  return defineTool({
+    name: "file_search",
+    label: "Search local files",
+    description:
+      "Search the user's entire local disk for files/folders whose NAME contains " +
+      "the given text (case-insensitive substring match, not full-text content search). " +
+      "Best-effort and time-boxed: results may be truncated on large disks.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      query: Type.String({
+        description: "Substring to match against file/folder names.",
+      }),
+      maxResults: Type.Optional(
+        Type.Number({ description: "Cap on results (default 50, max 200)." })
+      ),
+    }),
+    execute: async (_id, params) => {
+      const res = await invoke<FileSearchResponse>("search_local_files", {
+        req: { query: params.query, maxResults: params.maxResults },
+      });
+      const lines = res.entries.map(
+        (e) => `${e.isDir ? "[dir] " : ""}${e.path}${e.isDir ? "" : ` (${e.size}B)`}`
+      );
+      const suffix = res.truncated ? "\n…(结果已截断，磁盘较大或用时超限)" : "";
+      return textResult((lines.join("\n") || "(未找到匹配文件)") + suffix, res);
+    },
+  });
+}
+
+interface WebSearchResultItem {
+  title: string;
+  url: string;
+  snippet: string;
+}
+interface WebSearchResponse {
+  results: WebSearchResultItem[];
+}
+
+function webSearchTool(): AgentTool {
+  return defineTool({
+    name: "web_search",
+    label: "Web search",
+    description:
+      "Search the public web (via DuckDuckGo) and return matching page titles, " +
+      "URLs, and snippets. Use this for current events or facts not in your training data.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      query: Type.String({ description: "The search query." }),
+      maxResults: Type.Optional(
+        Type.Number({ description: "Cap on results (default 8, max 20)." })
+      ),
+    }),
+    execute: async (_id, params) => {
+      const res = await invoke<WebSearchResponse>("web_search", {
+        req: { query: params.query, maxResults: params.maxResults },
+      });
+      const lines = res.results.map(
+        (r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}`
+      );
+      return textResult(lines.join("\n\n") || "(无搜索结果)", res);
+    },
+  });
+}
+
 const BUILDERS: Record<InternalToolId, (deps: InternalToolDeps) => AgentTool> = {
   checkpoint: checkpointTool,
   bash: bashTool,
@@ -393,6 +472,8 @@ const BUILDERS: Record<InternalToolId, (deps: InternalToolDeps) => AgentTool> = 
   edit: editTool,
   ls: lsTool,
   grep: grepTool,
+  file_search: fileSearchTool,
+  web_search: webSearchTool,
 };
 
 /** Build the selected internal tools. */

@@ -88,6 +88,9 @@
     "newChannel": "新建频道",
     "channelNameLabel": "频道名称 *",
     "channelNamePlaceholder": "起个好记的名字…",
+    "channelTypeLabel": "频道类型",
+    "channelTypeChat": "普通对话",
+    "channelTypeMeeting": "会议频道",
     "channelIcon": "频道图标",
     "activeAgents": "在职智能体",
     "loadingAgents": "加载智能体…",
@@ -101,7 +104,11 @@
     "export": "导出",
     "startMessaging": "开始发送消息，智能体们将依次响应",
     "inputPlaceholder": "发消息给 {{name}}…",
-    "inputHint": "按 Enter 发送 · Shift+Enter 换行 · @名字 指定回复"
+    "inputHint": "按 Enter 发送 · Shift+Enter 换行 · @名字 指定回复",
+    "attachImage": "添加图片",
+    "attachedImages": "已添加 {{count}} 张图片",
+    "removeImage": "移除图片",
+    "maxImagesReached": "最多可添加 {{max}} 张图片"
   },
   "articles": {
     "untitled": "未命名文章",
@@ -307,32 +314,25 @@
       "cancel": "取消"
     }
   },
+  "speechRecognitionPage": {
+    "title": "语音识别",
+    "description": "配置语音识别提供商、说话人分离和语言设置",
+    "providersTitle": "STT 提供商",
+    "providersDesc": "选择您偏好的语音转文字服务提供商以开始使用。"
+  },
   "speakersPage": {
-    "title": "说话人",
-    "description": "管理会议的说话人识别和语音档案",
     "profiles": {
-      "yourProfile": "我的档案",
-      "yourProfileDesc": "您的档案用于在会议记录中标记您的发言。",
-      "you": "我",
-      "micLabel": "麦克风音频自动标记为您",
-      "createPrompt": "创建档案以便在记录中识别您的身份。",
-      "createProfile": "创建档案",
       "unnamed": "未识别说话人（{{count}}）",
       "unnamedDesc": "会议期间自动检测到的说话人，为其命名可使识别持久化。",
+      "namePlaceholder": "输入说话人姓名...",
       "colleague": "同事",
       "client": "客户",
       "other": "其他",
       "confirmName": "确认名称",
+      "cancel": "取消",
       "nameSpeaker": "命名此说话人",
       "deleteProfile": "删除档案",
-      "save": "保存",
-      "editName": "编辑名称",
-      "otherSpeakers": "其他说话人",
-      "otherSpeakersDesc": "预定义说话人姓名，便于会议中快速标记。",
-      "empty": "尚未添加其他说话人。会议中将自动标记说话人，您也可在此添加姓名以便快速标记。",
-      "namePlaceholder": "姓名（例如：张三）",
-      "addProfile": "添加档案",
-      "addSpeaker": "添加说话人"
+      "voiceHz": "音高：{{hz}} Hz"
     },
     "diarization": {
       "title": "说话人分离",
@@ -349,7 +349,17 @@
       "pricing": "定价",
       "pricingDesc": "AssemblyAI 通用版含说话人标签：$0.17/小时（$0.00283/分钟）",
       "pricingNote": "包含基础转录 + 说话人分离附加项。",
-      "howItWorks": "工作原理"
+      "howItWorks": "工作原理",
+      "howItWorksMic": "您的麦克风音频将被标记为“我”",
+      "howItWorksSystemAudio": "系统音频（客人）每 30 秒分析一次",
+      "howItWorksPitch": "通过分析声音音高自动识别说话人",
+      "howItWorksAutoCreate": "未知说话人将自动创建为“说话人 N（未命名）”",
+      "howItWorksName": "在下方为其命名以实现持久识别",
+      "howItWorksFuture": "命名后，未来会议中将自动识别",
+      "loadKeyError": "加载 API Key 失败",
+      "loadKeyErrorDesc": "安全存储错误，请重启应用程序。",
+      "saveKeyError": "保存 API Key 失败",
+      "saveKeyErrorDesc": "安全存储错误，您的 API Key 未保存，请重试或重启应用程序。"
     }
   },
   "systemPromptsPage": {
@@ -558,11 +568,94 @@
     "refreshOutputs": "刷新输出设备列表",
     "outputChanged": "✓ 输出设备已成功切换！",
     "outputRefreshHint": "⚠️ 点击刷新按钮加载系统音频设备。",
-    "systemAudioTip": "💡 提示：系统音频捕获可录制通过扬声器或耳机播放的音频。"
+    "systemAudioTip": "💡 提示：系统音频捕获可录制通过扬声器或耳机播放的音频。",
+    "vadSensitivity": "会议检测灵敏度",
+    "vadSensitivityDesc": "调节会议频道检测系统音频中其他参会者说话的灵敏度。",
+    "vadSensitivityLabel": "语音灵敏度",
+    "vadSensitivityHint": "数值越低越灵敏（能捕捉更小的声音）",
+    "vadSilenceLabel": "结束语音的静音时长",
+    "vadSilenceHint": "说话停止后等待多久再进行转录",
+    "usingDevice": "当前使用：",
+    "unknownDevice": "未知设备",
+    "micFallbackLabel": "麦克风 {{id}}"
+  },
+  "systemAudioPermission": {
+    "checkingTitle": "正在检查权限",
+    "checkingDesc": "正在验证系统音频访问权限…",
+    "grantedTitle": "权限已授予！",
+    "grantedDesc": "系统音频访问已启用，正在开始录制…",
+    "waitingTitle": "等待授权",
+    "waitingDesc": "系统设置应已打开，请：",
+    "stepPrivacy": "前往",
+    "privacySecurity": "隐私与安全性",
+    "stepScreenRecording": "选择",
+    "screenAudioRecording": "屏幕录制与系统录音",
+    "stepFindApp": "找到",
+    "appName": "Niuma",
+    "stepFindAppSuffix": "并启用",
+    "stepReturn": "返回此处 —— 我们会自动检测！",
+    "checkingAttempts": "检测中…（{{count}}/20）",
+    "checkNow": "立即检查",
+    "deniedTitle": "需要授权",
+    "deniedDesc": "Niuma 需要获取系统音频录制权限，此功能才能正常使用。",
+    "grantPermission": "授予权限",
+    "manualSetupInstructions": "手动设置说明",
+    "stepOpenSettings": "打开",
+    "systemSettings": "系统设置",
+    "stepNavigatePrivacy": "进入",
+    "stepClickScreenRecording": "点击",
+    "stepFindInList": "在列表中找到",
+    "stepToggleOn": "将开关切换为",
+    "on": "开启",
+    "stepRestart": "如有需要，重启 Niuma"
+  },
+  "setupInstructions": {
+    "status": "状态：",
+    "active": "运行中",
+    "troubleshoot": "故障排查",
+    "notePrefix": "注意：",
+    "macos": {
+      "title": "需要系统音频权限",
+      "description": "Niuma 需要获取权限才能录制屏幕音频，点击按钮将打开系统设置。",
+      "buttonText": "打开系统设置",
+      "manualTitle": "如未自动获得授权：",
+      "manualSteps": "1. 前往 系统设置 > 隐私与安全性 > 屏幕录制与系统录音。\n2. 在列表中找到 Niuma 并启用；若未找到，点击 + 添加 Niuma。",
+      "note": "授权后可能需要重启 Niuma。"
+    },
+    "windows": {
+      "title": "系统音频访问",
+      "description": "Niuma 需要访问系统音频，下方按钮将打开「声音」设置面板以便排查问题。",
+      "buttonText": "打开声音设置",
+      "manualTitle": "确保 Niuma 能够录制音频：",
+      "manualSteps": "1. 在「声音」设置中，确认已将正确的扬声器设为默认设备。\n2. 检查设备属性，并关闭任何「独占模式」设置。",
+      "note": "Windows 不需要专门的音频录制权限提示。"
+    },
+    "linux": {
+      "title": "系统音频设置",
+      "description": "Niuma 使用 PulseAudio 录制音频，请确保其配置正确。",
+      "buttonText": "设置说明",
+      "manualTitle": "故障排查步骤：",
+      "manualSteps": "1. 确认正在运行 PulseAudio 服务。\n2. 检查系统声音设置，确认已将正确的输出设备设为默认。",
+      "note": "Linux 没有自动设置流程，需依赖系统的音频配置。"
+    },
+    "undetermined": {
+      "title": "系统音频权限",
+      "description": "Niuma 需要获取系统音频录制权限。",
+      "buttonText": "授予权限",
+      "manualTitle": "手动设置：",
+      "manualSteps": "请检查系统的隐私或声音设置，允许 Niuma 录制音频。"
+    }
+  },
+  "speechInputStatus": {
+    "toggleVoiceInput": "切换语音输入",
+    "configureProviderFirst": "请先配置语音识别服务商",
+    "configRequiredTitle": "需要配置语音识别服务商",
+    "providerMissing": "未配置服务商",
+    "configureHint": "请前往设置页面配置语音识别服务商以启用语音输入。",
+    "processingGuestAudio": "正在处理参会者音频…",
+    "listeningGuestAudio": "正在监听参会者音频"
   },
   "languagePage": {
-    "title": "语言",
-    "description": "配置响应和语音翻译的语言设置",
     "sttTitle": "语音识别语言",
     "sttDesc": "选择语音转文字的识别语言。选择「自动检测」让 STT 提供商自动识别语言，或选择特定语言以提高准确率。",
     "autoDetect": "自动检测（任意语言）",
@@ -579,5 +672,16 @@
     "targetLanguage": "目标语言",
     "targetLanguageDesc": "选择将语音翻译成的目标语言。",
     "chooseTarget": "选择目标语言"
+  },
+  "videoInsightsPage": {
+    "title": "视频要点",
+    "description": "上传视频以转录并自动提取关键时刻。",
+    "selectVideo": "点击选择视频文件",
+    "chooseAnother": "选择其他视频",
+    "analyze": "开始分析",
+    "stop": "停止",
+    "transcribing": "正在边播放边转录音频...",
+    "extracting": "正在提取关键点...",
+    "onlyPlayKeyPoints": "仅播放关键点"
   }
 }

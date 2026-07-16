@@ -1,28 +1,25 @@
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
 import { useMenuItems } from "@/hooks";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components";
 
 const Dashboard = () => {
   const { t } = useTranslation("dashboard");
   const { footerLinks, footerItems } = useMenuItems();
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-8 px-8">
+    <div className="flex h-full w-full flex-col items-center gap-8 overflow-y-auto px-8 py-10">
       <img
         src="/niuma_brand.png"
         alt="Niuma"
-        className="w-48 object-contain"
+        className="w-32 object-contain"
         draggable={false}
       />
       <div className="text-center space-y-2">
         <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
           {t("overview")}
         </p>
-        <p className="text-base text-muted-foreground">
-          {t("tagline")}
-        </p>
+        <p className="text-base text-muted-foreground">{t("tagline")}</p>
       </div>
 
       {/* Footer links (website / github) */}
@@ -70,3 +67,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

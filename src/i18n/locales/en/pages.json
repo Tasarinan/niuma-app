@@ -88,6 +88,9 @@
     "newChannel": "New Channel",
     "channelNameLabel": "Channel Name *",
     "channelNamePlaceholder": "A memorable name\u2026",
+    "channelTypeLabel": "Channel Type",
+    "channelTypeChat": "Chat",
+    "channelTypeMeeting": "Meeting",
     "channelIcon": "Channel Icon",
     "activeAgents": "Active Agents",
     "loadingAgents": "Loading agents\u2026",
@@ -101,7 +104,11 @@
     "export": "Export",
     "startMessaging": "Start sending messages, agents will respond in turn",
     "inputPlaceholder": "Message {{name}}\u2026",
-    "inputHint": "Enter to send \u00b7 Shift+Enter for newline \u00b7 @name to mention"
+    "inputHint": "Enter to send \u00b7 Shift+Enter for newline \u00b7 @name to mention",
+    "attachImage": "Attach image",
+    "attachedImages": "{{count}} image(s) attached",
+    "removeImage": "Remove image",
+    "maxImagesReached": "Up to {{max}} images"
   },
   "articles": {
     "untitled": "Untitled Article",
@@ -307,32 +314,25 @@
       "cancel": "Cancel"
     }
   },
+  "speechRecognitionPage": {
+    "title": "Speech Recognition",
+    "description": "Configure your speech recognition provider, speaker diarization, and language settings",
+    "providersTitle": "STT Providers",
+    "providersDesc": "Select your preferred STT service provider to get started."
+  },
   "speakersPage": {
-    "title": "Speakers",
-    "description": "Manage speaker identification and voice profiles for meetings",
     "profiles": {
-      "yourProfile": "Your Profile",
-      "yourProfileDesc": "Your profile is used to label your speech in meeting transcripts.",
-      "you": "You",
-      "micLabel": "Microphone audio is automatically labeled as you",
-      "createPrompt": "Create your profile to be identified in transcripts.",
-      "createProfile": "Create Profile",
       "unnamed": "Unnamed Speakers ({{count}})",
       "unnamedDesc": "Speakers automatically detected during meetings. Name them to make identification persistent.",
+      "namePlaceholder": "Enter speaker name...",
       "colleague": "Colleague",
       "client": "Client",
       "other": "Other",
       "confirmName": "Confirm name",
+      "cancel": "Cancel",
       "nameSpeaker": "Name this speaker",
       "deleteProfile": "Delete profile",
-      "save": "Save",
-      "editName": "Edit name",
-      "otherSpeakers": "Other Speakers",
-      "otherSpeakersDesc": "Pre-define speaker names for quick tagging during meetings.",
-      "empty": "No other speakers added yet. Speakers will be labeled automatically during meetings, but you can add names here for quick tagging.",
-      "namePlaceholder": "Name (e.g., Sarah Chen)",
-      "addProfile": "Add Profile",
-      "addSpeaker": "Add Speaker"
+      "voiceHz": "Voice: {{hz}} Hz"
     },
     "diarization": {
       "title": "Speaker Diarization",
@@ -349,7 +349,17 @@
       "pricing": "Pricing",
       "pricingDesc": "AssemblyAI Universal with Speaker Labels: $0.17/hr ($0.00283/min)",
       "pricingNote": "This includes the base transcription + speaker diarization addon.",
-      "howItWorks": "How it works"
+      "howItWorks": "How it works",
+      "howItWorksMic": "Your microphone audio is labeled as \"You\"",
+      "howItWorksSystemAudio": "System audio (guests) is analyzed every 30 seconds",
+      "howItWorksPitch": "Voice pitch is analyzed to automatically identify speakers",
+      "howItWorksAutoCreate": "Unknown speakers are auto-created as \"Speaker N (Unnamed)\"",
+      "howItWorksName": "Name them below for persistent recognition",
+      "howItWorksFuture": "Once named, they'll be recognized automatically in future meetings",
+      "loadKeyError": "Failed to load API key",
+      "loadKeyErrorDesc": "Secure storage error. Please restart the application.",
+      "saveKeyError": "Failed to save API key",
+      "saveKeyErrorDesc": "Secure storage error. Your API key was not saved. Please try again or restart the application."
     }
   },
   "systemPromptsPage": {
@@ -558,11 +568,94 @@
     "refreshOutputs": "Refresh output device list",
     "outputChanged": "✓ Output device changed successfully!",
     "outputRefreshHint": "⚠️ Click the refresh button to load your system audio devices.",
-    "systemAudioTip": "💡 Tip: System audio capture allows you to record audio playing through your speakers or headphones."
+    "systemAudioTip": "💡 Tip: System audio capture allows you to record audio playing through your speakers or headphones.",
+    "vadSensitivity": "Meeting Detection Sensitivity",
+    "vadSensitivityDesc": "Tune how the Meeting Channel detects when other participants are speaking through system audio.",
+    "vadSensitivityLabel": "Speech Sensitivity",
+    "vadSensitivityHint": "Lower = more sensitive (picks up quieter sounds)",
+    "vadSilenceLabel": "Silence Duration to End Speech",
+    "vadSilenceHint": "How long to wait after speech stops before transcribing",
+    "usingDevice": "Using:",
+    "unknownDevice": "Unknown device",
+    "micFallbackLabel": "Microphone {{id}}"
+  },
+  "systemAudioPermission": {
+    "checkingTitle": "Checking Permissions",
+    "checkingDesc": "Verifying system audio access permissions...",
+    "grantedTitle": "Permission Granted!",
+    "grantedDesc": "System audio access is enabled. Starting capture...",
+    "waitingTitle": "Waiting for Permission",
+    "waitingDesc": "System Settings should have opened. Please:",
+    "stepPrivacy": "Go to",
+    "privacySecurity": "Privacy & Security",
+    "stepScreenRecording": "Select",
+    "screenAudioRecording": "Screen & System Audio Recording",
+    "stepFindApp": "Find",
+    "appName": "Niuma",
+    "stepFindAppSuffix": "and enable it",
+    "stepReturn": "Return here - we'll detect it automatically!",
+    "checkingAttempts": "Checking... ({{count}}/20)",
+    "checkNow": "Check Now",
+    "deniedTitle": "Permission Required",
+    "deniedDesc": "Niuma needs permission to capture system audio. This is required for the system audio feature to work.",
+    "grantPermission": "Grant Permission",
+    "manualSetupInstructions": "Manual Setup Instructions",
+    "stepOpenSettings": "Open",
+    "systemSettings": "System Settings",
+    "stepNavigatePrivacy": "Navigate to",
+    "stepClickScreenRecording": "Click on",
+    "stepFindInList": "Find",
+    "stepToggleOn": "Toggle the switch to",
+    "on": "ON",
+    "stepRestart": "Restart Niuma if needed"
+  },
+  "setupInstructions": {
+    "status": "Status:",
+    "active": "Active",
+    "troubleshoot": "Troubleshoot",
+    "notePrefix": "Note: ",
+    "macos": {
+      "title": "System Audio Permission Required",
+      "description": "Niuma needs permission to capture your screen's audio. Clicking the button will open System Settings.",
+      "buttonText": "Open System Settings",
+      "manualTitle": "If permission is not granted automatically:",
+      "manualSteps": "1. Go to System Settings > Privacy & Security > Screen & System Audio Recording.\n2. Find Niuma in the list and enable it, if not found then click on + and add Niuma.",
+      "note": "A restart of Niuma may be required after granting permission."
+    },
+    "windows": {
+      "title": "System Audio Access",
+      "description": "Niuma needs to access your system audio. The button below will open the Sound settings panel for troubleshooting.",
+      "buttonText": "Open Sound Settings",
+      "manualTitle": "To ensure Niuma can capture audio:",
+      "manualSteps": "1. In Sound settings, ensure the correct speakers are set as the default device.\n2. Check your device properties and disable any 'Exclusive Mode' settings.",
+      "note": "Windows does not require a specific permission prompt for audio capture."
+    },
+    "linux": {
+      "title": "System Audio Setup",
+      "description": "Niuma captures audio using PulseAudio. Please ensure it is configured correctly.",
+      "buttonText": "Setup Instructions",
+      "manualTitle": "Troubleshooting Steps:",
+      "manualSteps": "1. Make sure you are running a PulseAudio server.\n2. Check your system's sound settings and ensure the correct output device is set as default.",
+      "note": "There is no automatic setup for Linux. Access depends on your system's audio configuration."
+    },
+    "undetermined": {
+      "title": "System Audio Permission",
+      "description": "Niuma needs permission to capture system audio.",
+      "buttonText": "Grant Permission",
+      "manualTitle": "Manual Setup:",
+      "manualSteps": "Please check your system's privacy or sound settings to allow Niuma to capture audio."
+    }
+  },
+  "speechInputStatus": {
+    "toggleVoiceInput": "Toggle voice input",
+    "configureProviderFirst": "Configure speech provider first",
+    "configRequiredTitle": "Speech Provider Configuration Required",
+    "providerMissing": "PROVIDER IS MISSING",
+    "configureHint": "Please go to settings and configure your speech provider to enable voice input.",
+    "processingGuestAudio": "Processing guest audio...",
+    "listeningGuestAudio": "Listening for guest audio"
   },
   "languagePage": {
-    "title": "Language",
-    "description": "Configure language settings for responses and speech translation",
     "sttTitle": "Speech Recognition Language",
     "sttDesc": "Select the language for speech-to-text recognition. Choose 'Auto-detect' to let the STT provider automatically identify the spoken language, or select a specific language for improved accuracy.",
     "autoDetect": "Auto-detect (any language)",
@@ -579,5 +672,16 @@
     "targetLanguage": "Target Language",
     "targetLanguageDesc": "Select the language to translate your speech into.",
     "chooseTarget": "Choose target language"
+  },
+  "videoInsightsPage": {
+    "title": "Video Insights",
+    "description": "Upload a video to transcribe it and automatically extract key moments.",
+    "selectVideo": "Click to select a video file",
+    "chooseAnother": "Choose another video",
+    "analyze": "Analyze",
+    "stop": "Stop",
+    "transcribing": "Transcribing audio as the video plays...",
+    "extracting": "Extracting key points...",
+    "onlyPlayKeyPoints": "Only play key points"
   }
 }

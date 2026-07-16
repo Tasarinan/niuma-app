@@ -1,7 +1,6 @@
 {
   "title": "仪表盘",
   "welcome": "欢迎回来",
-  "quickActions": "快捷操作",
   "recentChats": "最近对话",
   "stats": "概览",
   "overview": "概览",
@@ -25,6 +24,5 @@
     "title": "近期团队动态",
     "editTitle": "编辑近期团队动态",
     "editDescription": "管理您的近期团队动态",
-    "empty": "暂无近期团队动态"
-  }
+    "empty": "暂无近期团队动态"  }
 }

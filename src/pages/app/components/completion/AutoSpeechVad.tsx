@@ -1,13 +1,8 @@
-import { fetchSTT } from "@/lib";
 import { UseCompletionReturn, SpeakerInfo, SpeakerIdFactory } from "@/types";
-import { useMicVAD } from "@ricky0123/vad-react";
 import { LoaderCircleIcon, MicIcon, MicOffIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect } from "react";
 import { Button } from "@/components";
-import { useApp } from "@/store";
-import { floatArrayToWav } from "@/lib/utils";
-import { shouldUseNiumaAPI } from "@/lib/functions/Niuma.api";
-import { useTranslation } from "@/hooks";
+import { useTranslation, useMicVadTranscription } from "@/hooks";
 
 interface AutoSpeechVADProps {
   submit: UseCompletionReturn["submit"];
@@ -20,122 +15,94 @@ interface AutoSpeechVADProps {
   sttLanguage?: string;
 }
 
-const AutoSpeechVADInternal = ({
+export interface AutoSpeechVADState {
+  listening: boolean;
+  userSpeaking: boolean;
+  isTranscribing: boolean;
+  start: () => void;
+  pause: () => void;
+}
+
+/**
+ * Headless hook containing the VAD listen + STT transcribe + submit logic.
+ * Extracted so callers can drive their own button UI (e.g. Toolbar) from
+ * the capture state without needing to render this file's own <Button>.
+ *
+ * The actual VAD/STT capture pipeline lives in the shared useMicVadTranscription
+ * hook (@/hooks) - this wrapper only adds what's specific to the completion
+ * widget: routing the transcript to either the Meeting Assist transcript
+ * accumulator or straight to chat submit, plus background translation.
+ */
+const useAutoSpeechVAD = ({
   submit,
   setState,
-  setEnableVAD,
   microphoneDeviceId,
   meetingAssistMode = false,
   addMeetingTranscript,
   updateTranscriptTranslation,
   sttLanguage = "en",
-}: AutoSpeechVADProps) => {
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const { selectedSttProvider, allSttProviders } = useApp();
+}: Omit<AutoSpeechVADProps, "setEnableVAD">): AutoSpeechVADState => {
   const { translate, isEnabled: translationEnabled } = useTranslation();
 
-  const audioConstraints: MediaTrackConstraints = microphoneDeviceId
-    ? { deviceId: { exact: microphoneDeviceId } }
-    : { deviceId: "default" };
-
-  const vad = useMicVAD({
-    userSpeakingThreshold: 0.6,
+  const { listening, userSpeaking, isTranscribing, start, pause } = useMicVadTranscription({
+    microphoneDeviceId,
+    sttLanguage,
     startOnLoad: true,
-    additionalAudioConstraints: audioConstraints,
-    onSpeechEnd: async (audio) => {
-      try {
-        // convert float32array to blob
-        const audioBlob = floatArrayToWav(audio, 16000, "wav");
+    onTranscript: (transcription) => {
+      if (meetingAssistMode && addMeetingTranscript) {
+        // In Meeting Assist Mode, accumulate transcripts instead of auto-submitting.
+        // Phase 1: Label all microphone audio as "You".
+        const microphoneSpeaker: SpeakerInfo = {
+          speakerId: SpeakerIdFactory.you(),
+          speakerLabel: "You",
+          confirmed: true,
+        };
+        const timestamp = addMeetingTranscript(transcription, microphoneSpeaker, "microphone");
 
-        let transcription: string;
-        const useNiumaAPI = await shouldUseNiumaAPI();
-
-        // Check if we have a configured speech provider
-        if (!selectedSttProvider.provider && !useNiumaAPI) {
-          console.warn("No speech provider selected");
-          setState((prev: any) => ({
-            ...prev,
-            error:
-              "No speech provider selected. Please select one in settings.",
-          }));
-          return;
-        }
-
-        const providerConfig = allSttProviders.find(
-          (p) => p.id === selectedSttProvider.provider
-        );
-
-        if (!providerConfig && !useNiumaAPI) {
-          console.warn("Selected speech provider configuration not found");
-          setState((prev: any) => ({
-            ...prev,
-            error:
-              "Speech provider configuration not found. Please check your settings.",
-          }));
-          return;
-        }
-
-        setIsTranscribing(true);
-
-        // Microphone audio always uses standard STT (no diarization)
-        // Diarization is only for system audio (handled in useMeetingAudio.ts)
-        // This ensures microphone audio is always labeled as "You"
-        transcription = await fetchSTT({
-          provider: useNiumaAPI ? undefined : providerConfig,
-          selectedProvider: selectedSttProvider,
-          audio: audioBlob,
-          language: sttLanguage,
-        });
-
-        if (transcription) {
-          if (meetingAssistMode && addMeetingTranscript) {
-            // In Meeting Assist Mode, accumulate transcripts instead of auto-submitting
-            // Phase 1: Label all microphone audio as "You"
-            const microphoneSpeaker: SpeakerInfo = {
-              speakerId: SpeakerIdFactory.you(),
-              speakerLabel: 'You',
-              confirmed: true,
-            };
-            const timestamp = addMeetingTranscript(transcription, microphoneSpeaker, 'microphone');
-
-            // Translate in background if enabled
-            if (translationEnabled && updateTranscriptTranslation) {
-              translate(transcription).then((result) => {
-                if (result.success && result.translation) {
-                  updateTranscriptTranslation(timestamp, result.translation);
-                } else if (result.error) {
-                  updateTranscriptTranslation(timestamp, undefined, result.error);
-                }
-              });
+        // Translate in background if enabled
+        if (translationEnabled && updateTranscriptTranslation) {
+          translate(transcription).then((result) => {
+            if (result.success && result.translation) {
+              updateTranscriptTranslation(timestamp, result.translation);
+            } else if (result.error) {
+              updateTranscriptTranslation(timestamp, undefined, result.error);
             }
-          } else {
-            // Normal mode: auto-submit to AI
-            submit(transcription);
-          }
+          });
         }
-      } catch (error) {
-        console.error("Failed to transcribe audio:", error);
-        setState((prev: any) => ({
-          ...prev,
-          error:
-            error instanceof Error ? error.message : "Transcription failed",
-        }));
-      } finally {
-        setIsTranscribing(false);
+      } else {
+        // Normal mode: auto-submit to AI
+        submit(transcription);
       }
     },
+    onError: (error) => {
+      console.error("Failed to transcribe audio:", error);
+      setState((prev: any) => ({
+        ...prev,
+        error: error instanceof Error ? error.message : "Transcription failed",
+      }));
+    },
   });
+
+  return { listening, userSpeaking, isTranscribing, start, pause };
+};
+
+const AutoSpeechVADInternal = ({
+  setEnableVAD,
+  ...rest
+}: AutoSpeechVADProps) => {
+  const { listening, userSpeaking, isTranscribing, start, pause } =
+    useAutoSpeechVAD(rest);
 
   return (
     <>
       <Button
         size="icon"
         onClick={() => {
-          if (vad.listening) {
-            vad.pause();
+          if (listening) {
+            pause();
             setEnableVAD(false);
           } else {
-            vad.start();
+            start();
             setEnableVAD(true);
           }
         }}
@@ -143,9 +110,9 @@ const AutoSpeechVADInternal = ({
       >
         {isTranscribing ? (
           <LoaderCircleIcon className="h-4 w-4 animate-spin text-green-500" />
-        ) : vad.userSpeaking ? (
+        ) : userSpeaking ? (
           <LoaderCircleIcon className="h-4 w-4 animate-spin" />
-        ) : vad.listening ? (
+        ) : listening ? (
           <MicOffIcon className="h-4 w-4 animate-pulse" />
         ) : (
           <MicIcon className="h-4 w-4" />
@@ -157,4 +124,33 @@ const AutoSpeechVADInternal = ({
 
 export const AutoSpeechVAD = (props: AutoSpeechVADProps) => {
   return <AutoSpeechVADInternal key={props.microphoneDeviceId} {...props} />;
+};
+
+export interface AutoSpeechVADHeadlessProps
+  extends Omit<AutoSpeechVADProps, "setEnableVAD"> {
+  onStateChange: (state: AutoSpeechVADState) => void;
+}
+
+const AutoSpeechVADHeadlessInternal = ({
+  onStateChange,
+  ...rest
+}: AutoSpeechVADHeadlessProps) => {
+  const vadState = useAutoSpeechVAD(rest);
+
+  useEffect(() => {
+    onStateChange(vadState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vadState.listening, vadState.userSpeaking, vadState.isTranscribing]);
+
+  return null;
+};
+
+/**
+ * Headless variant of AutoSpeechVAD — runs the same VAD listen + STT
+ * transcribe + submit logic but renders no UI of its own, so a caller
+ * (e.g. Toolbar) can keep its existing button UI unchanged and only
+ * wire the real capture state/controls into it.
+ */
+export const AutoSpeechVADHeadless = (props: AutoSpeechVADHeadlessProps) => {
+  return <AutoSpeechVADHeadlessInternal key={props.microphoneDeviceId} {...props} />;
 };

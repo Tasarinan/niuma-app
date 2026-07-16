@@ -31,15 +31,19 @@ import {
 } from "@/components/ui";
 import { Markdown } from "@/components";
 import { useAgents, useGroupChat } from "@/hooks";
+import type { AgentInput } from "@/hooks";
+import { MeetingChannelView } from "./components/meeting";
 import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
-import { agentDefinitionRepo } from "@/lib/data";
 import type { AgentDefinition, GroupChannel, GroupMessage, SandboxMode } from "@/types";
+import type { ImageContent } from "@earendil-works/pi-ai";
+import { MAX_FILES } from "@/config";
 import {
   Download,
   Edit2,
   Hash,
   Loader2,
   MessageSquarePlus,
+  Paperclip,
   Plus,
   Send,
   Square,
@@ -86,17 +90,23 @@ function loadHiredSet(): Set<string> {
 /**
  * For a given CatalogAgent, find the matching AgentDefinition by name,
  * or create a new one from the catalog data.
+ *
+ * IMPORTANT: `createAgent` must be the store-backed `create` from useAgents()
+ * (not agentDefinitionRepo.create directly) so the shared agents list updates
+ * immediately - otherwise useGroupChat's sendMessage can't resolve the newly
+ * created agent and silently sends no AI response.
  */
 async function bridgeCatalogAgent(
   ca: CatalogAgent,
-  existingDefs: AgentDefinition[]
+  existingDefs: AgentDefinition[],
+  createAgent: (input: AgentInput) => Promise<AgentDefinition>
 ): Promise<string> {
   const match = existingDefs.find(
     (d) => d.name.trim().toLowerCase() === ca.name.trim().toLowerCase()
   );
   if (match) return match.id;
 
-  const created = await agentDefinitionRepo.create({
+  const created = await createAgent({
     name: ca.name,
     role: ca.role ?? "",
     avatar: ca.avatar ?? "",
@@ -242,11 +252,12 @@ function ChannelModal({
   initial?: GroupChannel | null;
   /** Current AgentDefinition list, used to reverse-map agentIds → catalog agents. */
   existingDefs: AgentDefinition[];
-  /** Receives (name, selectedCatalogFiles, avatar). */
-  onSave: (name: string, selectedFiles: string[], avatar: string) => void;
+  /** Receives (name, selectedCatalogFiles, avatar, kind). */
+  onSave: (name: string, selectedFiles: string[], avatar: string, kind: "chat" | "meeting") => void;
 }) {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(CHANNEL_ICONS[0] ?? "");
+  const [kind, setKind] = useState<"chat" | "meeting">("chat");
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [hiredCatalog, setHiredCatalog] = useState<CatalogAgent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -261,6 +272,7 @@ function ChannelModal({
         ? initial.avatar
         : (CHANNEL_ICONS[0] ?? "")
     );
+    setKind(initial?.kind ?? "chat");
     setLoading(true);
     const hiredSet = loadHiredSet();
     loadAgentCatalog()
@@ -315,6 +327,37 @@ function ChannelModal({
               placeholder={t("chatPage.channelNamePlaceholder")}
               className="rounded-xl"
             />
+          </div>
+
+          {/* Channel type */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-500">{t("chatPage.channelTypeLabel")}</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setKind("chat")}
+                className={cn(
+                  "flex-1 rounded-xl border px-3 py-2 text-xs font-medium transition-colors",
+                  kind === "chat"
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-600"
+                    : "border-slate-200 text-slate-500 hover:border-slate-300"
+                )}
+              >
+                {t("chatPage.channelTypeChat")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setKind("meeting")}
+                className={cn(
+                  "flex-1 rounded-xl border px-3 py-2 text-xs font-medium transition-colors",
+                  kind === "meeting"
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-600"
+                    : "border-slate-200 text-slate-500 hover:border-slate-300"
+                )}
+              >
+                {t("chatPage.channelTypeMeeting")}
+              </button>
+            </div>
           </div>
 
           {/* Icon picker */}
@@ -426,7 +469,7 @@ function ChannelModal({
             size="sm"
             className="rounded-full px-5"
             onClick={() => {
-              onSave(name, selectedFiles, avatar);
+              onSave(name, selectedFiles, avatar, kind);
               onClose();
             }}
             disabled={!name.trim()}
@@ -441,8 +484,28 @@ function ChannelModal({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+interface AttachedImage {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string;
+  size: number;
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64 = (reader.result as string)?.split(",")[1] || "";
+      resolve(base64);
+    };
+    reader.onerror = reject;
+  });
+}
+
 export default function ChatPage() {
-  const { agents } = useAgents();
+  const { agents, create: createAgent } = useAgents();
   const {
     channels,
     messages,
@@ -457,6 +520,8 @@ export default function ChatPage() {
   } = useGroupChat();
 
   const [input, setInput] = useState("");
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editChannelState, setEditChannelState] = useState<GroupChannel | null>(null);
   const [showMembers, setShowMembers] = useState(false);
@@ -476,10 +541,42 @@ export default function ChatPage() {
   }, [activeMessages]);
 
   const send = async () => {
-    if (!input.trim() || !selectedId || isSending) return;
+    if ((!input.trim() && attachedImages.length === 0) || !selectedId || isSending) return;
     const text = input.trim();
+    const images: ImageContent[] | undefined = attachedImages.length
+      ? attachedImages.map((f) => ({ type: "image" as const, data: f.data, mimeType: f.mimeType }))
+      : undefined;
     setInput("");
-    await sendMessage(text);
+    setAttachedImages([]);
+    await sendMessage(text, images);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+      void fileToBase64(file).then((data) => {
+        setAttachedImages((prev) =>
+          prev.length >= MAX_FILES
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: crypto.randomUUID(),
+                  name: file.name,
+                  mimeType: file.type,
+                  data,
+                  size: file.size,
+                },
+              ]
+        );
+      });
+    });
+    e.target.value = "";
+  };
+
+  const removeAttachedImage = (id: string) => {
+    setAttachedImages((prev) => prev.filter((f) => f.id !== id));
   };
 
   const handleExport = () => {
@@ -498,7 +595,7 @@ export default function ChatPage() {
    * Creates AgentDefinitions on-the-fly for any hired agent not yet in the repo.
    */
   const handleChannelSave = useCallback(
-    async (name: string, selectedFiles: string[], avatar: string) => {
+    async (name: string, selectedFiles: string[], avatar: string, kind: "chat" | "meeting") => {
       // Load hired catalog to get full CatalogAgent objects
       const hiredSet = loadHiredSet();
       const all = await loadAgentCatalog();
@@ -508,17 +605,17 @@ export default function ChatPage() {
       for (const file of selectedFiles) {
         const ca = hired.find((a) => a.file === file);
         if (!ca) continue;
-        const id = await bridgeCatalogAgent(ca, agents);
+        const id = await bridgeCatalogAgent(ca, agents, createAgent);
         agentIds.push(id);
       }
 
       if (editChannelState) {
-        hookEditChannel(editChannelState.id, { name, agentIds, avatar });
+        hookEditChannel(editChannelState.id, { name, agentIds, avatar, kind });
       } else {
-        createChannel(name, agentIds, avatar || randomIcon());
+        createChannel(name, agentIds, avatar || randomIcon(), kind);
       }
     },
-    [agents, editChannelState, hookEditChannel, createChannel]
+    [agents, editChannelState, hookEditChannel, createChannel, createAgent]
   );
 
   return (
@@ -705,156 +802,219 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="flex flex-1 overflow-hidden">
-            {/* Messages */}
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <div
-                ref={scrollRef}
-                className="flex-1 space-y-5 overflow-y-auto px-5 py-5"
-              >
-                {activeMessages.length === 0 ? (
-                  <div className="flex flex-col items-center gap-4 py-20 text-slate-400">
-                    <ChannelAv channel={activeChannel} size="lg" />
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-slate-600">
-                        {activeChannel.name}
-                      </p>
-                      <p className="mt-1 text-xs">
-                        {t("chatPage.startMessaging")}
-                      </p>
+          {activeChannel.kind === "meeting" ? (
+            <MeetingChannelView key={activeChannel.id} channel={activeChannel} />
+          ) : (
+            <div className="flex flex-1 overflow-hidden">
+              {/* Messages */}
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <div
+                  ref={scrollRef}
+                  className="flex-1 space-y-5 overflow-y-auto px-5 py-5"
+                >
+                  {activeMessages.length === 0 ? (
+                    <div className="flex flex-col items-center gap-4 py-20 text-slate-400">
+                      <ChannelAv channel={activeChannel} size="lg" />
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-slate-600">
+                          {activeChannel.name}
+                        </p>
+                        <p className="mt-1 text-xs">
+                          {t("chatPage.startMessaging")}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  activeMessages.map((msg) => {
-                    const agent = msg.agentId ? agentMap[msg.agentId] : undefined;
-                    const isUser = msg.role === "user";
-                    return (
-                      <div
-                        key={msg.id}
-                        className={cn(
-                          "flex gap-3",
-                          isUser ? "flex-row-reverse" : "flex-row"
-                        )}
-                      >
-                        {!isUser && (
-                          <Av
-                            src={agent?.avatar ?? msg.agentAvatar}
-                            name={msg.agentName}
-                            size="sm"
-                          />
-                        )}
+                  ) : (
+                    activeMessages.map((msg) => {
+                      const agent = msg.agentId ? agentMap[msg.agentId] : undefined;
+                      const isUser = msg.role === "user";
+                      return (
                         <div
+                          key={msg.id}
                           className={cn(
-                            "flex max-w-[68%] flex-col gap-1",
-                            isUser ? "items-end" : "items-start"
+                            "flex gap-3",
+                            isUser ? "flex-row-reverse" : "flex-row"
                           )}
                         >
                           {!isUser && (
-                            <span className="text-[11px] font-semibold text-slate-500">
-                              {msg.agentName ?? agent?.name}
-                            </span>
+                            <Av
+                              src={agent?.avatar ?? msg.agentAvatar}
+                              name={msg.agentName}
+                              size="sm"
+                            />
                           )}
                           <div
                             className={cn(
-                              "rounded-2xl px-4 py-2.5 text-sm shadow-sm",
-                              isUser
-                                ? "bg-indigo-600 text-white rounded-tr-sm"
-                                : "bg-white text-slate-800 rounded-tl-sm ring-1 ring-slate-100"
+                              "flex max-w-[68%] flex-col gap-1",
+                              isUser ? "items-end" : "items-start"
                             )}
                           >
-                            <Markdown>{msg.content}</Markdown>
+                            {!isUser && (
+                              <span className="text-[11px] font-semibold text-slate-500">
+                                {msg.agentName ?? agent?.name}
+                              </span>
+                            )}
+                            <div
+                              className={cn(
+                                "rounded-2xl px-4 py-2.5 text-sm shadow-sm",
+                                isUser
+                                  ? "bg-indigo-600 text-white rounded-tr-sm"
+                                  : "bg-white text-slate-800 rounded-tl-sm ring-1 ring-slate-100"
+                              )}
+                            >
+                              {isUser && msg.images && msg.images.length > 0 && (
+                                <div className="mb-2 flex flex-wrap gap-1.5">
+                                  {msg.images.map((img, i) => (
+                                    <img
+                                      key={i}
+                                      src={`data:${img.mimeType};base64,${img.data}`}
+                                      alt=""
+                                      className="size-16 rounded-lg object-cover ring-1 ring-white/30"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                              {msg.content && <Markdown>{msg.content}</Markdown>}
+                            </div>
+                            <span className="text-[10px] text-slate-400">
+                              {moment(msg.timestamp).format("HH:mm")}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-slate-400">
-                            {moment(msg.timestamp).format("HH:mm")}
-                          </span>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Input */}
-              <div className="flex-shrink-0 border-t border-slate-100 bg-white/80 px-5 py-4 backdrop-blur">
-                <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">
-                  <Textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        void send();
-                      }
-                    }}
-                    placeholder={t("chatPage.inputPlaceholder", { name: activeChannel.name })}
-                    rows={1}
-                    className="min-h-[28px] max-h-40 flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
-                  />
-                  {isSending ? (
-                    <button
-                      type="button"
-                      onClick={() => stopGeneration()}
-                      className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-500 transition-colors hover:bg-red-200"
-                    >
-                      <Square className="size-3.5" />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void send()}
-                      disabled={!input.trim()}
-                      className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow transition-all hover:bg-indigo-500 disabled:opacity-40 disabled:shadow-none"
-                    >
-                      <Send className="size-3.5" />
-                    </button>
+                      );
+                    })
                   )}
                 </div>
-                <p className="mt-2 text-center text-[10px] text-slate-400">
-                  {t("chatPage.inputHint")}
-                </p>
-              </div>
-            </div>
 
-            {/* Members panel */}
-            {showMembers && (
-              <aside className="flex w-56 flex-shrink-0 flex-col border-l border-slate-100 bg-white/80 backdrop-blur">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                  <span className="text-xs font-semibold text-slate-500">
-                    {t("chatPage.members", { count: activeChannel.agentIds.length })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowMembers(false)}
-                    className="text-slate-400 hover:text-slate-700"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-                <ScrollArea className="flex-1 px-3 py-3">
-                  {activeChannel.agentIds.map((id) => {
-                    const a = agentMap[id];
-                    if (!a) return null;
-                    return (
-                      <div
-                        key={id}
-                        className="mb-1 flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-slate-50"
-                      >
-                        <Av src={a.avatar} name={a.name} size="sm" />
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-slate-700">
-                            {a.name}
-                          </p>
-                          <p className="truncate text-[10px] text-slate-400">
-                            {a.role ?? ""}
-                          </p>
+                {/* Input */}
+                <div className="flex-shrink-0 border-t border-slate-100 bg-white/80 px-5 py-4 backdrop-blur">
+                  {attachedImages.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {attachedImages.map((img) => (
+                        <div key={img.id} className="group relative">
+                          <img
+                            src={`data:${img.mimeType};base64,${img.data}`}
+                            alt={img.name}
+                            className="size-14 rounded-lg object-cover ring-1 ring-slate-200"
+                          />
+                          <button
+                            type="button"
+                            title={t("chatPage.removeImage")}
+                            onClick={() => removeAttachedImage(img.id)}
+                            className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-slate-900/80 text-white opacity-0 shadow transition-opacity group-hover:opacity-100"
+                          >
+                            <X className="size-3" />
+                          </button>
                         </div>
-                      </div>
-                    );
-                  })}
-                </ScrollArea>
-              </aside>
-            )}
-          </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      title={
+                        attachedImages.length >= MAX_FILES
+                          ? t("chatPage.maxImagesReached", { max: MAX_FILES })
+                          : t("chatPage.attachImage")
+                      }
+                      disabled={attachedImages.length >= MAX_FILES}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="relative flex size-8 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Paperclip className="size-3.5" />
+                      {attachedImages.length > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-semibold text-white">
+                          {attachedImages.length}
+                        </span>
+                      )}
+                    </button>
+                    <Textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void send();
+                        }
+                      }}
+                      placeholder={t("chatPage.inputPlaceholder", { name: activeChannel.name })}
+                      rows={1}
+                      className="min-h-[28px] max-h-40 flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+                    />
+                    {isSending ? (
+                      <button
+                        type="button"
+                        onClick={() => stopGeneration()}
+                        className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-500 transition-colors hover:bg-red-200"
+                      >
+                        <Square className="size-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void send()}
+                        disabled={!input.trim() && attachedImages.length === 0}
+                        className="flex size-8 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow transition-all hover:bg-indigo-500 disabled:opacity-40 disabled:shadow-none"
+                      >
+                        <Send className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-2 text-center text-[10px] text-slate-400">
+                    {t("chatPage.inputHint")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Members panel */}
+              {showMembers && (
+                <aside className="flex w-56 flex-shrink-0 flex-col border-l border-slate-100 bg-white/80 backdrop-blur">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <span className="text-xs font-semibold text-slate-500">
+                      {t("chatPage.members", { count: activeChannel.agentIds.length })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowMembers(false)}
+                      className="text-slate-400 hover:text-slate-700"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                  <ScrollArea className="flex-1 px-3 py-3">
+                    {activeChannel.agentIds.map((id) => {
+                      const a = agentMap[id];
+                      if (!a) return null;
+                      return (
+                        <div
+                          key={id}
+                          className="mb-1 flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-slate-50"
+                        >
+                          <Av src={a.avatar} name={a.name} size="sm" />
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold text-slate-700">
+                              {a.name}
+                            </p>
+                            <p className="truncate text-[10px] text-slate-400">
+                              {a.role ?? ""}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </ScrollArea>
+                </aside>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -867,8 +1027,8 @@ export default function ChatPage() {
         }}
         initial={editChannelState}
         existingDefs={agents}
-        onSave={(name, selectedFiles, avatar) => {
-          void handleChannelSave(name, selectedFiles, avatar);
+        onSave={(name, selectedFiles, avatar, kind) => {
+          void handleChannelSave(name, selectedFiles, avatar, kind);
         }}
       />
     </div>

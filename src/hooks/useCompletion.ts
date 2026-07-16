@@ -587,7 +587,7 @@ export const useCompletion = () => {
                 systemPrompt: systemPrompt || "You are a helpful assistant.",
                 providerId: connection.providerId,
                 modelId: connection.model,
-                enabledInternalTools: [],
+                enabledInternalTools: ["file_search", "web_search"],
                 enabledSkillIds,
                 enabledMcpServerIds: [],
                 sandboxMode: "read-only",
