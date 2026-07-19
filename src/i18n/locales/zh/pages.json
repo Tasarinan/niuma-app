@@ -140,10 +140,11 @@
       "copyClipboard": "复制到剪贴板",
       "newArticle": "新建文章",
       "deleteArticle": "删除文章",
-      "saveToDisk": "保存到 ~/Documents/niuma/articles"
+      "saveToDisk": "保存到 ~/Documents/niuma/artifact"
     },
     "meta": {
       "currentArticle": "当前文章",
+      "notSavedYet": "尚未保存到文件",
       "cover": "封面",
       "noCover": "暂无封面",
       "uploadCover": "上传封面",
@@ -158,6 +159,14 @@
       "modePreview": "预览",
       "archive": "存档"
     },
+    "artifactTree": {
+      "button": "文件",
+      "title": "文件树",
+      "summary": "{{roots}} 个根目录，{{files}} 个文件",
+      "refresh": "刷新文件树",
+      "empty": "未发现文件",
+      "emptyRoot": "当前根目录下没有可见文件"
+    },
     "toast": {
       "saved": "文章已保存到本地",
       "created": "已创建新文章",
@@ -167,6 +176,8 @@
       "importFailed": "导入失败",
       "imageInserted": "图片已插入",
       "imageReadFailed": "图片读取失败",
+      "openFailed": "打开文件失败: {{error}}",
+      "onlyMarkdownEditable": "当前仅支持打开和编辑 Markdown 文件",
       "savedToDisk": "已保存 → {{path}}",
       "saveToDiskFailed": "保存到磁盘失败: {{error}}",
       "mdCopied": "Markdown 已复制到剪贴板",
@@ -226,6 +237,8 @@
   "settingsPage": {
     "title": "应用设置",
     "description": "管理您的设置",
+    "language": "语言 / Language",
+    "languageDescription": "切换界面语言",
     "theme": {
       "title": "主题定制",
       "licenseRequired": "（需要有效许可证才能使用此功能）",
@@ -363,45 +376,6 @@
       "saveKeyErrorDesc": "安全存储错误，您的 API Key 未保存，请重试或重启应用程序。"
     }
   },
-  "systemPromptsPage": {
-    "title": "系统提示词",
-    "description": "管理您的 AI 行为配置，并创建新的配置",
-    "searchPlaceholder": "搜索系统提示词...",
-    "createNew": "新建",
-    "noPromptsFound": "未找到提示词",
-    "createToStart": "创建新提示词以开始",
-    "generate": {
-      "btn": "AI 生成",
-      "title": "生成系统提示词",
-      "desc": "描述您想要的 AI 行为，我们将为您生成提示词。",
-      "placeholder": "例如：我需要一个协助代码审查并专注于最佳实践的 AI...",
-      "generating": "生成中...",
-      "licenseRequired": "此功能需要有效许可证，请点击下方按钮获取许可证。",
-      "getLicense": "获取许可证"
-    },
-    "delete": {
-      "title": "删除系统提示词",
-      "confirm": "确定要删除「{{name}}」吗？",
-      "warning": "此操作无法撤销，将永久从数据库中删除该系统提示词。",
-      "deleting": "删除中...",
-      "delete": "删除"
-    },
-    "form": {
-      "editTitle": "编辑系统提示词",
-      "createTitle": "创建系统提示词",
-      "editDesc": "在下方更新您的系统提示词详情。",
-      "createDesc": "定义新的 AI 行为和个性。",
-      "nameLabel": "名称",
-      "namePlaceholder": "例如：代码审查专家、创意写作助手...",
-      "promptLabel": "系统提示词",
-      "promptPlaceholder": "您是一个有帮助的 AI 助手，请简洁、准确且友好地回应...",
-      "tip": "💡 提示：请明确说明语气、专业程度和回应格式",
-      "updating": "更新中...",
-      "creating": "创建中...",
-      "deletePrompt": "删除此提示词",
-      "close": "关闭"
-    }
-  },
   "responsesPage": {
     "title": "响应设置",
     "description": "自定义 AI 生成和显示响应的方式",
@@ -447,7 +421,19 @@
     "byProvider": {
       "title": "按提供商",
       "description": "各 AI 提供商费用明细",
-      "empty": "暂无提供商数据"
+      "empty": "暂无提供商数据",
+      "providers": {
+        "openai": "OpenAI",
+        "claude": "Anthropic Claude",
+        "gemini": "Google Gemini",
+        "groq": "Groq",
+        "mistral": "Mistral",
+        "perplexity": "Perplexity",
+        "openrouter": "OpenRouter",
+        "cohere": "Cohere",
+        "grok": "xAI Grok",
+        "ollama": "Ollama (Local)"
+      }
     }
   },
   "contextMemoryPage": {
@@ -544,6 +530,8 @@
     "processingMode": "处理模式",
     "manualMode": "手动模式",
     "autoMode": "自动模式",
+    "processingModeManualDesc": "截图将自动添加到您的附件文件。您可以使用自己的提示没你提交。您可以拍摄多个截图並稍后提交。",
+    "processingModeAutoDesc": "截图将自动按照您的自定义提示提交给 AI。无需手动干涉。一次只能提交一个截图。",
     "autoPrompt": "自动提示词",
     "autoPromptPlaceholder": "输入截图自动分析的提示词...",
     "autoPromptHint": "截图时将自动使用此提示词",

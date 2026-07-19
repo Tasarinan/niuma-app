@@ -1,10 +1,12 @@
 import { Switch, Label, Header } from "@/components";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/store";
 import { updateAutoScroll } from "@/lib/storage/response-settings.storage";
 import { useState, useEffect } from "react";
 import { getResponseSettings } from "@/lib";
 
 export const AutoScrollToggle = () => {
+  const { t } = useTranslation("pages");
   const { hasActiveLicense } = useApp();
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
 
@@ -24,8 +26,8 @@ export const AutoScrollToggle = () => {
   return (
     <div className="space-y-4">
       <Header
-        title="Auto-Scroll Behavior"
-        description="Control whether responses automatically scroll to the bottom. This setting applies immediately and controls whether responses automatically scroll to the latest content as it streams"
+        title={t("responsesPage.autoScroll.title")}
+        description={t("responsesPage.autoScroll.description")}
         isMainTitle
       />
 
@@ -33,12 +35,12 @@ export const AutoScrollToggle = () => {
         <div className="flex items-center space-x-3">
           <div>
             <Label className="text-sm font-medium">
-              {autoScroll ? "Auto-Scroll Enabled" : "Auto-Scroll Disabled"}
+              {autoScroll ? t("responsesPage.autoScroll.enabled") : t("responsesPage.autoScroll.disabled")}
             </Label>
             <p className="text-xs text-muted-foreground mt-1">
               {autoScroll
-                ? "Responses will automatically scroll to the bottom as they arrive"
-                : "Responses will stay at your current scroll position"}
+                ? t("responsesPage.autoScroll.enabledDesc")
+                : t("responsesPage.autoScroll.disabledDesc")}
             </p>
           </div>
         </div>

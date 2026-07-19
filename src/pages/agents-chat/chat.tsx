@@ -736,9 +736,9 @@ export default function ChatPage({
   }, [ensureMainChannelAndSend]);
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.06),_transparent_40%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
+    <div className="flex h-full w-full overflow-hidden bg-white">
       {/* ── Left: conversation list ─────────────────────────────────────── */}
-      <aside className="flex w-[187px] flex-shrink-0 flex-col border-r border-slate-100 bg-white/80 backdrop-blur">
+      <aside className="flex w-[187px] flex-shrink-0 flex-col border-r border-slate-200 bg-white">
         <div className="flex items-center justify-between px-4 py-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
@@ -886,7 +886,7 @@ export default function ChatPage({
       ) : (
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Chat header */}
-          <div className="flex flex-shrink-0 items-center gap-4 border-b border-slate-100 bg-white/80 px-5 py-3 backdrop-blur">
+          <div className="flex flex-shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-5 py-3">
             <ChannelAv channel={activeChannel} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900">{activeChannel.name}</p>
@@ -976,7 +976,7 @@ export default function ChatPage({
                                 "rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
                                 isUser
                                   ? "bg-indigo-600 text-white rounded-tr-sm"
-                                  : "bg-white text-slate-800 rounded-tl-sm ring-1 ring-slate-100"
+                                  : "bg-white text-slate-800 rounded-tl-sm ring-1 ring-slate-200"
                               )}
                             >
                               {isUser && msg.images && msg.images.length > 0 && (
@@ -1004,7 +1004,7 @@ export default function ChatPage({
                 </div>
 
                 {/* Input */}
-                <div className="flex-shrink-0 border-t border-slate-100 bg-white/80 px-5 py-4 backdrop-blur">
+                <div className="flex-shrink-0 border-t border-slate-200 bg-white px-5 py-4">
                   {attachedImages.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-2">
                       {attachedImages.map((img) => (
@@ -1165,8 +1165,8 @@ export default function ChatPage({
 
               {/* Members panel */}
               {showMembers && (
-                <aside className="flex w-56 flex-shrink-0 flex-col border-l border-slate-100 bg-white/80 backdrop-blur">
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <aside className="flex w-56 flex-shrink-0 flex-col border-l border-slate-200 bg-white">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                     <span className="text-xs font-semibold text-slate-500">
                       {t("chatPage.members", { count: activeChannel.agentIds.length })}
                     </span>

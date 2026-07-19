@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   Header,
 } from "@/components";
+import { useTranslation } from "react-i18next";
 import { UseSettingsReturn } from "@/types";
 import { LaptopMinimalIcon, MousePointer2Icon } from "lucide-react";
 
@@ -17,6 +18,7 @@ export const ScreenshotConfigs = ({
   handleScreenshotEnabledChange,
   hasActiveLicense,
 }: UseSettingsReturn) => {
+  const { t } = useTranslation("pages");
   return (
     <div id="screenshot" className="space-y-3">
       <div className="space-y-3">
@@ -24,11 +26,11 @@ export const ScreenshotConfigs = ({
         <div className="space-y-2">
           <div className="flex flex-col">
             <Header
-              title="Capture Method"
+              title={t("screenshotPage.captureMethod")}
               description={
                 screenshotConfiguration.enabled
-                  ? "Screenshot Mode: Quickly capture the entire screen with one click."
-                  : "Selection Mode: Click and drag to select a specific area to capture."
+                  ? t("screenshotPage.screenshotModeDesc")
+                  : t("screenshotPage.selectionModeDesc")
               }
             />
           </div>
@@ -56,17 +58,17 @@ export const ScreenshotConfigs = ({
               <SelectItem value="selection" disabled={!hasActiveLicense}>
                 <div className="flex items-center gap-2">
                   <MousePointer2Icon className="size-4" />
-                  <div className="font-medium">Selection Mode</div>
+                  <div className="font-medium">{t("screenshotPage.selectionMode")}</div>
                   {!hasActiveLicense && (
                     <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                      You need an active license to use Selection Mode.
+                      {t("screenshotPage.selectionLicenseRequired")}
                     </span>
                   )}
                 </div>
               </SelectItem>
               <SelectItem value="screenshot" className="flex flex-row gap-2">
                 <LaptopMinimalIcon className="size-4" />
-                <div className="font-medium">Screenshot Mode</div>
+                <div className="font-medium">{t("screenshotPage.screenshotMode")}</div>
               </SelectItem>
             </SelectContent>
           </Select>
@@ -76,11 +78,11 @@ export const ScreenshotConfigs = ({
         <div className="space-y-2">
           <div className="flex flex-col">
             <Header
-              title="Processing Mode"
+              title={t("screenshotPage.processingMode")}
               description={
                 screenshotConfiguration.mode === "manual"
-                  ? "Screenshots will be captured and automatically added to your attached files. You can then submit them with your own prompt. you can capture multiple screenshots and submit them later."
-                  : "Screenshots will be automatically submitted to AI using your custom prompt. No manual intervention required. only one screenshot can be submitted at a time."
+                  ? t("screenshotPage.processingModeManualDesc")
+                  : t("screenshotPage.processingModeAutoDesc")
               }
             />
           </div>

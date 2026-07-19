@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -26,29 +27,30 @@ const formatNumber = (num: number): string => {
 };
 
 export const CostOverview = ({ summary, loading }: CostOverviewProps) => {
+  const { t } = useTranslation("pages");
   const avgCostPerRequest =
     summary.totalRequests > 0 ? summary.totalCost / summary.totalRequests : 0;
 
   const stats = [
     {
-      title: "Total Cost",
+      title: t("costTrackingPage.overview.totalCost"),
       value: formatCost(summary.totalCost),
-      subtitle: "This month (estimated)",
+      subtitle: t("costTrackingPage.overview.thisMonth"),
     },
     {
-      title: "Total Tokens",
+      title: t("costTrackingPage.overview.totalTokens"),
       value: formatNumber(summary.totalTokens),
-      subtitle: "Input + Output",
+      subtitle: t("costTrackingPage.overview.inputOutput"),
     },
     {
-      title: "Total Requests",
+      title: t("costTrackingPage.overview.totalRequests"),
       value: formatNumber(summary.totalRequests),
-      subtitle: "API calls made",
+      subtitle: t("costTrackingPage.overview.apiCalls"),
     },
     {
-      title: "Avg Cost/Request",
+      title: t("costTrackingPage.overview.avgCost"),
       value: formatCost(avgCostPerRequest),
-      subtitle: "Per API call",
+      subtitle: t("costTrackingPage.overview.perCall"),
     },
   ];
 

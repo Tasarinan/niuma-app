@@ -3,8 +3,6 @@ import { ScreenshotConfig, TYPE_PROVIDER, UserIdentity } from "@/types";
 import { CursorType, CustomizableState } from "@/lib/storage";
 
 export type IContextType = {
-  systemPrompt: string;
-  setSystemPrompt: Dispatch<SetStateAction<string>>;
   allAiProviders: TYPE_PROVIDER[];
   customAiProviders: TYPE_PROVIDER[];
   selectedAIProvider: {

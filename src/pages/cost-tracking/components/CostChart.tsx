@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   Card,
@@ -20,13 +21,14 @@ interface CostChartProps {
 }
 
 export const CostChart = ({ data, loading }: CostChartProps) => {
+  const { t } = useTranslation("pages");
   const chartConfig = {
     cost: {
-      label: "Cost ($)",
+      label: t("costTrackingPage.chart.costAxis"),
       color: "var(--chart-1)",
     },
     tokens: {
-      label: "Tokens (K)",
+      label: t("costTrackingPage.chart.tokensAxis"),
       color: "var(--chart-2)",
     },
   } satisfies ChartConfig;
@@ -40,22 +42,22 @@ export const CostChart = ({ data, loading }: CostChartProps) => {
   return (
     <Card className="shadow-none border border-border/70 rounded-xl">
       <CardHeader className="pb-0">
-        <CardTitle className="text-md lg:text-lg">Cost Trend</CardTitle>
+        <CardTitle className="text-md lg:text-lg">{t("costTrackingPage.chart.title")}</CardTitle>
         <CardDescription className="text-xs lg:text-sm">
-          Daily estimated costs over the last 30 days
+          {t("costTrackingPage.chart.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-4">
         {loading ? (
           <div className="h-[250px] flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground">
-              Loading chart data...
+              {t("costTrackingPage.chart.loading")}
             </div>
           </div>
         ) : data.length === 0 ? (
           <div className="h-[250px] flex items-center justify-center">
             <div className="text-muted-foreground text-sm">
-              No usage data yet. Start using the AI to see costs here.
+              {t("costTrackingPage.chart.empty")}
             </div>
           </div>
         ) : (

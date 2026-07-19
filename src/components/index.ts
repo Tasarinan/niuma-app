@@ -17,3 +17,4 @@ export * from "./ModelSelector";
 export * from "./toolbar";
 export * from "./ProviderSetup";
 export * from "./AppBootstrap";
+export * from "./artifact-tree";

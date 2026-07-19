@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -68,15 +69,15 @@ export const CostByProvider = ({ byProvider, loading }: CostByProviderProps) => 
   return (
     <Card className="shadow-none border border-border/70 rounded-xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-md lg:text-lg">By Provider</CardTitle>
+        <CardTitle className="text-md lg:text-lg">{t("costTrackingPage.byProvider.title")}</CardTitle>
         <CardDescription className="text-xs lg:text-sm">
-          Cost breakdown by AI provider
+          {t("costTrackingPage.byProvider.description")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {providers.length === 0 ? (
           <div className="text-sm text-muted-foreground py-4 text-center">
-            No provider data yet
+            {t("costTrackingPage.byProvider.empty")}
           </div>
         ) : (
           <div className="space-y-3">

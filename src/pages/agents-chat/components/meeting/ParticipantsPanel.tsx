@@ -19,8 +19,8 @@ export function ParticipantsPanel({
   assignSpeaker: (speakerId: string, label: string, profileId?: string) => void;
 }) {
   return (
-    <aside className="flex w-56 flex-shrink-0 flex-col border-l border-slate-100 bg-white/80 backdrop-blur">
-      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+    <aside className="flex w-56 flex-shrink-0 flex-col border-l border-slate-200 bg-white">
+      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
         <Users className="size-3.5 text-slate-400" />
         <span className="text-xs font-semibold text-slate-500">
           参会人 ({participants.length})

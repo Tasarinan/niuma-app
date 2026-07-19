@@ -194,7 +194,7 @@ pub fn create_agent_chat_window<R: Runtime>(
 
     #[cfg(target_os = "macos")]
     let base_builder = base_builder
-        .title("AgentChat")
+        .title("Niuma · 智能会话空间")
         .center()
         .decorations(true)
         .inner_size(1200.0, 800.0)
@@ -207,9 +207,9 @@ pub fn create_agent_chat_window<R: Runtime>(
 
     #[cfg(not(target_os = "macos"))]
     let base_builder = base_builder
-        .title("AgentChat")
+        .title("Niuma · 智能会话空间")
         .center()
-        .decorations(true)
+        .decorations(false)
         .inner_size(800.0, 600.0)
         .min_inner_size(800.0, 600.0)
         .content_protected(true)
@@ -288,4 +288,29 @@ pub fn open_agent_chat_window(app: tauri::AppHandle) -> Result<(), String> {
     // Fallback: create it now if somehow missing.
     create_agent_chat_window(&app, true).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn hide_agent_chat_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("agent-chat") {
+        win.hide().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    Err("Agent-chat window not found".to_string())
+}
+
+#[tauri::command]
+pub fn toggle_agent_chat_maximize(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("agent-chat") {
+        let is_maximized = win.is_maximized().map_err(|e| e.to_string())?;
+        if is_maximized {
+            win.unmaximize().map_err(|e| e.to_string())?;
+        } else {
+            win.maximize().map_err(|e| e.to_string())?;
+        }
+        return Ok(());
+    }
+
+    Err("Agent-chat window not found".to_string())
 }

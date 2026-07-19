@@ -99,7 +99,6 @@ export interface SettingsState {
   isApiKeySubmitted: boolean;
   selectedModel: string;
   customModel: string;
-  systemPrompt: string;
   availableModels: string[];
   isLoadingModels: boolean;
   modelsFetchError: string | null;

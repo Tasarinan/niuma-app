@@ -3,12 +3,76 @@ use image::codecs::png::PngEncoder;
 use image::{ColorType, GenericImageView, ImageEncoder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::{thread, time::Duration};
+use std::thread;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use xcap::Monitor;
+
+fn resolve_artifact_root_dir(app: &tauri::AppHandle) -> PathBuf {
+    if let Some(configured) = option_env!("NIUMA_ARTIFACT_DIR").or(option_env!("NIUMA_ARTICLES_DIR")) {
+        return PathBuf::from(configured);
+    }
+
+    let manifest_candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("artifact");
+    if manifest_candidate.exists() {
+        return manifest_candidate;
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        let cwd_candidate = cwd.join("artifact");
+        if cwd_candidate.exists() {
+            return cwd_candidate;
+        }
+    }
+
+    if let Ok(res) = app.path().resource_dir() {
+        let res_candidate = res.join("artifact");
+        if res_candidate.exists() {
+            return res_candidate;
+        }
+    }
+
+    if let Ok(doc) = app.path().document_dir() {
+        return doc.join("niuma").join("artifact");
+    }
+
+    manifest_candidate
+}
+
+#[tauri::command]
+pub fn save_capture_snapshot(app: tauri::AppHandle, base64_data: String) -> Result<String, String> {
+    let payload = base64_data
+        .split_once(',')
+        .map(|(_, value)| value)
+        .unwrap_or(base64_data.as_str());
+
+    let image_bytes = base64::engine::general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|e| format!("Failed to decode screenshot base64: {}", e))?;
+
+    let artifact_dir = resolve_artifact_root_dir(&app);
+    let snap_dir = artifact_dir.join("snap");
+    fs::create_dir_all(&snap_dir).map_err(|e| format!("Failed to create snap directory: {}", e))?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("System clock error: {}", e))?
+        .as_millis();
+
+    let file_name = format!("snap-{}.png", timestamp);
+    let file_path = snap_dir.join(file_name);
+
+    fs::write(&file_path, image_bytes).map_err(|e| format!("Failed to save snapshot: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SelectionCoords {

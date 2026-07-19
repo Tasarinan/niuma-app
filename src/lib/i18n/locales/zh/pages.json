@@ -134,10 +134,11 @@
       "copyClipboard": "复制到剪贴板",
       "newArticle": "新建文章",
       "deleteArticle": "删除文章",
-      "saveToDisk": "保存到 ~/Documents/niuma/articles"
+      "saveToDisk": "保存到 ~/Documents/niuma/artifact"
     },
     "meta": {
       "currentArticle": "当前文章",
+      "notSavedYet": "尚未保存到文件",
       "cover": "封面",
       "noCover": "暂无封面",
       "uploadCover": "上传封面",
@@ -152,6 +153,14 @@
       "modePreview": "预览",
       "archive": "存档"
     },
+    "artifactTree": {
+      "button": "文件",
+      "title": "文件树",
+      "summary": "{{roots}} 个根目录，{{files}} 个文件",
+      "refresh": "刷新文件树",
+      "empty": "未发现文件",
+      "emptyRoot": "当前根目录下没有可见文件"
+    },
     "toast": {
       "saved": "文章已保存到本地",
       "created": "已创建新文章",
@@ -161,6 +170,8 @@
       "importFailed": "导入失败",
       "imageInserted": "图片已插入",
       "imageReadFailed": "图片读取失败",
+      "openFailed": "打开文件失败: {{error}}",
+      "onlyMarkdownEditable": "当前仅支持打开和编辑 Markdown 文件",
       "savedToDisk": "已保存 → {{path}}",
       "saveToDiskFailed": "保存到磁盘失败: {{error}}",
       "mdCopied": "Markdown 已复制到剪贴板",

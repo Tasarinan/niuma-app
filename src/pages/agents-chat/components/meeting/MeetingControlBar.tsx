@@ -34,14 +34,14 @@ export function MeetingControlBar({
   const [videoInsightsOpen, setVideoInsightsOpen] = useState(false);
 
   return (
-    <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 bg-white/80 px-5 py-3 backdrop-blur">
+    <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onToggle}
           disabled={!canUseVoice}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold shadow transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+            "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40",
             isRecording
               ? "bg-red-500 text-white hover:bg-red-600"
               : "bg-indigo-600 text-white hover:bg-indigo-500"
@@ -56,14 +56,14 @@ export function MeetingControlBar({
           <DialogTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
               title="分析一段本地视频，提取要点"
             >
               <VideoIcon className="size-3.5" />
               视频要点分析
             </button>
           </DialogTrigger>
-          <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto rounded-[24px] border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
             <DialogHeader>
               <DialogTitle>视频要点分析</DialogTitle>
               <DialogDescription>

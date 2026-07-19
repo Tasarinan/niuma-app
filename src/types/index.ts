@@ -5,7 +5,6 @@ export * from "./provider.type";
 export * from "./agent.type";
 export * from "./settings.hook";
 export * from "./completion";
-export * from "./system-prompts";
 export * from "./shortcuts";
 export * from "./cost-tracking";
 export * from "./meeting-context";

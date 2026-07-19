@@ -1578,6 +1578,7 @@ export const useCompletion = () => {
 
       if (config.enabled) {
         const base64 = await invoke("capture_to_base64");
+        await invoke("save_capture_snapshot", { base64Data: base64 as string });
 
         if (config.mode === "auto") {
           // Auto mode: Submit directly to AI with the configured prompt
@@ -1624,6 +1625,8 @@ export const useCompletion = () => {
         const config = screenshotConfigRef.current;
 
         try {
+          await invoke("save_capture_snapshot", { base64Data: base64 as string });
+
           if (config.mode === "auto") {
             // Auto mode: Submit directly to AI with the configured prompt
             await handleScreenshotSubmit(base64 as string, config.autoPrompt);
@@ -1832,6 +1835,7 @@ export const useCompletion = () => {
     isScreenshotLoading,
     keepEngaged,
     setKeepEngaged,
+    sendToMainChat,
     // Meeting Assist Mode
     meetingAssistMode,
     setMeetingAssistMode,

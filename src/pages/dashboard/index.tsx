@@ -12,7 +12,7 @@ const Dashboard = () => {
       <img
         src="/niuma_brand.png"
         alt="Niuma"
-        className="w-32 object-contain"
+        className="w-56 object-contain"
         draggable={false}
       />
       <div className="text-center space-y-2">
@@ -40,7 +40,7 @@ const Dashboard = () => {
       </div>
 
       {/* Footer items (contact support / report bug / quit) */}
-      <div className="flex flex-col w-48 gap-1">
+      <div className="flex flex-row flex-wrap items-center justify-center gap-2">
         {footerItems.map((item, index) => {
           const handleClick = (e: React.MouseEvent) => {
             e.preventDefault();
@@ -54,7 +54,7 @@ const Dashboard = () => {
             <button
               key={`footer-${index}`}
               onClick={handleClick}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <item.icon className="size-4 shrink-0" />
               {item.label}

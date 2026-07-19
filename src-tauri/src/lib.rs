@@ -42,6 +42,12 @@ fn get_app_version() -> String {
 /// Priority: CARGO_MANIFEST_DIR/../clawpacks/agents (dev) → CWD/clawpacks/agents → resource_dir/clawpacks/agents (production).
 #[tauri::command]
 fn get_clawpacks_agents_dir(app: tauri::AppHandle) -> String {
+    if let Some(root) = option_env!("NIUMA_CLAWPACKS_DIR") {
+        let candidate = std::path::PathBuf::from(root).join("agents");
+        if candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+    }
     // Dev: CARGO_MANIFEST_DIR is src-tauri/, parent is the project root.
     // This is a compile-time constant, always correct in development.
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -88,6 +94,12 @@ fn get_user_agents_dir(app: tauri::AppHandle) -> String {
 /// Priority: CARGO_MANIFEST_DIR/../clawpacks/skills (dev) → CWD/clawpacks/skills → resource_dir/clawpacks/skills (production).
 #[tauri::command]
 fn get_clawpacks_skills_dir(app: tauri::AppHandle) -> String {
+    if let Some(root) = option_env!("NIUMA_CLAWPACKS_DIR") {
+        let candidate = std::path::PathBuf::from(root).join("skills");
+        if candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+    }
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let candidate = manifest_dir.join("..").join("clawpacks").join("skills");
     if candidate.exists() {
@@ -108,6 +120,78 @@ fn get_clawpacks_skills_dir(app: tauri::AppHandle) -> String {
         }
     }
     String::new()
+}
+
+/// Return candidate artifact directories.
+/// Priority: configured env dir -> artifact in dev/cwd/resources -> document_dir/niuma/artifact.
+#[tauri::command]
+fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
+    let mut results: Vec<String> = Vec::new();
+
+    let normalize = |candidate: std::path::PathBuf| {
+        candidate
+            .canonicalize()
+            .unwrap_or(candidate)
+            .to_string_lossy()
+            .to_string()
+    };
+
+    let push_unique = |results: &mut Vec<String>, value: String| {
+        if !results.iter().any(|item| item.eq_ignore_ascii_case(&value)) {
+            results.push(value);
+        }
+    };
+
+    let push_if_exists = |results: &mut Vec<String>, candidate: std::path::PathBuf| {
+        if candidate.exists() {
+            push_unique(results, normalize(candidate));
+        }
+    };
+
+    if let Some(configured) = option_env!("NIUMA_ARTIFACT_DIR").or(option_env!("NIUMA_ARTICLES_DIR")) {
+        let configured_path = std::path::PathBuf::from(configured);
+        if configured_path.exists() {
+            push_unique(&mut results, normalize(configured_path));
+        }
+    }
+
+    if results.is_empty() {
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        push_if_exists(&mut results, manifest_dir.join("..").join("artifact"));
+
+        if let Ok(cwd) = std::env::current_dir() {
+            push_if_exists(&mut results, cwd.join("artifact"));
+        }
+
+        if let Ok(res) = app.path().resource_dir() {
+            push_if_exists(&mut results, res.join("artifact"));
+        }
+
+        // Legacy fallback for existing installations still using `articles`.
+        if results.is_empty() {
+            push_if_exists(&mut results, manifest_dir.join("..").join("articles"));
+            if let Ok(cwd) = std::env::current_dir() {
+                push_if_exists(&mut results, cwd.join("articles"));
+            }
+            if let Ok(res) = app.path().resource_dir() {
+                push_if_exists(&mut results, res.join("articles"));
+            }
+        }
+    }
+
+    if results.is_empty() {
+        if let Ok(doc) = app.path().document_dir() {
+            let candidate = doc.join("niuma").join("artifact");
+            push_unique(&mut results, normalize(candidate));
+        }
+    }
+
+    results
+}
+
+#[tauri::command]
+fn get_articles_dirs(app: tauri::AppHandle) -> Vec<String> {
+    get_artifact_dirs(app)
 }
 
 
@@ -169,10 +253,13 @@ pub fn run() {
             window::open_dashboard_at,
             window::toggle_dashboard,
             window::open_agent_chat_window,
+            window::hide_agent_chat_window,
+            window::toggle_agent_chat_maximize,
             window::move_window,
             capture::capture_to_base64,
             capture::start_screen_capture,
             capture::capture_selected_area,
+            capture::save_capture_snapshot,
             capture::close_overlay_window,
             shortcuts::check_shortcuts_registered,
             shortcuts::get_registered_shortcuts,
@@ -219,6 +306,8 @@ pub fn run() {
             http_tools::http_request,
             get_clawpacks_agents_dir,
             get_clawpacks_skills_dir,
+            get_artifact_dirs,
+            get_articles_dirs,
             get_user_agents_dir,
             mcp::mcp_inspect,
             mcp::mcp_call_tool,

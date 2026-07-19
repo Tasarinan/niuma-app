@@ -134,10 +134,11 @@
       "copyClipboard": "Copy to Clipboard",
       "newArticle": "New Article",
       "deleteArticle": "Delete Article",
-      "saveToDisk": "Save to ~/Documents/niuma/articles"
+      "saveToDisk": "Save to ~/Documents/niuma/artifact"
     },
     "meta": {
       "currentArticle": "Current Article",
+      "notSavedYet": "Not saved to a file yet",
       "cover": "Cover",
       "noCover": "No cover",
       "uploadCover": "Upload Cover",
@@ -152,6 +153,14 @@
       "modePreview": "Preview",
       "archive": "Archive"
     },
+    "artifactTree": {
+      "button": "Files",
+      "title": "File Tree",
+      "summary": "{{roots}} roots, {{files}} files",
+      "refresh": "Refresh file tree",
+      "empty": "No files found",
+      "emptyRoot": "No visible files in this root"
+    },
     "toast": {
       "saved": "Article saved locally",
       "created": "New article created",
@@ -161,6 +170,8 @@
       "importFailed": "Import failed",
       "imageInserted": "Image inserted",
       "imageReadFailed": "Failed to read image",
+      "openFailed": "Failed to open file: {{error}}",
+      "onlyMarkdownEditable": "Only Markdown files can be opened and edited right now",
       "savedToDisk": "Saved \u2192 {{path}}",
       "saveToDiskFailed": "Save to disk failed: {{error}}",
       "mdCopied": "Markdown copied to clipboard",

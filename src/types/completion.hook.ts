@@ -47,6 +47,8 @@ export interface UseCompletionReturn {
   // Completion actions
   /** Function to submit the completion request, optionally with speech text */
   submit: (speechText?: string) => Promise<void>;
+  /** Function to forward text into the main agent-chat window */
+  sendToMainChat: (text: string) => Promise<void>;
   /** Function to cancel the current completion request */
   cancel: () => void;
   /** Function to reset the completion state (clears input, response, error, files) */

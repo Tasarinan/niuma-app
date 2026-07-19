@@ -109,8 +109,6 @@ const computeAllStt = (custom: TYPE_PROVIDER[]): TYPE_PROVIDER[] => [
  */
 export const useAppStore = create<IContextType>((set, get) => ({
   // ----- state -----
-  systemPrompt:
-    safeLocalStorage.getItem(STORAGE_KEYS.SYSTEM_PROMPT) || DEFAULT_SYSTEM_PROMPT,
   selectedAudioDevices: {
     input: safeLocalStorage.getItem(STORAGE_KEYS.SELECTED_AUDIO_INPUT_DEVICE) || "",
     output: safeLocalStorage.getItem(STORAGE_KEYS.SELECTED_AUDIO_OUTPUT_DEVICE) || "",
@@ -147,9 +145,6 @@ export const useAppStore = create<IContextType>((set, get) => ({
   allSttProviders: computeAllStt([]),
 
   // ----- actions -----
-  setSystemPrompt: (update) =>
-    set((s) => ({ systemPrompt: resolveUpdate(update, s.systemPrompt) })),
-
   setSelectedAudioDevices: (update) =>
     set((s) => ({
       selectedAudioDevices: resolveUpdate(update, s.selectedAudioDevices),
@@ -223,12 +218,6 @@ export const useAppStore = create<IContextType>((set, get) => ({
   },
 
   loadData: () => {
-    // System prompt
-    const savedSystemPrompt = safeLocalStorage.getItem(STORAGE_KEYS.SYSTEM_PROMPT);
-    if (savedSystemPrompt) {
-      set({ systemPrompt: savedSystemPrompt || DEFAULT_SYSTEM_PROMPT });
-    }
-
     // Screenshot configuration
     const savedScreenshotConfig = safeLocalStorage.getItem(STORAGE_KEYS.SCREENSHOT_CONFIG);
     if (savedScreenshotConfig) {

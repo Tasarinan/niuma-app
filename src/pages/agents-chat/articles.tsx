@@ -10,7 +10,6 @@ import {
   Download,
   Eye,
   FileInput,
-  FolderDown,
   Heading1,
   Heading2,
   ImagePlus,
@@ -28,14 +27,14 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
-import { documentDir, join } from "@tauri-apps/api/path";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { openArtifactArticle, saveArticleToArtifact, scanArtifactArticles } from "@/lib/artifact/article-repo";
 import { Markdown as MarkdownPreview } from "@/components/Markdown";
 import { ArticleEditor } from "@/components/article-editor/ArticleEditor";
+import { ArtifactTreeMenu } from "@/components/artifact-tree";
+import { useArticleArtifactTree } from "@/hooks/useArticleArtifactTree";
 import "@/components/article-editor/editor.css";
 
 type ArticleRecord = {
@@ -46,11 +45,13 @@ type ArticleRecord = {
   cover: string;
   tags: string[];
   updatedAt: string;
+  filePath?: string;
 };
 
 type EditorMode = "write" | "split" | "preview";
 
-const STORAGE_KEY = "niuma.articles";
+const STORAGE_KEY = "niuma.artifact.articles";
+const LEGACY_STORAGE_KEY = "niuma.articles";
 
 function createArticle(partial?: Partial<ArticleRecord>): ArticleRecord {
   const now = new Date().toISOString();
@@ -62,13 +63,15 @@ function createArticle(partial?: Partial<ArticleRecord>): ArticleRecord {
     cover: partial?.cover ?? "",
     tags: partial?.tags ?? [],
     updatedAt: partial?.updatedAt ?? now,
+    filePath: partial?.filePath,
   };
 }
 
 function readArticles() {
   if (typeof window === "undefined") return [] as ArticleRecord[];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+      ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ArticleRecord[];
     if (!Array.isArray(parsed)) return [];
@@ -98,6 +101,7 @@ function formatTime(value: string) {
 }
 
 export default function ArticlesPage() {
+  const { treeRoots, refreshTree } = useArticleArtifactTree();
   const [articles, setArticles] = useState<ArticleRecord[]>(() => {
     const stored = readArticles();
     return stored.length ? stored : [createArticle()];
@@ -111,6 +115,7 @@ export default function ArticlesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeIdRef = useRef(activeId);
+  const lastSavedSnapshotRef = useRef<Record<string, string>>({});
   // Tracks whether a setContent call is in-flight so onUpdate skips writing
   // back to articles state and avoids an infinite loop.
   const isSettingContentRef = useRef(false);
@@ -177,6 +182,71 @@ export default function ArticlesPage() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(articles));
   }, [articles]);
 
+  const getArticleSnapshot = useCallback((article: Pick<ArticleRecord, "title" | "content">) => {
+    return JSON.stringify({
+      title: article.title,
+      content: article.content,
+    });
+  }, []);
+
+  const refreshArticlesFromDisk = useCallback(async () => {
+    try {
+      const scanned = await scanArtifactArticles();
+      if (!scanned.length) return;
+
+      for (const item of scanned) {
+        lastSavedSnapshotRef.current[item.filePath] = getArticleSnapshot({
+          title: item.title,
+          content: item.content,
+        });
+      }
+
+      setArticles((current) => {
+        const fromDisk = scanned.map((item) =>
+          createArticle({
+            id: item.filePath,
+            title: item.title,
+            content: item.content,
+            updatedAt: item.updatedAt,
+            filePath: item.filePath,
+          })
+        );
+
+        const byId = new Map<string, ArticleRecord>();
+        for (const item of current) byId.set(item.id, item);
+        for (const item of fromDisk) byId.set(item.id, item);
+        return Array.from(byId.values());
+      });
+
+      setActiveId((prev) => {
+        if (scanned.some((item) => item.filePath === prev)) return prev;
+        return scanned[0]?.filePath ?? prev;
+      });
+    } catch {
+      // Keep local-only mode working even if disk scan fails.
+    } finally {
+      void refreshTree();
+    }
+  }, [getArticleSnapshot, refreshTree]);
+
+  useEffect(() => {
+    void refreshArticlesFromDisk();
+  }, [refreshArticlesFromDisk]);
+
+  useEffect(() => {
+    void refreshTree();
+  }, [refreshTree]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void refreshArticlesFromDisk();
+      void refreshTree();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [refreshArticlesFromDisk, refreshTree]);
+
   const updateArticle = (patch: Partial<ArticleRecord>) => {
     if (!activeArticle) return;
     setArticles((current) =>
@@ -192,19 +262,63 @@ export default function ArticlesPage() {
     );
   };
 
+  const persistArticle = useCallback(
+    async (article: ArticleRecord, options?: { silent?: boolean }) => {
+      const result = await saveArticleToArtifact({
+        title: article.title,
+        content: article.content,
+        existingPath: article.filePath,
+      });
+
+      const snapshot = getArticleSnapshot(article);
+      lastSavedSnapshotRef.current[result.filePath] = snapshot;
+
+      setArticles((current) =>
+        current.map((item) =>
+          item.id === article.id
+            ? {
+                ...item,
+                id: result.filePath,
+                filePath: result.filePath,
+                updatedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+      setActiveId((current) => (current === article.id ? result.filePath : current));
+      void refreshTree();
+
+      if (!options?.silent) {
+        toast.success(t("articles.toast.savedToDisk", { path: result.relativePath }));
+      }
+    },
+    [getArticleSnapshot, refreshTree, t],
+  );
+
   const handleSave = async () => {
+    if (!activeArticle) return;
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    setIsSaving(false);
-    toast.success(t("articles.toast.saved"));
+    try {
+      await persistArticle(activeArticle, { silent: true });
+      toast.success(t("articles.toast.saved"));
+    } catch (e) {
+      toast.error(t("articles.toast.saveToDiskFailed", { error: String(e) }));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleCreateArticle = () => {
+  const handleCreateArticle = async () => {
     const next = createArticle();
     setArticles((current) => [next, ...current]);
     setActiveId(next.id);
     setMode("write");
-    toast.success(t("articles.toast.created"));
+    try {
+      await persistArticle(next, { silent: true });
+      toast.success(t("articles.toast.created"));
+    } catch (e) {
+      toast.error(t("articles.toast.saveToDiskFailed", { error: String(e) }));
+    }
   };
 
   const handleDeleteArticle = () => {
@@ -259,29 +373,63 @@ export default function ArticlesPage() {
     }
   };
 
-  const handleSaveToDisk = async () => {
+  const openArticleFromPath = useCallback(
+    async (path: string) => {
+      if (!/\.md$/i.test(path)) {
+        toast.message(t("articles.toast.onlyMarkdownEditable"));
+        return;
+      }
+
+      try {
+        const opened = await openArtifactArticle(path);
+        setArticles((current) => {
+          const next = createArticle({
+            id: opened.filePath,
+            title: opened.title,
+            content: opened.content,
+            updatedAt: opened.updatedAt,
+            filePath: opened.filePath,
+          });
+
+          const byId = new Map<string, ArticleRecord>();
+          for (const item of current) byId.set(item.id, item);
+          byId.set(next.id, next);
+          return Array.from(byId.values());
+        });
+
+        lastSavedSnapshotRef.current[opened.filePath] = getArticleSnapshot({
+          title: opened.title,
+          content: opened.content,
+        });
+        setActiveId(opened.filePath);
+        setMode("write");
+      } catch (e) {
+        toast.error(t("articles.toast.openFailed", { error: String(e) }));
+      }
+    },
+    [getArticleSnapshot, t],
+  );
+
+  useEffect(() => {
     if (!activeArticle) return;
-    try {
-      const docDir = await documentDir();
-      const slug = (activeArticle.title || "untitled")
-        .replace(/[\\/:*?"<>|]/g, "")
-        .trim() || "untitled";
-      const fileName = `${slug}.md`;
-      const folderPath = await join(docDir, "niuma", "articles");
-      const filePath = await join(folderPath, fileName);
-      await invoke("fs_write", {
-        req: {
-          workspaceRoot: docDir,
-          path: filePath,
-          content: activeArticle.content,
-          sandboxMode: "danger-full-access",
-        },
-      });
-      toast.success(t("articles.toast.savedToDisk", { path: folderPath }));
-    } catch (e) {
-      toast.error(t("articles.toast.saveToDiskFailed", { error: String(e) }));
-    }
-  };
+
+    const snapshot = getArticleSnapshot(activeArticle);
+    const savedKey = activeArticle.filePath ?? activeArticle.id;
+    if (lastSavedSnapshotRef.current[savedKey] === snapshot) return;
+
+    const timer = window.setTimeout(() => {
+      setIsSaving(true);
+      void persistArticle(activeArticle, { silent: true })
+        .catch(() => {
+          // Avoid interrupting typing with repeated autosave errors.
+        })
+        .finally(() => {
+          setIsSaving(false);
+        });
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [activeArticle, getArticleSnapshot, persistArticle]);
 
   const handleShare = async () => {
     if (!activeArticle) return;
@@ -468,35 +616,33 @@ export default function ArticlesPage() {
             <Trash2 className="size-4" />
           </button>
           <span className="flex-1" />
-          <button
-            type="button"
-            title={t("articles.toolbar.saveToDisk")}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 text-xs font-medium text-white hover:bg-indigo-500"
-            onClick={() => void handleSaveToDisk()}
-          >
-            <FolderDown className="size-3.5" />
-            {t("articles.meta.archive")}
-          </button>
+          <ArtifactTreeMenu
+            roots={treeRoots}
+            selectedFilePath={activeArticle.filePath}
+            onSelectFile={(path) => {
+              void openArticleFromPath(path);
+            }}
+            direction="rtl"
+            showPath={false}
+            onRefresh={() => {
+              void refreshArticlesFromDisk();
+            }}
+          />
         </div>
 
         {/* Meta panel – scrollable */}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-5 p-4">
-
-            {/* Article selector */}
-            <div>
-              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">{t("articles.meta.currentArticle")}</div>
-              <select
-                value={activeArticle.id}
-                onChange={(e) => setActiveId(e.target.value)}
-                className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400"
-              >
-                {articles.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.title || i18n.t("articles.untitled", { ns: "pages" })}
-                  </option>
-                ))}
-              </select>
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">
+                {t("articles.meta.currentArticle")}
+              </div>
+              <div className="truncate text-sm font-medium text-slate-700">
+                {activeArticle.title || i18n.t("articles.untitled", { ns: "pages" })}
+              </div>
+              <div className="mt-1 break-all text-[11px] text-slate-400">
+                {activeArticle.filePath ?? t("articles.meta.notSavedYet")}
+              </div>
             </div>
 
             {/* Cover */}

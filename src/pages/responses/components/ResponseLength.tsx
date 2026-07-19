@@ -1,4 +1,5 @@
 import { Card, Header } from "@/components";
+import { useTranslation } from "react-i18next";
 import { RESPONSE_LENGTHS } from "@/lib";
 import { updateResponseLength } from "@/lib/storage/response-settings.storage";
 import { useState, useEffect } from "react";
@@ -6,6 +7,7 @@ import { getResponseSettings } from "@/lib";
 import { CheckCircle2 } from "lucide-react";
 
 export const ResponseLength = () => {
+  const { t } = useTranslation("pages");
   const [selectedLength, setSelectedLength] = useState<string>("auto");
 
   useEffect(() => {
@@ -21,8 +23,8 @@ export const ResponseLength = () => {
   return (
     <div className="space-y-4">
       <Header
-        title="Response Length"
-        description="Control how detailed the AI responses should be. Changes apply to all new conversations and will influence how the AI structures responses"
+        title={t("responsesPage.responseLength.title")}
+        description={t("responsesPage.responseLength.description")}
         isMainTitle
       />
 

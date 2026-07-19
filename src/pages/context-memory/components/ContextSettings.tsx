@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -23,6 +24,7 @@ interface ContextSettingsProps {
 }
 
 export const ContextSettings = ({ onSettingsChange }: ContextSettingsProps) => {
+  const { t } = useTranslation("pages");
   const [enabled, setEnabled] = useState(true);
   const [maxTokens, setMaxTokens] = useState(1500);
   const [days, setDays] = useState(30);
@@ -56,7 +58,7 @@ export const ContextSettings = ({ onSettingsChange }: ContextSettingsProps) => {
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm("Are you sure you want to delete all context memory data? This cannot be undone.")) {
+    if (!window.confirm(t("contextMemoryPage.settings.deleteConfirm"))) {
       return;
     }
 
@@ -75,9 +77,9 @@ export const ContextSettings = ({ onSettingsChange }: ContextSettingsProps) => {
   return (
     <Card className="shadow-none border border-border/70 rounded-xl">
       <CardHeader>
-        <CardTitle className="text-base">Context Memory Settings</CardTitle>
+        <CardTitle className="text-base">{t("contextMemoryPage.settings.title")}</CardTitle>
         <CardDescription>
-          Configure how context is collected and injected into AI prompts
+          {t("contextMemoryPage.settings.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

@@ -2,7 +2,7 @@
  * Main overlay toolbar — the primary UI of niuma-app.
  *
  * Layout (left → center → right):
- *   [Mic] [Speak] [Screenshot] [Chat] [Meeting] | [Input] | [Dashboard] [Close]
+ *   [Mic] [Speak] [Screenshot] [Chat] | [Input] | [Dashboard] [Close]
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -26,7 +26,6 @@ import {
   AutoSpeechVADHeadless,
   type AutoSpeechVADState,
 } from "@/pages/app/components/completion/AutoSpeechVad";
-import { UseQuickActionsReturn } from "@/hooks/useQuickActions";
 import { MAX_FILES } from "@/config";
 
 // Toolbar strip height in logical pixels (matches tauri.conf.json initial height)
@@ -34,11 +33,10 @@ import { MAX_FILES } from "@/config";
 interface ToolbarProps {
   completion: UseCompletionReturn;
   tts: UseTTSReturn;
-  quickActions?: UseQuickActionsReturn;
   isHidden: boolean;
 }
 
-export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProps) {
+export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
   const { selectedAudioDevices, sttLanguage } = useApp();
 
   // Real VAD capture state, reported by the headless controller mounted
@@ -83,14 +81,6 @@ export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProp
     }
   }, []);
 
-  const handleQuickAction = (action: string) => {
-    if (completion.meetingAssistMode) {
-      completion.submitWithMeetingContext(action);
-    } else {
-      completion.submit(action);
-    }
-  };
-
   return (
     <div
       className="relative w-full flex flex-row items-center gap-2 rounded-2xl border border-[#e9e9e9] p-2 text-[#1a1a1a] bg-white/92 shadow-sm shadow-black/8 backdrop-blur-md overflow-visible"
@@ -114,12 +104,9 @@ export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProp
         {completion.enableVAD && (
           <AutoSpeechVADHeadless
             key={selectedAudioDevices.input}
-            submit={completion.submit}
+            sendToMainChat={completion.sendToMainChat}
             setState={completion.setState}
             microphoneDeviceId={selectedAudioDevices.input}
-            meetingAssistMode={completion.meetingAssistMode}
-            addMeetingTranscript={completion.addMeetingTranscript}
-            updateTranscriptTranslation={completion.updateTranscriptTranslation}
             sttLanguage={sttLanguage}
             onStateChange={setVadState}
           />
@@ -188,8 +175,6 @@ export function Toolbar({ completion, tts, quickActions, isHidden }: ToolbarProp
         <Input
           {...completion}
           isHidden={isHidden}
-          quickActions={quickActions}
-          onQuickActionClick={handleQuickAction}
         />
       </div>
 

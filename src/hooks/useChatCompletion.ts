@@ -53,7 +53,6 @@ export const useChatCompletion = (
   const {
     selectedAIProvider,
     allAiProviders,
-    systemPrompt,
     screenshotConfiguration,
     setScreenshotConfiguration,
     selectedSttProvider,
@@ -227,7 +226,6 @@ export const useChatCompletion = (
           for await (const chunk of fetchAIResponse({
             provider: useNiumaAPI ? undefined : provider,
             selectedProvider: selectedAIProvider,
-            systemPrompt: systemPrompt || undefined,
             history: messageHistory,
             userMessage: input,
             imagesBase64,
@@ -377,7 +375,6 @@ export const useChatCompletion = (
       state.attachedFiles,
       selectedAIProvider,
       allAiProviders,
-      systemPrompt,
       messages,
       conversationId,
       setMessages,
@@ -577,6 +574,7 @@ export const useChatCompletion = (
 
       if (config.enabled) {
         const base64 = await invoke("capture_to_base64");
+        await invoke("save_capture_snapshot", { base64Data: base64 as string });
 
         if (config.mode === "auto") {
           // Auto mode: Submit directly to AI with the configured prompt
@@ -635,6 +633,8 @@ export const useChatCompletion = (
         const config = screenshotConfigRef.current;
 
         try {
+          await invoke("save_capture_snapshot", { base64Data: base64 as string });
+
           if (config.mode === "auto") {
             // Auto mode: Submit directly to AI with the configured prompt
             await handleScreenshotSubmit(base64 as string, config.autoPrompt);

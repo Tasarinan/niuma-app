@@ -1,17 +1,14 @@
-import { UseCompletionReturn, SpeakerInfo, SpeakerIdFactory } from "@/types";
+import { UseCompletionReturn } from "@/types";
 import { LoaderCircleIcon, MicIcon, MicOffIcon } from "lucide-react";
 import { useEffect } from "react";
 import { Button } from "@/components";
-import { useTranslation, useMicVadTranscription } from "@/hooks";
+import { useMicVadTranscription } from "@/hooks";
 
 interface AutoSpeechVADProps {
-  submit: UseCompletionReturn["submit"];
+  sendToMainChat: UseCompletionReturn["sendToMainChat"];
   setState: UseCompletionReturn["setState"];
   setEnableVAD: UseCompletionReturn["setEnableVAD"];
   microphoneDeviceId: string;
-  meetingAssistMode?: boolean;
-  addMeetingTranscript?: UseCompletionReturn["addMeetingTranscript"];
-  updateTranscriptTranslation?: UseCompletionReturn["updateTranscriptTranslation"];
   sttLanguage?: string;
 }
 
@@ -30,49 +27,21 @@ export interface AutoSpeechVADState {
  *
  * The actual VAD/STT capture pipeline lives in the shared useMicVadTranscription
  * hook (@/hooks) - this wrapper only adds what's specific to the completion
- * widget: routing the transcript to either the Meeting Assist transcript
- * accumulator or straight to chat submit, plus background translation.
+ * widget: routing the transcript into the main chat bridge and surfacing the
+ * capture state to the toolbar.
  */
 const useAutoSpeechVAD = ({
-  submit,
+  sendToMainChat,
   setState,
   microphoneDeviceId,
-  meetingAssistMode = false,
-  addMeetingTranscript,
-  updateTranscriptTranslation,
   sttLanguage = "en",
 }: Omit<AutoSpeechVADProps, "setEnableVAD">): AutoSpeechVADState => {
-  const { translate, isEnabled: translationEnabled } = useTranslation();
-
   const { listening, userSpeaking, isTranscribing, start, pause } = useMicVadTranscription({
     microphoneDeviceId,
     sttLanguage,
     startOnLoad: true,
     onTranscript: (transcription) => {
-      if (meetingAssistMode && addMeetingTranscript) {
-        // In Meeting Assist Mode, accumulate transcripts instead of auto-submitting.
-        // Phase 1: Label all microphone audio as "You".
-        const microphoneSpeaker: SpeakerInfo = {
-          speakerId: SpeakerIdFactory.you(),
-          speakerLabel: "You",
-          confirmed: true,
-        };
-        const timestamp = addMeetingTranscript(transcription, microphoneSpeaker, "microphone");
-
-        // Translate in background if enabled
-        if (translationEnabled && updateTranscriptTranslation) {
-          translate(transcription).then((result) => {
-            if (result.success && result.translation) {
-              updateTranscriptTranslation(timestamp, result.translation);
-            } else if (result.error) {
-              updateTranscriptTranslation(timestamp, undefined, result.error);
-            }
-          });
-        }
-      } else {
-        // Normal mode: auto-submit to AI
-        submit(transcription);
-      }
+      void sendToMainChat(transcription);
     },
     onError: (error) => {
       console.error("Failed to transcribe audio:", error);

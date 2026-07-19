@@ -25,7 +25,7 @@ export const Sidebar = ({ section, onSectionChange }: SidebarProps) => {
   }));
 
   return (
-    <nav className="flex w-12 flex-shrink-0 flex-col items-center bg-[#2C2D33] pb-3 pt-6">
+    <nav className="flex w-16 flex-shrink-0 flex-col items-center border-r border-slate-200 bg-slate-50 pb-4 pt-5">
       {/* Nav items */}
       <div className="flex flex-col items-center gap-2">
         {navItems.map(({ id, label, icon: Icon }) => {
@@ -36,10 +36,10 @@ export const Sidebar = ({ section, onSectionChange }: SidebarProps) => {
               onClick={() => onSectionChange(id)}
               title={label}
               className={[
-                "flex h-9 w-9 items-center justify-center rounded-2xl transition-all duration-200",
+                "flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-200",
                 isActive
-                  ? "bg-[#3E3F47] text-white scale-105 shadow-sm"
-                  : "text-gray-400 hover:bg-[#3E3F47] hover:text-gray-200",
+                  ? "bg-indigo-600 text-white scale-105 shadow-lg shadow-indigo-200/60"
+                  : "text-slate-400 hover:bg-white hover:text-slate-700",
               ].join(" ")}
             >
               <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />
@@ -54,10 +54,10 @@ export const Sidebar = ({ section, onSectionChange }: SidebarProps) => {
           title={t("agentsChat.settingsTitle")}
           onClick={() => onSectionChange(section === "settings" ? "chat" : "settings")}
           className={[
-            "flex h-9 w-9 items-center justify-center rounded-2xl transition-all duration-200",
+            "flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-200",
             section === "settings"
-              ? "bg-[#3E3F47] text-white scale-105 shadow-sm"
-              : "text-gray-500 hover:bg-[#3E3F47] hover:text-gray-300",
+              ? "bg-indigo-600 text-white scale-105 shadow-lg shadow-indigo-200/60"
+              : "text-slate-400 hover:bg-white hover:text-slate-700",
           ].join(" ")}
         >
           <Settings size={16} strokeWidth={section === "settings" ? 2.5 : 2} />

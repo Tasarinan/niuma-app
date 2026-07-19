@@ -123,6 +123,14 @@
       "preview": "Preview",
       "save": "Save",
       "downloadMd": "Download Markdown",
+    "artifactTree": {
+      "button": "Files",
+      "title": "File Tree",
+      "summary": "{{roots}} roots, {{files}} files",
+      "refresh": "Refresh file tree",
+      "empty": "No files found",
+      "emptyRoot": "No visible files in this root"
+    },
       "importMd": "Import Markdown",
       "bold": "Bold",
       "heading1": "Heading 1",
@@ -132,6 +140,7 @@
       "taskList": "Task List",
       "blockquote": "Blockquote",
       "codeBlock": "Code Block",
+      "openFailed": "Failed to open file: {{error}}",
       "math": "Math Formula",
       "insertTable": "Insert Table",
       "insertLink": "Insert Link",
@@ -140,10 +149,11 @@
       "copyClipboard": "Copy to Clipboard",
       "newArticle": "New Article",
       "deleteArticle": "Delete Article",
-      "saveToDisk": "Save to ~/Documents/niuma/articles"
+      "saveToDisk": "Save to ~/Documents/niuma/artifact"
     },
     "meta": {
       "currentArticle": "Current Article",
+      "notSavedYet": "Not saved to a file yet",
       "cover": "Cover",
       "noCover": "No cover",
       "uploadCover": "Upload Cover",
@@ -226,6 +236,8 @@
   "settingsPage": {
     "title": "App Settings",
     "description": "Manage your settings",
+    "language": "Language / 语言",
+    "languageDescription": "Switch the interface language",
     "theme": {
       "title": "Theme Customization",
       "licenseRequired": "(You need an active license to use this feature)",
@@ -235,6 +247,7 @@
       "dark": "Dark Mode",
       "lightDesc": "Using light theme for better visibility in bright environments",
       "darkDesc": "Using dark theme for comfortable viewing in low light",
+      "onlyMarkdownEditable": "Only Markdown files can be opened and edited right now",
       "lightBtn": "Light",
       "darkBtn": "Dark",
       "systemBtn": "System",
@@ -363,45 +376,6 @@
       "saveKeyErrorDesc": "Secure storage error. Your API key was not saved. Please try again or restart the application."
     }
   },
-  "systemPromptsPage": {
-    "title": "System Prompts",
-    "description": "Manage your AI behavior profiles and create new ones",
-    "searchPlaceholder": "Search system prompts...",
-    "createNew": "Create New",
-    "noPromptsFound": "No prompts found",
-    "createToStart": "Create a new prompt to get started",
-    "generate": {
-      "btn": "Generate with AI",
-      "title": "Generate a system prompt",
-      "desc": "Describe the AI behavior you want, and we'll generate a prompt for you.",
-      "placeholder": "e.g., I want an AI that helps me with code reviews and focuses on best practices...",
-      "generating": "Generating...",
-      "licenseRequired": "You need an active license to use this feature. Click the button below to get a license.",
-      "getLicense": "Get License"
-    },
-    "delete": {
-      "title": "Delete System Prompt",
-      "confirm": "Are you sure you want to delete \"{{name}}\"?",
-      "warning": "This action cannot be undone. This will permanently delete the system prompt from the database.",
-      "deleting": "Deleting...",
-      "delete": "Delete"
-    },
-    "form": {
-      "editTitle": "Edit System Prompt",
-      "createTitle": "Create System Prompt",
-      "editDesc": "Update your system prompt details below.",
-      "createDesc": "Define a new AI behavior and personality.",
-      "nameLabel": "Name",
-      "namePlaceholder": "e.g., Code Review Expert, Creative Writer...",
-      "promptLabel": "System Prompt",
-      "promptPlaceholder": "You are a helpful AI assistant. Be concise, accurate, and friendly in your responses...",
-      "tip": "💡 Tip: Be specific about tone, expertise level, and response format",
-      "updating": "Updating...",
-      "creating": "Creating...",
-      "deletePrompt": "Delete this prompt",
-      "close": "Close"
-    }
-  },
   "responsesPage": {
     "title": "Response Settings",
     "description": "Customize how AI generates and displays responses",
@@ -447,7 +421,19 @@
     "byProvider": {
       "title": "By Provider",
       "description": "Cost breakdown by AI provider",
-      "empty": "No provider data yet"
+      "empty": "No provider data yet",
+      "providers": {
+        "openai": "OpenAI",
+        "claude": "Anthropic Claude",
+        "gemini": "Google Gemini",
+        "groq": "Groq",
+        "mistral": "Mistral",
+        "perplexity": "Perplexity",
+        "openrouter": "OpenRouter",
+        "cohere": "Cohere",
+        "grok": "xAI Grok",
+        "ollama": "Ollama (Local)"
+      }
     }
   },
   "contextMemoryPage": {
@@ -544,6 +530,8 @@
     "processingMode": "Processing Mode",
     "manualMode": "Manual Mode",
     "autoMode": "Auto Mode",
+    "processingModeManualDesc": "Screenshots will be captured and automatically added to your attached files. You can then submit them with your own prompt. You can capture multiple screenshots and submit them later.",
+    "processingModeAutoDesc": "Screenshots will be automatically submitted to AI using your custom prompt. No manual intervention required. Only one screenshot can be submitted at a time.",
     "autoPrompt": "Auto Prompt",
     "autoPromptPlaceholder": "Enter prompt for automatic screenshot analysis...",
     "autoPromptHint": "This prompt will be used automatically when screenshots are taken",

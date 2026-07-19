@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ interface UserIdentitySettingsProps {
 }
 
 export const UserIdentitySettings = ({ onSettingsChange }: UserIdentitySettingsProps) => {
+  const { t } = useTranslation("pages");
   const { userIdentity, setUserIdentity } = useApp();
   const [name, setName] = useState(userIdentity?.name || "");
   const [role, setRole] = useState(userIdentity?.role || "");
@@ -58,39 +60,39 @@ export const UserIdentitySettings = ({ onSettingsChange }: UserIdentitySettingsP
   return (
     <Card className="shadow-none border border-border/70 rounded-xl">
       <CardHeader>
-        <CardTitle className="text-base">User Identity</CardTitle>
+        <CardTitle className="text-base">{t("contextMemoryPage.identity.title")}</CardTitle>
         <CardDescription>
-          Help AI recognize you in conversations and filter you from participant lists
+          {t("contextMemoryPage.identity.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Name Input */}
         <div className="space-y-2">
-          <Label htmlFor="user-name">Your Name</Label>
+          <Label htmlFor="user-name">{t("contextMemoryPage.identity.nameLabel")}</Label>
           <Input
             id="user-name"
-            placeholder="e.g., Kevin"
+            placeholder={t("contextMemoryPage.identity.namePlaceholder")}
             value={name}
             onChange={handleNameChange}
             onBlur={handleBlur}
           />
           <p className="text-xs text-muted-foreground">
-            The name others call you in meetings
+            {t("contextMemoryPage.identity.nameHint")}
           </p>
         </div>
 
         {/* Role Input */}
         <div className="space-y-2">
-          <Label htmlFor="user-role">Your Role</Label>
+          <Label htmlFor="user-role">{t("contextMemoryPage.identity.roleLabel")}</Label>
           <Input
             id="user-role"
-            placeholder="e.g., Software Engineer"
+            placeholder={t("contextMemoryPage.identity.rolePlaceholder")}
             value={role}
             onChange={handleRoleChange}
             onBlur={handleBlur}
           />
           <p className="text-xs text-muted-foreground">
-            Your professional role or title
+            {t("contextMemoryPage.identity.roleHint")}
           </p>
         </div>
 

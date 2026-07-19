@@ -1,15 +1,17 @@
 import { useLocaleStore } from "@/store";
+import { useTranslation } from "react-i18next";
 import { Header, Button } from "@/components";
 import { Languages } from "lucide-react";
 
 export const LocaleToggle = () => {
+  const { t } = useTranslation("pages");
   const { language, setLanguage } = useLocaleStore();
 
   return (
     <div id="locale" className="space-y-3">
       <Header
-        title="Language / 语言"
-        description="Switch the interface language"
+        title={t("settingsPage.language")}
+        description={t("settingsPage.languageDescription")}
         isMainTitle
       />
       <div className="flex items-center justify-between">

@@ -56,7 +56,7 @@ export function TranscriptFeed({
 
   if (transcript.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-slate-400">
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-slate-50 text-slate-400">
         <p className="text-sm font-semibold text-slate-500">会议转录尚未开始</p>
         <p className="text-xs">点击顶部“开始会议”按钮，实时转录将显示在这里</p>
       </div>
@@ -64,8 +64,8 @@ export function TranscriptFeed({
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-2">
+    <div className="flex flex-1 flex-col overflow-hidden bg-white">
+      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-2">
         <span className="text-[11px] font-medium text-slate-400">
           {transcript.length} 条转录
         </span>
@@ -89,7 +89,7 @@ export function TranscriptFeed({
             return (
               <div
                 key={entry.timestamp}
-                className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm shadow-sm"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm"
               >
                 <div className="mb-1 flex items-center gap-2">
                   {hasSpeaker && speakerLabel && (
@@ -114,7 +114,7 @@ export function TranscriptFeed({
                 <p className="text-slate-800">{entry.original}</p>
 
                 {sttTranslationEnabled && (
-                  <div className="mt-2 border-t border-slate-100 pt-2">
+                  <div className="mt-2 border-t border-slate-200 pt-2">
                     {entry.translation ? (
                       <p className="italic text-slate-500" dir="auto">
                         {entry.translation}
