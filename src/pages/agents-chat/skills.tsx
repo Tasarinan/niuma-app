@@ -2,7 +2,7 @@
  * Workstation > Skills (file-based)
  *
  * Full-width hub browser:
- * - Tab "内置技能" shows clawpack SKILL.md files with per-skill enable/disable toggle
+ * - Tab "内置技能" shows `.niuma` SKILL.md files with per-skill enable/disable toggle
  * - Tab "在线市场" searches skill.sh and installs skills to disk
  *
  * Disabled slugs are persisted in localStorage under "niuma-disabled-skills".
@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Input, ScrollArea, Switch } from "@/components/ui";
-import { fetchClawpackSkillCatalog, installSkillToClawpacks, type ClawpackSkill } from "@/lib/data";
+import { fetchNiumaSkillCatalog, installSkillToNiuma, type NiumaSkill } from "@/lib/data";
 import { loadDisabledSkillSlugs, saveDisabledSkillSlugs } from "@/lib/storage";
 import { Check, CloudDownload, ExternalLink, Loader2, Search, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -65,10 +65,10 @@ async function fetchSkillMd(skill: HubSkill): Promise<string> {
 type HubTab = "builtin" | "online";
 
 export default function SkillsPage() {
-  const [builtinSkills, setBuiltinSkills] = useState<ClawpackSkill[]>([]);
+  const [builtinSkills, setBuiltinSkills] = useState<NiumaSkill[]>([]);
   const [builtinLoading, setBuiltinLoading] = useState(true);
   const [builtinSearch, setBuiltinSearch] = useState("");
-  const [builtinPreview, setBuiltinPreview] = useState<ClawpackSkill | null>(null);
+  const [builtinPreview, setBuiltinPreview] = useState<NiumaSkill | null>(null);
   const [disabledSlugs, setDisabledSlugs] = useState<Set<string>>(loadDisabledSkillSlugs);
 
   const [hubTab, setHubTab] = useState<HubTab>("builtin");
@@ -82,7 +82,7 @@ export default function SkillsPage() {
 
   useEffect(() => {
     setBuiltinLoading(true);
-    fetchClawpackSkillCatalog()
+    fetchNiumaSkillCatalog()
       .then(setBuiltinSkills)
       .catch(console.error)
       .finally(() => setBuiltinLoading(false));
@@ -142,7 +142,7 @@ export default function SkillsPage() {
           .replace(/^-+|-+$/g, "")
           .slice(0, 64) || "skill";
 
-      const installed = await installSkillToClawpacks(slug, md);
+      const installed = await installSkillToNiuma(slug, md);
       setBuiltinSkills((prev) => [...prev.filter((skillItem) => skillItem.slug !== slug), installed].sort((a, b) => a.name.localeCompare(b.name)));
       setBuiltinPreview(installed);
       setHubTab("builtin");

@@ -43,7 +43,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["info.plist", "niuma.desktop"],
+    "resources": ["info.plist", "niuma.desktop", "../.niuma/**/*"],
     "macOS": { "minimumSystemVersion": "10.13" }
   },
   "plugins": {

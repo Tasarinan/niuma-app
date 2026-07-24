@@ -4,12 +4,9 @@
  * Reads agent definitions from the local filesystem via Tauri invoke commands.
  * Mirrors the approach used by niuma (Vue) for skills/loader.ts.
  *
- * Scan priority (last wins / user overrides built-in by name):
- *   1. Built-in agents  (clawpacks/agents/*.json)
- *   2. User agents      (appLocalDataDir/user-customization/agents/*.json)
+ * The single source of truth is `.niuma/agents/*.md`.
  *
- * Falls back to HTTP fetch (/clawpacks/agents/) when running in a browser
- * (non-Tauri) context.
+ * Filesystem discovery requires the Tauri runtime.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -18,7 +15,15 @@ import { TALENT_AVATAR_ITEMS } from "../talent-avatar";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface CatalogAgent {
-  /** Source filename, e.g. "alice.json" */
+  /** Stable identity across source formats. */
+  id: string;
+  /** URL/path-safe identity segment. */
+  slug: string;
+  /** Source format and schema metadata. */
+  schemaVersion: "v1";
+  sourceType: "niuma-markdown";
+  sourcePath: string;
+  /** Source filename, e.g. "alice.md" */
   file: string;
   name: string;
   role: string;
@@ -40,6 +45,138 @@ interface DirEntry {
   name: string;
   path: string;
   isDir: boolean;
+}
+
+function normalizeNewlines(value: string): string {
+  return value.replace(/\r\n/g, "\n");
+}
+
+function stripFrontmatter(raw: string): string {
+  const normalized = normalizeNewlines(raw);
+  return normalized.replace(/^---\n[\s\S]*?\n---\n?/, "");
+}
+
+function parseFrontmatter(raw: string): Record<string, string> {
+  const normalized = normalizeNewlines(raw);
+  const match = normalized.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return {};
+
+  const meta: Record<string, string> = {};
+  for (const line of match[1].split("\n")) {
+    const item = line.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
+    if (!item) continue;
+    const key = item[1].trim();
+    const value = item[2].trim();
+    meta[key] = value.replace(/^['"]|['"]$/g, "");
+  }
+  return meta;
+}
+
+function toSlug(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || "agent";
+}
+
+function detectSourceType(): CatalogAgent["sourceType"] {
+  return "niuma-markdown";
+}
+
+function buildIdentity(explicitId: string | undefined, fileName: string) {
+  const seed = explicitId?.trim() || fileName;
+  const slug = toSlug(seed);
+  return {
+    id: `agent:${slug}`,
+    slug,
+  };
+}
+
+function parseListField(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  }
+  if (typeof value !== "string") return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+    }
+  } catch {
+    // continue with comma split
+  }
+
+  return trimmed
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function extractTitle(content: string, fallbackName: string): string {
+  const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  if (heading) {
+    return heading.replace(/\s+Skill$/i, "").trim();
+  }
+
+  const firstLine = content
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (firstLine) return firstLine.replace(/^#+\s*/, "").trim();
+
+  return fallbackName;
+}
+
+function extractDescription(content: string): string {
+  const lines = content.split("\n").map((line) => line.trim());
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || line.startsWith("#") || line.startsWith("```")) continue;
+    if (line.startsWith("-") || line.startsWith("*") || line.startsWith("|")) continue;
+    return line;
+  }
+  return "";
+}
+
+function markdownToAgent(entry: DirEntry, raw: string): CatalogAgent {
+  const sourceType = detectSourceType();
+  const withoutExt = entry.name.replace(/\.md$/i, "");
+  const frontmatter = parseFrontmatter(raw);
+  const content = stripFrontmatter(raw).trim();
+  const title = frontmatter.name?.trim() || extractTitle(content, withoutExt);
+  const description = frontmatter.description?.trim() || extractDescription(content);
+  const identity = buildIdentity(frontmatter.id, entry.name);
+  const temperature = Number(frontmatter.temperature);
+  const maxTokens = Number(frontmatter.maxTokens);
+
+  return {
+    id: identity.id,
+    slug: identity.slug,
+    schemaVersion: "v1",
+    sourceType,
+    sourcePath: entry.path,
+    file: entry.name,
+    name: title,
+    role: frontmatter.role?.trim() || "Specialist",
+    avatar: frontmatter.avatar?.trim() || "",
+    description,
+    providerId: frontmatter.providerId?.trim() || "",
+    modelId: frontmatter.modelId?.trim() || "",
+    temperature: Number.isFinite(temperature) ? temperature : undefined,
+    maxTokens: Number.isFinite(maxTokens) ? maxTokens : undefined,
+    sandboxMode: frontmatter.sandboxMode?.trim() || undefined,
+    enabledInternalTools: parseListField(frontmatter.enabledInternalTools),
+    enabledSkillIds: parseListField(frontmatter.enabledSkillIds),
+    enabledMcpServerIds: parseListField(frontmatter.enabledMcpServerIds),
+    workspacePath: frontmatter.workspacePath?.trim() || "",
+    systemPrompt: content,
+  };
 }
 
 // ─── Cache ───────────────────────────────────────────────────────────────────
@@ -67,46 +204,23 @@ async function scanAgentsDir(dir: string): Promise<CatalogAgent[]> {
     return [];
   }
 
-  const jsonFiles = entries.filter(
-    (e) => !e.isDir && e.name.endsWith(".json") && e.name !== "index.json"
-  );
+  const dataFiles = entries.filter((e) => {
+    if (e.isDir) return false;
+    const lower = e.name.toLowerCase();
+    if (lower === "index.json" || lower === "readme.md" || lower.startsWith("_")) return false;
+    return lower.endsWith(".md");
+  });
 
   const agents: CatalogAgent[] = [];
-  for (const entry of jsonFiles) {
+  for (const entry of dataFiles) {
     try {
       const raw = await invoke<string>("read_text_file", { path: entry.path });
-      const data = JSON.parse(raw) as Record<string, unknown>;
-      agents.push({ ...(data as Omit<CatalogAgent, "file">), file: entry.name });
+      agents.push(markdownToAgent(entry, raw));
     } catch {
       // skip malformed files
     }
   }
   return agents;
-}
-
-// ─── HTTP fallback (browser dev) ─────────────────────────────────────────────
-
-async function fetchCatalogHttp(): Promise<CatalogAgent[]> {
-  try {
-    const indexRes = await fetch("/clawpacks/agents/index.json");
-    if (!indexRes.ok) return [];
-    const files: string[] = await indexRes.json();
-    const agents = await Promise.all(
-      files.map(async (file) => {
-        try {
-          const res = await fetch(`/clawpacks/agents/${file}`);
-          if (!res.ok) return null;
-          const data = await res.json();
-          return { ...data, file } as CatalogAgent;
-        } catch {
-          return null;
-        }
-      })
-    );
-    return agents.filter((a): a is CatalogAgent => a !== null);
-  } catch {
-    return [];
-  }
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -123,42 +237,30 @@ export async function loadAgentCatalog(): Promise<CatalogAgent[]> {
   }
 
   if (!isTauri()) {
-    const result = await fetchCatalogHttp();
-    result.forEach((agent, i) => {
-      if (!agent.avatar && TALENT_AVATAR_ITEMS.length > 0) {
-        agent.avatar = TALENT_AVATAR_ITEMS[i % TALENT_AVATAR_ITEMS.length].avatarUrl;
-      }
-    });
-    cache = result;
+    cache = [];
     cacheTimestamp = now;
-    return result;
+    return cache;
   }
 
-  // Tauri: scan built-in + user directories
-  const [builtinDir, userDir] = await Promise.all([
-    invoke<string>("get_clawpacks_agents_dir").catch(() => ""),
-    invoke<string>("get_user_agents_dir").catch(() => ""),
-  ]);
+  const agentsDir = await invoke<string>("get_niuma_agents_dir").catch(() => "");
+  const builtinAgents = await scanAgentsDir(agentsDir);
 
-  const [builtinAgents, userAgents] = await Promise.all([
-    scanAgentsDir(builtinDir),
-    scanAgentsDir(userDir),
-  ]);
-
-  // User agents override built-in agents with the same name
-  const map = new Map<string, CatalogAgent>(
-    builtinAgents.map((a) => [a.name.toLowerCase(), a])
-  );
-  for (const a of userAgents) {
-    map.set(a.name.toLowerCase(), a);
+  const map = new Map<string, CatalogAgent>();
+  for (const a of builtinAgents) {
+    map.set(a.id, a);
+    map.set(`name:${a.name.toLowerCase()}`, a);
   }
 
-  const merged = Array.from(map.values());
+  const dedup = new Map<string, CatalogAgent>();
+  for (const item of map.values()) {
+    dedup.set(item.id, item);
+  }
+  const merged = Array.from(dedup.values());
   // Assign avatars deterministically by sorted position for agents that lack one
   const sorted = [...merged].sort((a, b) => a.file.localeCompare(b.file));
   sorted.forEach((agent, i) => {
-    if (!agent.avatar && TALENT_AVATAR_ITEMS.length > 0) {
-      agent.avatar = TALENT_AVATAR_ITEMS[i % TALENT_AVATAR_ITEMS.length].avatarUrl;
+    if (!agent.avatar) {
+      agent.avatar = TALENT_AVATAR_ITEMS[i % TALENT_AVATAR_ITEMS.length]?.avatarUrl ?? "🤖";
     }
   });
   cache = sorted;

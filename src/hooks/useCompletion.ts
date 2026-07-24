@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useWindowResize } from "./useWindow";
 import { useGlobalShortcuts } from "@/hooks";
 import { MAX_FILES, STORAGE_KEYS, MEETING_ASSIST_SYSTEM_PROMPT } from "@/config";
@@ -30,6 +30,14 @@ import {
   ProviderUnavailableError,
   type AgentRuntime,
 } from "@/lib/agent";
+import {
+  getSeedSlashCommands,
+  loadSlashCommands,
+  parseSlashQuery,
+  rankSlashCommands,
+  resolveSlashInvocation,
+  type SlashCommandDefinition,
+} from "@/lib/slash-commands";
 import { resolveActiveConnection } from "@/lib/agent/connection";
 import { useSkillStore } from "@/store";
 import type { UsageData, TranscriptEntry, SpeakerInfo, AgentDefinition } from "@/types";
@@ -94,6 +102,20 @@ interface CompletionState {
   conversationHistory: ChatMessage[];
 }
 
+function buildArgumentHint(command: SlashCommandDefinition): string | undefined {
+  if (command.argumentHint?.trim()) return command.argumentHint.trim();
+  if (command.arguments.length === 0) return undefined;
+
+  const parts = command.arguments
+    .map((arg) => {
+      const token = arg.name || "arg";
+      return arg.required ? `<${token}>` : `[${token}]`;
+    })
+    .slice(0, 3);
+
+  return parts.join(" ");
+}
+
 export const useCompletion = () => {
   const {
     selectedAIProvider,
@@ -119,6 +141,10 @@ export const useCompletion = () => {
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
   const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
   const [keepEngaged, setKeepEngaged] = useState(false);
+  const [slashCommands, setSlashCommands] = useState<SlashCommandDefinition[]>(() =>
+    getSeedSlashCommands()
+  );
+  const [activeSlashCommandIndex, setActiveSlashCommandIndex] = useState(0);
 
   // Meeting Assist Mode state
   const [meetingAssistMode, setMeetingAssistMode] = useState(() => {
@@ -168,6 +194,93 @@ export const useCompletion = () => {
   const setInput = useCallback((value: string) => {
     setState((prev) => ({ ...prev, input: value }));
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    void loadSlashCommands().then((commands) => {
+      if (!mounted) return;
+      setSlashCommands(commands);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const slashQuery = useMemo(() => parseSlashQuery(state.input), [state.input]);
+
+  const slashCommandSuggestions = useMemo(() => {
+    if (slashQuery === null) return [];
+    return rankSlashCommands(slashCommands, slashQuery).map((command) => ({
+      name: command.name,
+      description: command.description,
+      sourceLabel: command.sourceLabel,
+      argumentHint: buildArgumentHint(command),
+    }));
+  }, [slashCommands, slashQuery]);
+
+  const isSlashMenuOpen =
+    slashQuery !== null &&
+    slashCommandSuggestions.length > 0 &&
+    !state.isLoading;
+
+  useEffect(() => {
+    setActiveSlashCommandIndex(0);
+  }, [slashQuery]);
+
+  useEffect(() => {
+    if (slashCommandSuggestions.length === 0) {
+      setActiveSlashCommandIndex(0);
+      return;
+    }
+    setActiveSlashCommandIndex((prev) =>
+      Math.max(0, Math.min(prev, slashCommandSuggestions.length - 1))
+    );
+  }, [slashCommandSuggestions.length]);
+
+  const selectSlashCommand = useCallback((commandName: string) => {
+    setState((prev) => ({ ...prev, input: `/${commandName} ` }));
+  }, []);
+
+  const handleInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!isSlashMenuOpen) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveSlashCommandIndex((prev) =>
+          prev + 1 >= slashCommandSuggestions.length ? 0 : prev + 1
+        );
+        return;
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveSlashCommandIndex((prev) =>
+          prev - 1 < 0 ? slashCommandSuggestions.length - 1 : prev - 1
+        );
+        return;
+      }
+
+      if (e.key === "Tab" || e.key === "Enter") {
+        const selected = slashCommandSuggestions[activeSlashCommandIndex];
+        if (!selected) return;
+        e.preventDefault();
+        selectSlashCommand(selected.name);
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setState((prev) => ({ ...prev, input: "" }));
+      }
+    },
+    [
+      activeSlashCommandIndex,
+      isSlashMenuOpen,
+      selectSlashCommand,
+      slashCommandSuggestions,
+    ]
+  );
 
   const setResponse = useCallback((value: string) => {
     setState((prev) => ({ ...prev, response: value }));
@@ -1386,19 +1499,62 @@ export const useCompletion = () => {
    */
   const sendToMainChat = useCallback(async (text: string) => {
     const trimmed = text.trim();
+    const normalized = trimmed.toLowerCase();
+
+    // Built-in fallback so these commands work even before async command load finishes.
+    if (normalized === "/dashboard") {
+      try {
+        await invoke("open_dashboard");
+      } catch (err) {
+        console.error("Failed to open dashboard:", err);
+      }
+      return;
+    }
+
+    if (normalized === "/chat") {
+      try {
+        await invoke("open_agent_chat_window");
+      } catch (err) {
+        console.error("Failed to open agent chat window:", err);
+      }
+      return;
+    }
+
+    const resolution = resolveSlashInvocation(trimmed, slashCommands);
+    const routedText = resolution?.kind === "prompt" ? resolution.text : trimmed;
+
     try {
-      if (trimmed) {
-        await emit("agent-chat:incoming-message", { text: trimmed });
+      if (resolution?.kind === "action") {
+        if (resolution.action === "open-dashboard") {
+          await invoke("open_dashboard");
+          return;
+        }
+
+        if (resolution.action === "open-chat") {
+          await invoke("open_agent_chat_window");
+          return;
+        }
+      }
+
+      if (routedText) {
+        await emit("agent-chat:incoming-message", { text: routedText });
       }
       await invoke("open_agent_chat_window");
     } catch (err) {
       console.error("Failed to route message to AgentChat:", err);
     }
-  }, []);
+  }, [slashCommands]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+
+      // When slash suggestion menu is open, Enter is handled by handleInputKeyDown
+      // to pick the active command and should not submit the message.
+      if (isSlashMenuOpen) {
+        return;
+      }
+
       if (!state.isLoading) {
         const text = state.input;
         setState((prev) => ({ ...prev, input: "" }));
@@ -1823,7 +1979,12 @@ export const useCompletion = () => {
     handleScreenshotSubmit,
     handleFileSelect,
     handleKeyPress,
+    handleInputKeyDown,
     handlePaste,
+    slashCommandSuggestions,
+    isSlashMenuOpen,
+    activeSlashCommandIndex,
+    selectSlashCommand,
     isPopoverOpen,
     scrollAreaRef,
     resizeWindow,

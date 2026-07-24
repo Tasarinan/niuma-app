@@ -38,87 +38,231 @@ fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-/// Return the absolute path to the built-in clawpacks/agents directory.
-/// Priority: CARGO_MANIFEST_DIR/../clawpacks/agents (dev) → CWD/clawpacks/agents → resource_dir/clawpacks/agents (production).
-#[tauri::command]
-fn get_clawpacks_agents_dir(app: tauri::AppHandle) -> String {
-    if let Some(root) = option_env!("NIUMA_CLAWPACKS_DIR") {
-        let candidate = std::path::PathBuf::from(root).join("agents");
-        if candidate.exists() {
-            return candidate.to_string_lossy().to_string();
+fn runtime_or_build_env(keys: &[&str]) -> Option<String> {
+    for key in keys {
+        if let Ok(value) = std::env::var(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
         }
     }
-    // Dev: CARGO_MANIFEST_DIR is src-tauri/, parent is the project root.
-    // This is a compile-time constant, always correct in development.
-    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let candidate = manifest_dir.join("..").join("clawpacks").join("agents");
-    if candidate.exists() {
-        if let Ok(p) = candidate.canonicalize() {
-            return p.to_string_lossy().to_string();
+
+    for key in keys {
+        let value = match *key {
+            "NIUMA_CONTENT_DIR" => option_env!("NIUMA_CONTENT_DIR"),
+            "NIUMA_HOME" => option_env!("NIUMA_HOME"),
+            "NIUMA_ROOT_DIR" => option_env!("NIUMA_ROOT_DIR"),
+            "NIUMA_ARTIFACT_DIR" => option_env!("NIUMA_ARTIFACT_DIR"),
+            "NIUMA_ARTICLES_DIR" => option_env!("NIUMA_ARTICLES_DIR"),
+            _ => None,
+        };
+        if let Some(found) = value {
+            let trimmed = found.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
         }
     }
-    // Fallback: CWD (works when launched from project root)
-    if let Ok(cwd) = std::env::current_dir() {
-        let candidate = cwd.join("clawpacks").join("agents");
+
+    None
+}
+
+fn resolve_existing_dir(candidates: Vec<std::path::PathBuf>) -> String {
+    for candidate in candidates {
         if candidate.exists() {
-            return candidate.to_string_lossy().to_string();
-        }
-    }
-    // Production: resources bundled alongside the binary
-    if let Ok(res) = app.path().resource_dir() {
-        let candidate = res.join("clawpacks").join("agents");
-        if candidate.exists() {
-            return candidate.to_string_lossy().to_string();
+            let normalized = candidate.canonicalize().unwrap_or(candidate);
+            return normalized.to_string_lossy().to_string();
         }
     }
     String::new()
 }
 
-/// Return the absolute path to the user's agent customization directory
-/// (appLocalDataDir/user-customization/agents).
+/// Return the base project root that contains `.niuma`.
+/// Priority: env override -> dev manifest parent -> CWD -> resource dir.
 #[tauri::command]
-fn get_user_agents_dir(app: tauri::AppHandle) -> String {
-    app.path()
-        .app_local_data_dir()
-        .ok()
-        .map(|p| {
-            p.join("user-customization")
-                .join("agents")
+fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
+    // If env points directly at .niuma, return its parent.
+    if let Some(configured) = runtime_or_build_env(&[
+        "NIUMA_CONTENT_DIR",
+        "NIUMA_HOME",
+        "NIUMA_ROOT_DIR",
+    ]) {
+        let configured_path = std::path::PathBuf::from(configured);
+        let file_name = configured_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .map(|s| s.eq_ignore_ascii_case(".niuma"))
+            .unwrap_or(false);
+
+        if file_name {
+            if let Some(parent) = configured_path.parent() {
+                return parent
+                    .canonicalize()
+                    .unwrap_or_else(|_| parent.to_path_buf())
+                    .to_string_lossy()
+                    .to_string();
+            }
+        }
+
+        // If env points at project root, accept it as-is.
+        if configured_path.join(".niuma").exists() {
+            return configured_path
+                .canonicalize()
+                .unwrap_or(configured_path)
                 .to_string_lossy()
-                .to_string()
-        })
-        .unwrap_or_default()
+                .to_string();
+        }
+    }
+
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let dev_root = manifest_dir.join("..");
+    if dev_root.join(".niuma").exists() {
+        return dev_root
+            .canonicalize()
+            .unwrap_or(dev_root)
+            .to_string_lossy()
+            .to_string();
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        if cwd.join(".niuma").exists() {
+            return cwd.canonicalize().unwrap_or(cwd).to_string_lossy().to_string();
+        }
+    }
+
+    if let Ok(res) = app.path().resource_dir() {
+        if res.join(".niuma").exists() {
+            return res.canonicalize().unwrap_or(res).to_string_lossy().to_string();
+        }
+    }
+
+    String::new()
 }
 
-/// Return the absolute path to the built-in clawpacks/skills directory.
-/// Priority: CARGO_MANIFEST_DIR/../clawpacks/skills (dev) → CWD/clawpacks/skills → resource_dir/clawpacks/skills (production).
+/// Return the absolute path to `.niuma/commands`.
 #[tauri::command]
-fn get_clawpacks_skills_dir(app: tauri::AppHandle) -> String {
-    if let Some(root) = option_env!("NIUMA_CLAWPACKS_DIR") {
-        let candidate = std::path::PathBuf::from(root).join("skills");
-        if candidate.exists() {
-            return candidate.to_string_lossy().to_string();
-        }
+fn get_niuma_commands_dir(app: tauri::AppHandle) -> String {
+    let root = get_niuma_root_dir(app);
+    if root.is_empty() {
+        return String::new();
     }
-    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let candidate = manifest_dir.join("..").join("clawpacks").join("skills");
+    let candidate = std::path::PathBuf::from(root).join(".niuma").join("commands");
     if candidate.exists() {
-        if let Ok(p) = candidate.canonicalize() {
-            return p.to_string_lossy().to_string();
+        return candidate
+            .canonicalize()
+            .unwrap_or(candidate)
+            .to_string_lossy()
+            .to_string();
+    }
+    String::new()
+}
+
+/// Return the absolute path to `.niuma/agents`.
+#[tauri::command]
+fn get_niuma_agents_dir(app: tauri::AppHandle) -> String {
+    if let Some(configured) = runtime_or_build_env(&[
+        "NIUMA_CONTENT_DIR",
+        "NIUMA_HOME",
+        "NIUMA_ROOT_DIR",
+    ]) {
+        let configured_path = std::path::PathBuf::from(configured);
+        let candidates = vec![
+            configured_path.join(".niuma").join("agents"),
+            configured_path.join("agents"),
+        ];
+        let resolved = resolve_existing_dir(candidates);
+        if !resolved.is_empty() {
+            return resolved;
         }
     }
+
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let dev_niuma_agents = manifest_dir.join("..").join(".niuma").join("agents");
+    if dev_niuma_agents.exists() {
+        return dev_niuma_agents
+            .canonicalize()
+            .unwrap_or(dev_niuma_agents)
+            .to_string_lossy()
+            .to_string();
+    }
+
     if let Ok(cwd) = std::env::current_dir() {
-        let candidate = cwd.join("clawpacks").join("skills");
-        if candidate.exists() {
-            return candidate.to_string_lossy().to_string();
+        let cwd_niuma_agents = cwd.join(".niuma").join("agents");
+        if cwd_niuma_agents.exists() {
+            return cwd_niuma_agents
+                .canonicalize()
+                .unwrap_or(cwd_niuma_agents)
+                .to_string_lossy()
+                .to_string();
         }
     }
+
     if let Ok(res) = app.path().resource_dir() {
-        let candidate = res.join("clawpacks").join("skills");
-        if candidate.exists() {
-            return candidate.to_string_lossy().to_string();
+        let res_niuma_agents = res.join(".niuma").join("agents");
+        if res_niuma_agents.exists() {
+            return res_niuma_agents
+                .canonicalize()
+                .unwrap_or(res_niuma_agents)
+                .to_string_lossy()
+                .to_string();
         }
     }
+
+    String::new()
+}
+
+/// Return the absolute path to `.niuma/skills`.
+#[tauri::command]
+fn get_niuma_skills_dir(app: tauri::AppHandle) -> String {
+    if let Some(configured) = runtime_or_build_env(&[
+        "NIUMA_CONTENT_DIR",
+        "NIUMA_HOME",
+        "NIUMA_ROOT_DIR",
+    ]) {
+        let configured_path = std::path::PathBuf::from(configured);
+        let candidates = vec![
+            configured_path.join(".niuma").join("skills"),
+            configured_path.join("skills"),
+        ];
+        let resolved = resolve_existing_dir(candidates);
+        if !resolved.is_empty() {
+            return resolved;
+        }
+    }
+
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let dev_niuma_skills = manifest_dir.join("..").join(".niuma").join("skills");
+    if dev_niuma_skills.exists() {
+        return dev_niuma_skills
+            .canonicalize()
+            .unwrap_or(dev_niuma_skills)
+            .to_string_lossy()
+            .to_string();
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        let cwd_niuma_skills = cwd.join(".niuma").join("skills");
+        if cwd_niuma_skills.exists() {
+            return cwd_niuma_skills
+                .canonicalize()
+                .unwrap_or(cwd_niuma_skills)
+                .to_string_lossy()
+                .to_string();
+        }
+    }
+
+    if let Ok(res) = app.path().resource_dir() {
+        let res_niuma_skills = res.join(".niuma").join("skills");
+        if res_niuma_skills.exists() {
+            return res_niuma_skills
+                .canonicalize()
+                .unwrap_or(res_niuma_skills)
+                .to_string_lossy()
+                .to_string();
+        }
+    }
+
     String::new()
 }
 
@@ -148,7 +292,7 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
         }
     };
 
-    if let Some(configured) = option_env!("NIUMA_ARTIFACT_DIR").or(option_env!("NIUMA_ARTICLES_DIR")) {
+    if let Some(configured) = runtime_or_build_env(&["NIUMA_ARTIFACT_DIR", "NIUMA_ARTICLES_DIR"]) {
         let configured_path = std::path::PathBuf::from(configured);
         if configured_path.exists() {
             push_unique(&mut results, normalize(configured_path));
@@ -304,11 +448,12 @@ pub fn run() {
             search_tools::search_local_files,
             search_tools::web_search,
             http_tools::http_request,
-            get_clawpacks_agents_dir,
-            get_clawpacks_skills_dir,
+            get_niuma_agents_dir,
+            get_niuma_skills_dir,
+            get_niuma_root_dir,
+            get_niuma_commands_dir,
             get_artifact_dirs,
             get_articles_dirs,
-            get_user_agents_dir,
             mcp::mcp_inspect,
             mcp::mcp_call_tool,
             mcp::mcp_read_resource,

@@ -109,6 +109,7 @@ const computeAllStt = (custom: TYPE_PROVIDER[]): TYPE_PROVIDER[] => [
  */
 export const useAppStore = create<IContextType>((set, get) => ({
   // ----- state -----
+  systemPrompt: DEFAULT_SYSTEM_PROMPT,
   selectedAudioDevices: {
     input: safeLocalStorage.getItem(STORAGE_KEYS.SELECTED_AUDIO_INPUT_DEVICE) || "",
     output: safeLocalStorage.getItem(STORAGE_KEYS.SELECTED_AUDIO_OUTPUT_DEVICE) || "",

@@ -13,7 +13,7 @@ import type { BaseEntity } from "./agent.type";
 export interface StudioProject {
   id: string;
   name: string;
-  /** Emoji or /clawpacks/talent_icon/... URL. */
+  /** Emoji or an image URL. */
   avatar: string;
   /** IDs of AgentDefinition members acting as roles in this project. */
   agentIds: string[];

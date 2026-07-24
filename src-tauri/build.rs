@@ -43,7 +43,9 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=NIUMA_ARTIFACT_DIR");
     println!("cargo:rerun-if-env-changed=NIUMA_ARTICLES_DIR");
-    println!("cargo:rerun-if-env-changed=NIUMA_CLAWPACKS_DIR");
+    println!("cargo:rerun-if-env-changed=NIUMA_CONTENT_DIR");
+    println!("cargo:rerun-if-env-changed=NIUMA_HOME");
+    println!("cargo:rerun-if-env-changed=NIUMA_ROOT_DIR");
 
     let configured_artifact_dir = std::env::var("NIUMA_ARTIFACT_DIR")
         .or_else(|_| std::env::var("NIUMA_ARTICLES_DIR"));
@@ -55,10 +57,17 @@ fn main() {
         }
     }
 
-    if let (Some(env_file), Ok(clawpacks_dir)) = (env_file.as_ref(), std::env::var("NIUMA_CLAWPACKS_DIR")) {
+    let configured_content_dir = std::env::var("NIUMA_CONTENT_DIR")
+        .or_else(|_| std::env::var("NIUMA_HOME"))
+        .or_else(|_| std::env::var("NIUMA_ROOT_DIR"));
+
+    if let (Some(env_file), Ok(content_dir)) = (env_file.as_ref(), configured_content_dir) {
         if let Some(env_dir) = env_file.parent() {
-            let resolved = resolve_env_relative(env_dir, &clawpacks_dir);
-            println!("cargo:rustc-env=NIUMA_CLAWPACKS_DIR={}", resolved.to_string_lossy());
+            let resolved = resolve_env_relative(env_dir, &content_dir);
+            let resolved_text = resolved.to_string_lossy();
+            println!("cargo:rustc-env=NIUMA_CONTENT_DIR={}", resolved_text);
+            println!("cargo:rustc-env=NIUMA_HOME={}", resolved_text);
+            println!("cargo:rustc-env=NIUMA_ROOT_DIR={}", resolved_text);
         }
     }
 

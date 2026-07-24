@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useSkillStore, useMcpStore } from "@/store";
 import { useAgents } from "./useAgents";
-import { createAgentRuntime, bridgeEnabledClawpackSkills } from "@/lib/agent";
+import { createAgentRuntime, bridgeEnabledNiumaSkills } from "@/lib/agent";
 import { getActiveProvider } from "@/lib/providers/storage";
 import type { Message } from "@/types";
 import type { AgentDefinition, GroupChannel, GroupMessage } from "@/types";
@@ -156,13 +156,13 @@ export function useGroupChat() {
           return mentions.some((mn) => agent!.name.toLowerCase().includes(mn));
         });
 
-      // Bridge the Skills page's enabled clawpack skills (file-based) into the
+      // Bridge the Skills page's enabled .niuma skills (file-based) into the
       // DB-backed Skill store so `resolveAgent`'s load_skill/run_skill tools
       // actually pick them up for this turn — without persisting the change
       // to any agent's stored `enabledSkillIds`.
       const bridgedSkillIds =
         respondingAgents.length > 0
-          ? await bridgeEnabledClawpackSkills().catch(() => [])
+          ? await bridgeEnabledNiumaSkills().catch(() => [])
           : [];
 
       // Call each agent sequentially

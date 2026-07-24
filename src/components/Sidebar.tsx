@@ -1,4 +1,4 @@
-import { Button, WingIcon } from "@/components";
+import { WingIcon } from "@/components";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMenuItems, useVersion } from "@/hooks";

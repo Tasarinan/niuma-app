@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Button,
   Dialog,
@@ -38,8 +39,17 @@ import { useAgents, useGroupChat } from "@/hooks";
 import type { AgentInput } from "@/hooks";
 import { MeetingChannelView } from "./components/meeting";
 import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
-import { fetchClawpackSkillCatalog, type ClawpackSkill } from "@/lib/data";
-import { loadDisabledSkillSlugs, loadHiredAgentFiles } from "@/lib/storage";
+import { loadHiredAgentFiles } from "@/lib/storage";
+import {
+  getSeedSlashCommands,
+  getSlashArgumentCompletion,
+  loadSlashCommands,
+  parseSlashInvocation,
+  parseSlashQuery,
+  rankSlashCommands,
+  resolveSlashInvocation,
+  type SlashCommandDefinition,
+} from "@/lib/slash-commands";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, SandboxMode } from "@/types";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { MAX_FILES } from "@/config";
@@ -70,6 +80,15 @@ const DEFAULT_ICON = CHANNEL_ICONS[0] ?? "";
 
 function randomIcon() {
   return CHANNEL_ICONS[Math.floor(Math.random() * CHANNEL_ICONS.length)] ?? DEFAULT_ICON;
+}
+
+function commandArgumentHint(command: SlashCommandDefinition): string {
+  if (command.argumentHint) return command.argumentHint;
+  return command.arguments
+    .map((argument) =>
+      argument.required ? `<${argument.name}>` : `[${argument.name}]`
+    )
+    .join(" ");
 }
 
 function isIconUrl(s: string) {
@@ -548,61 +567,78 @@ export default function ChatPage({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [activeMessages]);
 
-  // ─── "/" skill picker (compose box) ────────────────────────────────────────
-  // Lists every installed clawpack skill (from the Skills page's catalog,
-  // minus anything the user disabled there) so it can be referenced by typing
-  // "/" followed by a few characters.
-  const [installedSkills, setInstalledSkills] = useState<ClawpackSkill[]>([]);
-  const [skillMenu, setSkillMenu] = useState<{ query: string; start: number } | null>(null);
-  const [skillMenuIndex, setSkillMenuIndex] = useState(0);
+  // ─── PI-style "/" command picker (compose box) ─────────────────────────────
+  // Command-name completion is active only at the start of the input. Selecting
+  // a command inserts "/name ", leaving the remainder of the input for args.
+  const [slashCommands, setSlashCommands] = useState<SlashCommandDefinition[]>(
+    () => getSeedSlashCommands()
+  );
+  const [slashMenuIndex, setSlashMenuIndex] = useState(0);
+  const [slashMenuDismissed, setSlashMenuDismissed] = useState(false);
 
   useEffect(() => {
-    fetchClawpackSkillCatalog()
-      .then(setInstalledSkills)
-      .catch(() => setInstalledSkills([]));
+    let cancelled = false;
+    void loadSlashCommands().then((commands) => {
+      if (!cancelled) setSlashCommands(commands);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const enabledInstalledSkills = useMemo(() => {
-    const disabled = loadDisabledSkillSlugs();
-    return installedSkills.filter((s) => s.enabled !== false && !disabled.has(s.slug));
-  }, [installedSkills]);
-
-  const filteredSkillMenu = useMemo(() => {
-    if (!skillMenu) return [];
-    const q = skillMenu.query.toLowerCase();
-    return enabledInstalledSkills
-      .filter(
-        (s) =>
-          !q ||
-          s.name.toLowerCase().includes(q) ||
-          s.slug.toLowerCase().includes(q) ||
-          (s.command || "").toLowerCase().includes(q)
-      )
-      .slice(0, 8);
-  }, [skillMenu, enabledInstalledSkills]);
-
-  const SKILL_TRIGGER_RE = /(^|\s)\/([a-zA-Z0-9_-]*)$/;
+  const slashQuery = useMemo(() => parseSlashQuery(input), [input]);
+  const slashCommandSuggestions = useMemo(
+    () =>
+      slashQuery === null
+        ? []
+        : rankSlashCommands(slashCommands, slashQuery),
+    [slashCommands, slashQuery]
+  );
+  const slashArgumentCompletion = useMemo(
+    () => getSlashArgumentCompletion(input, slashCommands),
+    [input, slashCommands]
+  );
+  const isCommandMenuOpen =
+    !slashMenuDismissed && slashQuery !== null && slashCommandSuggestions.length > 0;
+  const isArgumentMenuOpen =
+    !slashMenuDismissed &&
+    slashArgumentCompletion !== null &&
+    slashArgumentCompletion.choices.length > 0;
+  const isSlashMenuOpen = isCommandMenuOpen || isArgumentMenuOpen;
+  const activeInvocationCommand = useMemo(() => {
+    const invocation = parseSlashInvocation(input);
+    if (!invocation) return null;
+    return slashCommands.find((command) => command.name === invocation.command) ?? null;
+  }, [input, slashCommands]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setInput(value);
-    const cursor = e.target.selectionStart ?? value.length;
-    const match = SKILL_TRIGGER_RE.exec(value.slice(0, cursor));
-    setSkillMenu(match ? { query: match[2], start: match.index + match[1].length } : null);
-    setSkillMenuIndex(0);
+    setInput(e.target.value);
+    setSlashMenuDismissed(false);
+    setSlashMenuIndex(0);
   };
 
-  const selectSkillMenuItem = (skill: ClawpackSkill) => {
-    if (!skillMenu) return;
-    const cursor = textareaRef.current?.selectionStart ?? input.length;
-    const before = input.slice(0, skillMenu.start);
-    const after = input.slice(cursor);
-    const inserted = `/${skill.command || skill.slug} `;
-    setInput(`${before}${inserted}${after}`);
-    setSkillMenu(null);
+  const selectSlashCommand = (command: SlashCommandDefinition) => {
+    const inserted = `/${command.name} `;
+    setInput(inserted);
+    setSlashMenuIndex(0);
+    setSlashMenuDismissed(false);
     requestAnimationFrame(() => {
-      const pos = before.length + inserted.length;
+      const pos = inserted.length;
       textareaRef.current?.setSelectionRange(pos, pos);
+      textareaRef.current?.focus();
+    });
+  };
+
+  const selectSlashArgument = (value: string) => {
+    if (!slashArgumentCompletion) return;
+    const prefixLength = slashArgumentCompletion.prefix.length;
+    const beforePrefix = prefixLength > 0 ? input.slice(0, -prefixLength) : input;
+    const inserted = `${beforePrefix}${value} `;
+    setInput(inserted);
+    setSlashMenuIndex(0);
+    setSlashMenuDismissed(false);
+    requestAnimationFrame(() => {
+      textareaRef.current?.setSelectionRange(inserted.length, inserted.length);
       textareaRef.current?.focus();
     });
   };
@@ -613,10 +649,19 @@ export default function ChatPage({
     const images: ImageContent[] | undefined = attachedImages.length
       ? attachedImages.map((f) => ({ type: "image" as const, data: f.data, mimeType: f.mimeType }))
       : undefined;
+    const resolution = resolveSlashInvocation(text, slashCommands);
     setInput("");
     setAttachedImages([]);
-    setSkillMenu(null);
-    await sendMessage(text, images);
+    setSlashMenuDismissed(true);
+
+    if (resolution?.kind === "action") {
+      if (resolution.action === "open-dashboard") await invoke("open_dashboard");
+      if (resolution.action === "open-chat") await invoke("open_agent_chat_window");
+      return;
+    }
+
+    const agentInput = resolution?.kind === "prompt" ? resolution.text : text;
+    await sendMessage(agentInput, images);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -689,7 +734,7 @@ export default function ChatPage({
   /**
    * Finds (or lazily creates) the single-agent "main chat" channel used by the
    * main toolbar's "Ask me anything" input, and sends `text` into it.
-   * Default agent = the built-in "Assistant" (assistant.json), falling back
+  * Default agent = the built-in "Assistant" (assistant.md), falling back
    * to the first hired agent, then the first catalog agent, if it's missing.
    */
   const ensureMainChannelAndSend = useCallback(
@@ -706,7 +751,7 @@ export default function ChatPage({
         const hired = all.filter((a) => hiredSet.has(a.file));
         // Default agent for the main chat is always the built-in "Assistant"
         // (general Q&A + local/web search), regardless of what's hired.
-        const defaultAgent = all.find((a) => a.file === "assistant.json");
+        const defaultAgent = all.find((a) => a.file === "assistant.md");
         const candidate = defaultAgent ?? hired[0] ?? all[0];
 
         const agentIds: string[] = [];
@@ -1026,10 +1071,41 @@ export default function ChatPage({
                       ))}
                     </div>
                   )}
+                  {activeInvocationCommand && !isCommandMenuOpen && (
+                    <div className="mb-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span className="text-xs font-semibold text-indigo-700">
+                          /{activeInvocationCommand.name}
+                        </span>
+                        {commandArgumentHint(activeInvocationCommand) && (
+                          <span className="font-mono text-[10px] text-indigo-500">
+                            {commandArgumentHint(activeInvocationCommand)}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-500">
+                          {activeInvocationCommand.description}
+                        </span>
+                      </div>
+                      {activeInvocationCommand.arguments.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {activeInvocationCommand.arguments.map((argument) => (
+                            <span
+                              key={argument.name}
+                              title={argument.description}
+                              className="rounded bg-white px-1.5 py-0.5 text-[10px] text-slate-500 ring-1 ring-indigo-100"
+                            >
+                              {argument.required ? `<${argument.name}>` : `[${argument.name}]`}
+                              {argument.description ? ` · ${argument.description}` : ""}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <Popover
-                    open={!!skillMenu && filteredSkillMenu.length > 0}
+                    open={isSlashMenuOpen}
                     onOpenChange={(open) => {
-                      if (!open) setSkillMenu(null);
+                      if (!open) setSlashMenuDismissed(true);
                     }}
                   >
                     <PopoverAnchor asChild>
@@ -1065,27 +1141,39 @@ export default function ChatPage({
                           value={input}
                           onChange={handleInputChange}
                           onKeyDown={(e) => {
-                            if (skillMenu && filteredSkillMenu.length > 0) {
+                            if (isSlashMenuOpen) {
+                              const suggestionCount = isCommandMenuOpen
+                                ? slashCommandSuggestions.length
+                                : slashArgumentCompletion?.choices.length ?? 0;
                               if (e.key === "ArrowDown") {
                                 e.preventDefault();
-                                setSkillMenuIndex((i) => (i + 1) % filteredSkillMenu.length);
+                                setSlashMenuIndex(
+                                  (i) => (i + 1) % suggestionCount
+                                );
                                 return;
                               }
                               if (e.key === "ArrowUp") {
                                 e.preventDefault();
-                                setSkillMenuIndex(
-                                  (i) => (i - 1 + filteredSkillMenu.length) % filteredSkillMenu.length
+                                setSlashMenuIndex(
+                                  (i) =>
+                                    (i - 1 + suggestionCount) % suggestionCount
                                 );
                                 return;
                               }
                               if (e.key === "Enter" || e.key === "Tab") {
                                 e.preventDefault();
-                                selectSkillMenuItem(filteredSkillMenu[skillMenuIndex]);
+                                if (isCommandMenuOpen) {
+                                  selectSlashCommand(slashCommandSuggestions[slashMenuIndex]);
+                                } else if (slashArgumentCompletion) {
+                                  selectSlashArgument(
+                                    slashArgumentCompletion.choices[slashMenuIndex].value
+                                  );
+                                }
                                 return;
                               }
                               if (e.key === "Escape") {
                                 e.preventDefault();
-                                setSkillMenu(null);
+                                setSlashMenuDismissed(true);
                                 return;
                               }
                             }
@@ -1122,35 +1210,75 @@ export default function ChatPage({
                       side="top"
                       align="start"
                       sideOffset={8}
-                      className="w-72 p-1"
+                      className="w-[420px] max-w-[calc(100vw-2rem)] p-1"
                       onOpenAutoFocus={(e) => e.preventDefault()}
                       onCloseAutoFocus={(e) => e.preventDefault()}
                     >
-                      <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                        {t("chatPage.skillMenuTitle")}
-                      </p>
+                      <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-2 pb-1.5 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                        <span>
+                          {isCommandMenuOpen
+                            ? "Command"
+                            : slashArgumentCompletion
+                              ? `${slashArgumentCompletion.argument.required ? "Required" : "Optional"} · ${slashArgumentCompletion.argument.name}`
+                              : "Argument"}
+                        </span>
+                        <span>Description</span>
+                      </div>
                       <div className="max-h-56 space-y-0.5 overflow-y-auto">
-                        {filteredSkillMenu.map((skill, idx) => (
+                        {isCommandMenuOpen ? slashCommandSuggestions.map((command, idx) => (
                           <button
-                            key={skill.slug}
+                            key={command.name}
                             type="button"
                             onMouseDown={(e) => {
                               e.preventDefault();
-                              selectSkillMenuItem(skill);
+                              selectSlashCommand(command);
                             }}
                             className={cn(
-                              "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
-                              idx === skillMenuIndex ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100"
+                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                              idx === slashMenuIndex
+                                ? "bg-indigo-50 text-indigo-700"
+                                : "hover:bg-slate-100"
                             )}
                           >
-                            <span className="text-sm leading-none">{skill.icon || "⚡"}</span>
-                            <span className="min-w-0 flex-1">
+                            <span className="min-w-0">
                               <span className="block truncate font-medium text-slate-800">
-                                /{skill.command || skill.slug}
+                                /{command.name}
                               </span>
-                              <span className="block truncate text-[11px] text-slate-400">
-                                {skill.description}
+                              {commandArgumentHint(command) && (
+                                <span className="mt-0.5 block truncate font-mono text-[10px] text-indigo-500">
+                                  {commandArgumentHint(command)}
+                                </span>
+                              )}
+                            </span>
+                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
+                              <span className="line-clamp-2">
+                                {command.description || "No description"}
                               </span>
+                              <span className="mt-0.5 block text-[9px] uppercase text-slate-300">
+                                {command.sourceLabel}
+                              </span>
+                            </span>
+                          </button>
+                        )) : slashArgumentCompletion?.choices.map((choice, idx) => (
+                          <button
+                            key={choice.value}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectSlashArgument(choice.value);
+                            }}
+                            className={cn(
+                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-2 text-left text-xs transition-colors",
+                              idx === slashMenuIndex
+                                ? "bg-indigo-50 text-indigo-700"
+                                : "hover:bg-slate-100"
+                            )}
+                          >
+                            <span className="truncate font-mono font-medium text-slate-800">
+                              {choice.value}
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              {choice.description || slashArgumentCompletion.argument.description}
                             </span>
                           </button>
                         ))}

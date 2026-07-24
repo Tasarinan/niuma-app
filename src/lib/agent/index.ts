@@ -33,4 +33,4 @@ export type {
 } from "./tools/internal";
 export { buildMcpTools, prewarmMcpServers } from "./tools/mcp";
 export { buildLoadSkillTool, buildRunSkillTool, formatSkillsPrompt } from "./tools/skills";
-export { bridgeEnabledClawpackSkills } from "./skill-bridge";
+export { bridgeEnabledNiumaSkills } from "./skill-bridge";

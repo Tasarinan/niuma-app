@@ -1,5 +1,5 @@
 /**
- * Persisted preference for which installed clawpack skills (by slug) are
+ * Persisted preference for which installed `.niuma` skills (by slug) are
  * disabled. Shared by the Skills page (browse/toggle) and the chat compose
  * box's "/" skill picker, so both stay in sync.
  */

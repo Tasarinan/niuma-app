@@ -7,10 +7,7 @@ export {
 } from "./repository";
 export { agentDefinitionRepo, skillRepo, mcpRepo, artifactRepo } from "./repositories";
 export {
-  fetchClawpackCatalog,
-  fetchClawpackSkillCatalog,
-  installSkillToClawpacks,
-  type ClawpackAgent,
-  type ClawpackSkill,
-  TALENT_AVATAR_ITEMS,
-} from "./clawpacks";
+  fetchNiumaSkillCatalog,
+  installSkillToNiuma,
+  type NiumaSkill,
+} from "./niuma-content";

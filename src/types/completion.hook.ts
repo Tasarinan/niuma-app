@@ -11,6 +11,13 @@ import { TranscriptEntry, SpeakerInfo } from "./completion";
 // Re-export TranscriptEntry and SpeakerInfo for convenience
 export type { TranscriptEntry, SpeakerInfo };
 
+export interface SlashCommandSuggestion {
+  name: string;
+  description: string;
+  sourceLabel?: "file" | "extension" | "builtin";
+  argumentHint?: string;
+}
+
 /**
  * Type definition for the useCompletion hook return value
  * This hook manages the complete state and functionality for AI completion interactions
@@ -101,8 +108,20 @@ export interface UseCompletionReturn {
   handleFileSelect: (e: ChangeEvent<HTMLInputElement>) => void;
   /** Event handler for keyboard interactions (Enter to submit) */
   handleKeyPress: (e: KeyboardEvent) => void;
+  /** Event handler for input key down interactions (slash menu navigation) */
+  handleInputKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   /** Event handler for paste events to handle image pasting */
   handlePaste: (e: ClipboardEvent) => Promise<void>;
+
+  // Slash commands
+  /** Filtered slash command suggestions for the current input */
+  slashCommandSuggestions: SlashCommandSuggestion[];
+  /** Whether slash command suggestion menu is currently open */
+  isSlashMenuOpen: boolean;
+  /** Index of currently highlighted slash command suggestion */
+  activeSlashCommandIndex: number;
+  /** Apply selected slash command into the input */
+  selectSlashCommand: (commandName: string) => void;
 
   // UI helpers and computed values
   /** Whether any popover/modal should be open (computed from loading/response/error state) */

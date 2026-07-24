@@ -39,6 +39,7 @@ const providerNames: Record<string, string> = {
 };
 
 export const CostByProvider = ({ byProvider, loading }: CostByProviderProps) => {
+  const { t } = useTranslation("pages");
   const providers = Object.entries(byProvider).sort(
     ([, a], [, b]) => b.cost - a.cost
   );

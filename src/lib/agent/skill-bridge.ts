@@ -1,24 +1,24 @@
 /**
- * Bridges the Skills page's clawpack skills (file-based, `clawpacks/skills/<slug>/SKILL.md`)
+ * Bridges file-based `.niuma/skills/<slug>/SKILL.md` definitions
  * into the DB-backed `Skill` store consumed by `resolveAgent` (via `load_skill`/`run_skill`).
  *
  * Without this bridge the two skill systems are disconnected: toggling a skill
  * on the Skills page only affects its own catalog view, not what an agent can
- * actually load/run in chat. Call `bridgeEnabledClawpackSkills()` right before
+ * actually load/run in chat. Call `bridgeEnabledNiumaSkills()` right before
  * sending a message and merge the returned ids into the responding agent's
  * `enabledSkillIds` for that turn.
  */
-import { fetchClawpackSkillCatalog, type ClawpackSkill } from "@/lib/data";
+import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
 import { loadDisabledSkillSlugs } from "@/lib/storage";
 import { useSkillStore } from "@/store";
 
 /**
- * Finds-or-creates a `Skill` record for every clawpack skill that's currently
+ * Finds-or-creates a `Skill` record for every .niuma skill that's currently
  * enabled (frontmatter `enabled` + not in the user's disabled-slug set), and
  * returns their ids. Existing bridged records are kept in sync with the
  * source SKILL.md content in case it changed on disk.
  */
-export async function bridgeEnabledClawpackSkills(): Promise<string[]> {
+export async function bridgeEnabledNiumaSkills(): Promise<string[]> {
   let store = useSkillStore.getState();
   if (!store.loaded) {
     await store.load();
@@ -26,9 +26,9 @@ export async function bridgeEnabledClawpackSkills(): Promise<string[]> {
   }
 
   const disabledSlugs = loadDisabledSkillSlugs();
-  let catalog: ClawpackSkill[];
+  let catalog: NiumaSkill[];
   try {
-    catalog = await fetchClawpackSkillCatalog();
+    catalog = await fetchNiumaSkillCatalog();
   } catch {
     return [];
   }
@@ -44,10 +44,10 @@ export async function bridgeEnabledClawpackSkills(): Promise<string[]> {
   return ids;
 }
 
-async function findOrCreateBridgedSkill(cs: ClawpackSkill): Promise<string> {
+async function findOrCreateBridgedSkill(cs: NiumaSkill): Promise<string> {
   const store = useSkillStore.getState();
   const existing = store.items.find(
-    (s) => s.sourceType === "clawpack" && s.source === cs.slug
+    (s) => s.sourceType === "niuma" && s.source === cs.slug
   );
 
   if (existing) {
@@ -72,7 +72,7 @@ async function findOrCreateBridgedSkill(cs: ClawpackSkill): Promise<string> {
     enabled: true,
     tags: cs.category ? [cs.category] : [],
     content: cs.raw,
-    sourceType: "clawpack",
+    sourceType: "niuma",
     source: cs.slug,
   });
   return created.id;
