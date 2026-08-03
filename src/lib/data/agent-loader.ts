@@ -47,6 +47,10 @@ interface DirEntry {
   isDir: boolean;
 }
 
+interface AgentScanContext {
+  teamId?: string;
+}
+
 function normalizeNewlines(value: string): string {
   return value.replace(/\r\n/g, "\n");
 }
@@ -86,8 +90,13 @@ function detectSourceType(): CatalogAgent["sourceType"] {
   return "niuma-markdown";
 }
 
-function buildIdentity(explicitId: string | undefined, fileName: string) {
-  const seed = explicitId?.trim() || fileName;
+function buildIdentity(explicitId: string | undefined, fileName: string, context: AgentScanContext = {}) {
+  const withoutExt = fileName.replace(/\.md$/i, "");
+  const explicit = explicitId?.trim();
+  const teamPrefix = context.teamId ? `${context.teamId}-` : "";
+  const seed = context.teamId
+    ? explicit?.startsWith(teamPrefix) ? explicit : `${context.teamId}-${explicit || withoutExt}`
+    : explicit || withoutExt;
   const slug = toSlug(seed);
   return {
     id: `agent:${slug}`,
@@ -144,14 +153,14 @@ function extractDescription(content: string): string {
   return "";
 }
 
-function markdownToAgent(entry: DirEntry, raw: string): CatalogAgent {
+function markdownToAgent(entry: DirEntry, raw: string, context: AgentScanContext = {}): CatalogAgent {
   const sourceType = detectSourceType();
   const withoutExt = entry.name.replace(/\.md$/i, "");
   const frontmatter = parseFrontmatter(raw);
   const content = stripFrontmatter(raw).trim();
   const title = frontmatter.name?.trim() || extractTitle(content, withoutExt);
   const description = frontmatter.description?.trim() || extractDescription(content);
-  const identity = buildIdentity(frontmatter.id, entry.name);
+  const identity = buildIdentity(frontmatter.id, entry.name, context);
   const temperature = Number(frontmatter.temperature);
   const maxTokens = Number(frontmatter.maxTokens);
 
@@ -163,7 +172,7 @@ function markdownToAgent(entry: DirEntry, raw: string): CatalogAgent {
     sourcePath: entry.path,
     file: entry.name,
     name: title,
-    role: frontmatter.role?.trim() || "Specialist",
+    role: frontmatter.role?.trim() || (context.teamId ? title : "Specialist"),
     avatar: frontmatter.avatar?.trim() || "",
     description,
     providerId: frontmatter.providerId?.trim() || "",
@@ -195,7 +204,7 @@ function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-async function scanAgentsDir(dir: string): Promise<CatalogAgent[]> {
+async function scanAgentsDir(dir: string, context: AgentScanContext = {}): Promise<CatalogAgent[]> {
   if (!dir) return [];
   let entries: DirEntry[];
   try {
@@ -215,12 +224,34 @@ async function scanAgentsDir(dir: string): Promise<CatalogAgent[]> {
   for (const entry of dataFiles) {
     try {
       const raw = await invoke<string>("read_text_file", { path: entry.path });
-      agents.push(markdownToAgent(entry, raw));
+      agents.push(markdownToAgent(entry, raw, context));
     } catch {
       // skip malformed files
     }
   }
   return agents;
+}
+
+async function scanTeamAgentDirs(rootDir: string): Promise<CatalogAgent[]> {
+  if (!rootDir) return [];
+  const separator = rootDir.includes("/") ? "/" : "\\";
+  const teamsDir = `${rootDir}${separator}.niuma${separator}teams`;
+  let teamEntries: DirEntry[];
+  try {
+    teamEntries = await invoke<DirEntry[]>("list_directory", { path: teamsDir });
+  } catch {
+    return [];
+  }
+
+  const results = await Promise.allSettled(
+    teamEntries
+      .filter((entry) => entry.isDir)
+      .map((entry) => scanAgentsDir(`${entry.path}${separator}agents`, { teamId: entry.name })),
+  );
+
+  return results
+    .filter((result): result is PromiseFulfilledResult<CatalogAgent[]> => result.status === "fulfilled")
+    .flatMap((result) => result.value);
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -243,10 +274,12 @@ export async function loadAgentCatalog(): Promise<CatalogAgent[]> {
   }
 
   const agentsDir = await invoke<string>("get_niuma_agents_dir").catch(() => "");
+  const rootDir = await invoke<string>("get_niuma_root_dir").catch(() => "");
   const builtinAgents = await scanAgentsDir(agentsDir);
+  const teamAgents = await scanTeamAgentDirs(rootDir);
 
   const map = new Map<string, CatalogAgent>();
-  for (const a of builtinAgents) {
+  for (const a of [...builtinAgents, ...teamAgents]) {
     map.set(a.id, a);
     map.set(`name:${a.name.toLowerCase()}`, a);
   }

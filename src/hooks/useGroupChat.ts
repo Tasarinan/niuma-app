@@ -63,8 +63,8 @@ export function useGroupChat() {
   }, []);
 
   const createChannel = useCallback(
-    (name: string, agentIds: string[], avatar?: string, kind?: GroupChannel["kind"]) => {
-      const channel = storageCreateChannel(name, agentIds, avatar, kind);
+    (name: string, agentIds: string[], avatar?: string, kind?: GroupChannel["kind"], tags?: string[]) => {
+      const channel = storageCreateChannel(name, agentIds, avatar, kind, tags);
       setChannels(loadChannels());
       setSelectedId(channel.id);
       setMessages([]);
@@ -74,7 +74,7 @@ export function useGroupChat() {
   );
 
   const editChannel = useCallback(
-    (id: string, patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind">>) => {
+    (id: string, patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind" | "tags">>) => {
       storageUpdateChannel(id, patch);
       const updated = loadChannels();
       setChannels(updated);

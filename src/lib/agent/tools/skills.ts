@@ -133,10 +133,52 @@ function stripQuotes(value: string): string {
   return value.replace(/^['"]|['"]$/g, "");
 }
 
+function tokenizeCommand(command: string): string[] {
+  const tokens: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+  let escaping = false;
+
+  for (const char of command) {
+    if (escaping) {
+      current += char;
+      escaping = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaping = true;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      } else {
+        current += char;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (/\s/.test(char)) {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+    current += char;
+  }
+
+  if (current) tokens.push(current);
+  return tokens;
+}
+
 /** Parse a (substituted) curl command line into a plain HTTP request description. */
 function parseCurlToHttpRequest(curl: string): ParsedCurlRequest {
-  const oneLine = curl.replace(/\\\r?\n\s*/g, " ").replace(/\s+/g, " ").trim();
-  const parts = oneLine.split(" ");
+  const oneLine = curl.replace(/\\\r?\n\s*/g, " ").trim();
+  const parts = tokenizeCommand(oneLine);
 
   let url = "";
   let method = "GET";

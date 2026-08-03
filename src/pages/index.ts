@@ -1,5 +1,7 @@
 export { default as Dashboard } from "./dashboard";
 export { default as AgentChat } from "./agents-chat";
+export { default as Agents } from "./agents-chat/agents";
+export { default as Skills } from "./agents-chat/skills";
 export { default as App } from "./app";
 export { default as Settings } from "./settings";
 export { default as Shortcuts } from "./shortcuts";

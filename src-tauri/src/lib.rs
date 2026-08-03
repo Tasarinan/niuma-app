@@ -4,6 +4,7 @@ mod api;
 mod capture;
 mod db;
 mod fs_tools;
+mod health;
 mod http_tools;
 mod mcp;
 mod sandbox;
@@ -472,6 +473,7 @@ pub fn run() {
             zero_token::zt_eval_script,
             zero_token::zt_window_exists,
             zero_token::zt_report_result,
+            health::health_save_attachment,
         ])
         .setup(|app| {
             // Setup main window positioning

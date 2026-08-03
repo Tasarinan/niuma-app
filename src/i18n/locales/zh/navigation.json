@@ -11,6 +11,8 @@
   "speechRecognition": "语音识别",
   "shortcuts": "光标与快捷键",
   "agents": "智能体",
+  "skills": "技能",
+  "providers": "服务商",
   "footer": {
     "contactSupport": "联系支持",
     "reportBug": "报告问题",

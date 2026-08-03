@@ -90,6 +90,7 @@ pub fn run_sandboxed_command(req: SandboxRunRequest) -> Result<SandboxRunRespons
     command.env_clear();
     command.env("PATH", std::env::var("PATH").unwrap_or_default());
     command.env("HOME", std::env::var("HOME").unwrap_or_default());
+    preserve_platform_runtime_env(&mut command);
     command.env("TMPDIR", &temp_dir_str);
     command.env("TMP", &temp_dir_str);
     command.env("TEMP", &temp_dir_str);
@@ -155,6 +156,45 @@ fn is_safe_env_key(key: &str) -> bool {
         && !key.contains("SECRET")
         && !key.contains("TOKEN")
         && !key.contains("PASSWORD")
+}
+
+fn preserve_platform_runtime_env(command: &mut Command) {
+    #[cfg(not(target_os = "windows"))]
+    let _ = command;
+
+    #[cfg(target_os = "windows")]
+    {
+        for key in [
+            "SYSTEMROOT",
+            "SystemRoot",
+            "WINDIR",
+            "ComSpec",
+            "COMSPEC",
+            "PATHEXT",
+            "USERPROFILE",
+            "APPDATA",
+            "LOCALAPPDATA",
+            "PROGRAMDATA",
+            "PROGRAMFILES",
+            "ProgramFiles",
+            "PROGRAMFILES(X86)",
+            "ProgramFiles(x86)",
+            "PROCESSOR_ARCHITECTURE",
+            "PROCESSOR_IDENTIFIER",
+            "NUMBER_OF_PROCESSORS",
+            "OS",
+        ] {
+            if let Ok(value) = std::env::var(key) {
+                command.env(key, value);
+            }
+        }
+
+        if std::env::var("HOME").unwrap_or_default().is_empty() {
+            if let Ok(user_profile) = std::env::var("USERPROFILE") {
+                command.env("HOME", user_profile);
+            }
+        }
+    }
 }
 
 fn sandbox_backend(mode: &str) -> &'static str {

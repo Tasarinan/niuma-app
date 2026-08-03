@@ -11,6 +11,9 @@ import {
   DollarSignIcon,
   BrainIcon,
   LanguagesIcon,
+  BotIcon,
+  PlugIcon,
+  ZapIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
@@ -27,6 +30,21 @@ export const useMenuItems = () => {
     href: string;
     count?: number;
   }[] = [
+    {
+      icon: BotIcon,
+      label: t("agents"),
+      href: "/agents",
+    },
+    {
+      icon: ZapIcon,
+      label: t("skills"),
+      href: "/skills",
+    },
+    {
+      icon: PlugIcon,
+      label: t("providers"),
+      href: "/providers",
+    },
     {
       icon: Settings,
       label: t("settings"),

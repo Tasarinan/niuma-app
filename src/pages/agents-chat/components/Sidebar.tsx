@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Brain, FileText, MessageSquare, Settings, Zap } from "lucide-react";
-import type { Section } from "../index";
 
-const NAV_ITEM_DEFS: { id: Section; icon: React.ElementType }[] = [
+type LegacySection = "chat" | "agents" | "skills" | "articles" | "settings";
+
+const NAV_ITEM_DEFS: { id: LegacySection; icon: React.ElementType }[] = [
   { id: "chat", icon: MessageSquare },
   { id: "agents", icon: Brain },
   { id: "skills", icon: Zap },
@@ -10,11 +11,11 @@ const NAV_ITEM_DEFS: { id: Section; icon: React.ElementType }[] = [
 ];
 
 interface SidebarProps {
-  section: Section;
-  onSectionChange: (section: Section) => void;
+  section: LegacySection;
+  onSectionChange: (section: LegacySection) => void;
 }
 
-/** Left navigation rail — mirrors DeDeClaw style. */
+/** Left navigation rail — mirrors Ima style. */
 export const Sidebar = ({ section, onSectionChange }: SidebarProps) => {
   const { t } = useTranslation("pages");
 

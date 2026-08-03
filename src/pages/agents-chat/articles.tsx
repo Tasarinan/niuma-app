@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { Editor } from "@tiptap/core";
@@ -9,6 +9,7 @@ import {
   Code2,
   Download,
   Eye,
+  FilePenLine,
   FileInput,
   Heading1,
   Heading2,
@@ -17,6 +18,9 @@ import {
   List,
   ListOrdered,
   LoaderCircle,
+  Maximize2,
+  MessageSquareText,
+  MoreVertical,
   PencilLine,
   Plus,
   Quote,
@@ -26,8 +30,15 @@ import {
   Table2,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { openArtifactArticle, saveArticleToArtifact, scanArtifactArticles } from "@/lib/artifact/article-repo";
@@ -49,6 +60,14 @@ type ArticleRecord = {
 };
 
 type EditorMode = "write" | "split" | "preview";
+type WorkbenchView = "chat" | "editor";
+
+interface ArticlesPageProps {
+  activeView?: WorkbenchView;
+  onViewChange?: (view: WorkbenchView) => void;
+  onToggleMaximize?: () => void;
+  onClose?: () => void;
+}
 
 const STORAGE_KEY = "niuma.artifact.articles";
 const LEGACY_STORAGE_KEY = "niuma.articles";
@@ -100,7 +119,12 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
-export default function ArticlesPage() {
+export default function ArticlesPage({
+  activeView = "editor",
+  onViewChange,
+  onToggleMaximize,
+  onClose,
+}: ArticlesPageProps = {}) {
   const { treeRoots, refreshTree } = useArticleArtifactTree();
   const [articles, setArticles] = useState<ArticleRecord[]>(() => {
     const stored = readArticles();
@@ -451,6 +475,13 @@ export default function ArticlesPage() {
         ? "bg-indigo-100 text-indigo-700"
         : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
     );
+  const viewButton = (active = false) =>
+    cn(
+      "flex size-7 items-center justify-center rounded-md transition-colors",
+      active
+        ? "bg-white text-[#7771e8] shadow-sm"
+        : "text-slate-500 hover:text-slate-900"
+    );
 
   return (
     <div className="flex h-full overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.06),_transparent_30%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
@@ -458,13 +489,50 @@ export default function ArticlesPage() {
       <div className="flex min-w-0 flex-1 flex-col border-r border-slate-100 bg-white/80 backdrop-blur">
 
         {/* Title row */}
-        <div className="flex flex-shrink-0 items-center gap-3 border-b border-slate-100 px-5 py-2">
+        <div
+          className="flex flex-shrink-0 items-center gap-3 border-b border-slate-100 px-3 py-2"
+          data-tauri-drag-region
+          style={{ WebkitAppRegion: "drag" } as CSSProperties}
+        >
+          <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5" style={{ WebkitAppRegion: "no-drag" } as CSSProperties}>
+            <button type="button" onClick={() => onViewChange?.("chat")} title="CHAT" aria-label="CHAT" className={viewButton(activeView === "chat")}>
+              <MessageSquareText className="size-3.5" />
+            </button>
+            <button type="button" onClick={() => onViewChange?.("editor")} title="EDIT" aria-label="EDIT" className={viewButton(activeView === "editor")}>
+              <FilePenLine className="size-3.5" />
+            </button>
+          </div>
           <Input
             value={activeArticle.title}
             onChange={(e) => updateArticle({ title: e.target.value || i18n.t("articles.untitled", { ns: "pages" }) })}
             className="h-9 border-0 bg-transparent px-0 text-lg font-semibold tracking-tight text-slate-900 shadow-none placeholder:text-slate-300 focus-visible:ring-0"
             placeholder={t("articles.titlePlaceholder")}
+            style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
           />
+          <div className="flex items-center gap-1" style={{ WebkitAppRegion: "no-drag" } as CSSProperties}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  title="More"
+                  aria-label="More"
+                  className="flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <MoreVertical className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={onToggleMaximize}>
+                  <Maximize2 className="size-4" />
+                  放大 / 还原
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onClose} variant="destructive">
+                  <X className="size-4" />
+                  关闭
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Toolbar row – icon only */}

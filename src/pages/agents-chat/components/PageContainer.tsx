@@ -1,13 +1,14 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { Section } from "../index";
+
+type LegacySection = "chat" | "agents" | "skills" | "articles" | "settings";
 
 interface PageContainerProps {
-  pageId: Section;
-  current: Section;
+  pageId: LegacySection;
+  current: LegacySection;
   children: ReactNode;
 }
 
-/** Mirrors DeDeClaw PageContainer: all pages mounted, shown/hidden via display.
+/** Mirrors Ima PageContainer: all pages mounted, shown/hidden via display.
  *  Uses display:block so child pages fill the full width naturally and
  *  h-full / ScrollArea flex-1 resolve correctly.
  */

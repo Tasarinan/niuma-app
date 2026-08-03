@@ -69,13 +69,15 @@ function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-export async function fetchNiumaSkillCatalog(): Promise<NiumaSkill[]> {
-  if (!isTauri()) return [];
-
-  const dir = await invoke<string>("get_niuma_skills_dir");
+async function scanSkillDir(dir: string): Promise<NiumaSkill[]> {
   if (!dir) return [];
+  let entries: DirEntry[];
+  try {
+    entries = await invoke<DirEntry[]>("list_directory", { path: dir });
+  } catch {
+    return [];
+  }
 
-  const entries = await invoke<DirEntry[]>("list_directory", { path: dir });
   const results = await Promise.allSettled(
     entries
       .filter((entry) => entry.isDir)
@@ -85,12 +87,49 @@ export async function fetchNiumaSkillCatalog(): Promise<NiumaSkill[]> {
           path: `${entry.path}${separator}SKILL.md`,
         });
         return rawToSkill(entry.name, raw);
-      })
+      }),
   );
 
   return results
     .filter((result): result is PromiseFulfilledResult<NiumaSkill> => result.status === "fulfilled")
-    .map((result) => result.value)
+    .map((result) => result.value);
+}
+
+async function scanTeamSkillDirs(rootDir: string): Promise<NiumaSkill[]> {
+  if (!rootDir) return [];
+  const separator = rootDir.includes("/") ? "/" : "\\";
+  const teamsDir = `${rootDir}${separator}.niuma${separator}teams`;
+  let teamEntries: DirEntry[];
+  try {
+    teamEntries = await invoke<DirEntry[]>("list_directory", { path: teamsDir });
+  } catch {
+    return [];
+  }
+
+  const results = await Promise.allSettled(
+    teamEntries
+      .filter((entry) => entry.isDir)
+      .map((entry) => scanSkillDir(`${entry.path}${separator}skills`)),
+  );
+
+  return results
+    .filter((result): result is PromiseFulfilledResult<NiumaSkill[]> => result.status === "fulfilled")
+    .flatMap((result) => result.value);
+}
+
+export async function fetchNiumaSkillCatalog(): Promise<NiumaSkill[]> {
+  if (!isTauri()) return [];
+
+  const dir = await invoke<string>("get_niuma_skills_dir");
+  const rootDir = await invoke<string>("get_niuma_root_dir").catch(() => "");
+  if (!dir && !rootDir) return [];
+
+  const rootSkills = await scanSkillDir(dir);
+  const teamSkills = await scanTeamSkillDirs(rootDir);
+  const merged = new Map<string, NiumaSkill>();
+  for (const skill of [...rootSkills, ...teamSkills]) merged.set(skill.slug, skill);
+
+  return Array.from(merged.values())
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

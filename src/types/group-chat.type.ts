@@ -8,6 +8,8 @@ export interface GroupChannel {
   avatar: string;
   /** IDs of AgentDefinition members in this channel. */
   agentIds: string[];
+  /** Short user-defined labels shown in the channel list. */
+  tags?: string[];
   /** Channel type. "meeting" channels enable live meeting transcription/diarization. Defaults to "chat" when unset. */
   kind?: "chat" | "meeting";
   createdAt: string;

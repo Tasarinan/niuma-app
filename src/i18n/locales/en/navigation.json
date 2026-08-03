@@ -11,6 +11,8 @@
   "speechRecognition": "Speech Recognition",
   "shortcuts": "Cursor & Shortcuts",
   "agents": "Agents",
+  "skills": "Skills",
+  "providers": "Providers",
   "footer": {
     "contactSupport": "Contact Support",
     "reportBug": "Report a bug",

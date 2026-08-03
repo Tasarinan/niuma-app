@@ -52,5 +52,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("migrations/meeting-context-v7.sql"),
             kind: MigrationKind::Up,
         },
+        // Migration 8: Health data core tables
+        Migration {
+            version: 8,
+            description: "create_health_core_tables",
+            sql: include_str!("migrations/health-core.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

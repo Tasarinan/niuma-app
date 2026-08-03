@@ -7,10 +7,13 @@ import {
   Audio,
   Screenshot,
   AgentChat,
+  Agents,
+  Skills,
   Responses,
   CostTracking,
   ContextMemory,
   Speakers,
+  Providers,
 } from "@/pages";
 import { DashboardLayout } from "@/components/layouts";
 
@@ -28,6 +31,9 @@ export default function AppRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/audio" element={<Audio />} />
           <Route path="/responses" element={<Responses />} />
+          <Route path="/providers" element={<Providers />} />
+          <Route path="/agents" element={<Agents />} />
+          <Route path="/skills" element={<Skills />} />
           <Route path="/cost-tracking" element={<CostTracking />} />
           <Route path="/context-memory" element={<ContextMemory />} />
           <Route path="/speakers" element={<Speakers />} />
