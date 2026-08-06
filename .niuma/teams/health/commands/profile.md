@@ -1,168 +1,85 @@
 ---
-description: 设置用户基础医疗参数
+description: 管理个人和家庭成员健康档案（建立/查看/更新）
+agent: 健康向导
 arguments:
   - name: action
-    description: 操作类型：set(设置)/view(查看)
+    description: 操作类型：setup(首次建档)/view(查看)/update(更新)/add-member(添加家人)
     required: true
-  - name: gender
-    description: 性别（M=男，F=女）
-    required: false
-  - name: height
-    description: 身高（厘米）
-    required: false
-  - name: weight
-    description: 体重（公斤）
-    required: false
-  - name: birth_date
-    description: 出生日期（格式：YYYY-MM-DD）
+  - name: member
+    description: 家庭成员关系（self/spouse/parent/child），默认 self
     required: false
 ---
 
-# 用户基础参数设置
+# 个人与家庭健康档案管理
 
-用于设置或查看用户的基础医疗参数，包括性别、身高、体重和出生日期。
+管理本地数据库中的 `health_people` 档案，无需上传至 IMA，所有档案数据留在本地。
 
 ## 操作类型
 
-### 1. 设置参数 - `set`
+### setup — 首次建档（本人）
 
-设置用户的基础参数，可以重复设置以更新数据。
+Agent 向用户依次收集以下信息（可一次性提供，也可逐步填写）：
 
-**参数说明：**
-- `gender`: 性别（M=男性，F=女性）
-- `height`: 身高，单位厘米（cm）
-- `weight`: 体重，单位公斤（kg）
-- `birth_date`: 出生日期，格式 YYYY-MM-DD
+**必填：**
+- 姓名/昵称
+- 出生日期（YYYY-MM-DD）
+- 性别（M/F）
+- 身高（cm）
+- 体重（kg）
+- 药物过敏史（无则填"无"）
+- 重大疾病史（无则填"无"）
+- 长期用药（无则填"无"）
 
-**示例：**
-```
-/profile set F 175 70 1990-01-01
-/profile set gender=F height=175 weight=70 birth_date=1990-01-01
-```
+**建议填写：**
+- 健康目标（如：减重/控糖/改善睡眠）
+- 吸烟情况（不吸/已戒/吸烟）
+- 饮酒情况（不饮/偶尔/经常）
+- 平均睡眠时长（小时）
+- 每周运动频次（次）
+- 直系亲属慢病史（高血压/糖尿病/冠心病/肿瘤等）
 
-### 2. 查看参数 - `view`
+**执行步骤：**
+1. 调用前端 `getOrCreateSelfPerson()` 获取或创建本人档案
+2. 将收集到的字段写入本地 `health_records`（type=profile）的 `structured_json`
+3. 确认保存成功，输出档案摘要
+4. 提示下一步：`/analyze` 上传检查报告，`/record` 记录日常健康
 
-查看当前已设置的基础参数。
+### view — 查看档案
 
-## 执行步骤
+读取本地 `health_records`（type=profile）最近一条记录，格式化展示。
+如包含多个家庭成员，按成员分组展示。
 
-### 设置参数 (set)
+### update — 更新档案
 
-1. **读取现有数据**
-   - 读取 `data/profile.json`
-   - 如果文件不存在，创建新文件
+用户指定要更新的字段，仅修改对应字段，其余保留。
+写入新一条 profile 记录（保留历史，不覆盖）。
 
-2. **验证输入数据**
-   - 检查性别：M、F 或其他有效值
-   - 检查身高范围：50-250 cm
-   - 检查体重范围：2-300 kg
-   - 检查日期格式：YYYY-MM-DD
-   - 检查出生日期不能晚于今天
+### add-member — 添加家庭成员
 
-3. **计算派生指标**
-   - 计算年龄（基于出生日期）
-   - 计算BMI（体重kg / 身高m²）
-   - 计算体表面积（Mosteller公式）：√(身高cm × 体重kg / 3600)
+收集家庭成员信息（同 setup 字段），指定 relation：
+- spouse（配偶）
+- parent（父/母）
+- child（子/女）
+- other（其他）
 
-4. **保存数据**
-   - 更新 `data/profile.json`
-   - 保留历史记录（可选）
+调用 `createHealthPerson({ name, relation, ... })` 写入本地数据库。
 
-5. **输出确认信息**
-   ```
-   ✅ 用户基础参数已更新
-
-   基本信息：
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━
-   性别：F（女）
-   身高：175 cm
-   体重：70 kg
-   出生日期：1990-01-01 (35岁)
-
-   计算指标：
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━
-   BMI：22.9 (正常)
-   体表面积：1.85 m²
-
-   数据已保存至：data/profile.json
-   ```
-
-### 查看参数 (view)
-
-1. **读取数据**
-   - 读取 `data/profile.json`
-
-2. **显示信息**
-   - 如果数据存在，显示完整信息
-   - 如果数据不存在，提示用户设置
-
-## 数据结构
-
-`data/profile.json` 格式：
-
-```json
-{
-  "created_at": "2025-12-31",
-  "last_updated": "2025-12-31",
-  "basic_info": {
-    "gender": "F",
-    "height": 175,
-    "height_unit": "cm",
-    "weight": 70,
-    "weight_unit": "kg",
-    "birth_date": "1990-01-01"
-  },
-  "calculated": {
-    "age": 35,
-    "age_years": 35,
-    "bmi": 22.9,
-    "bmi_status": "正常",
-    "body_surface_area": 1.85,
-    "bsa_unit": "m²"
-  },
-  "history": [
-    {
-      "updated_at": "2025-12-31",
-      "height": 175,
-      "weight": 70
-    }
-  ]
-}
-```
-
-## BMI 分类标准
-
-- 偏瘦：< 18.5
-- 正常：18.5 - 23.9
-- 超重：24 - 27.9
-- 肥胖：≥ 28
-
-## 注意事项
-
-- 身高体重可以随时更新，建议定期测量
-- 出生日期用于计算年龄，设置后不建议更改
-- 所有数据仅保存在本地，确保隐私安全
-- 体表面积用于辐射剂量计算，务必准确填写
-
-## 示例用法
+## 示例
 
 ```
-# 设置完整参数
-/profile set F 175 70 1990-01-01
-
-# 使用参数名设置
-/profile set gender=M height=180 weight=75 birth_date=1985-06-15
-
-# 只更新体重
-/profile set weight=68
-
-# 查看当前参数
+/profile setup
 /profile view
+/profile update 体重 68
+/profile add-member parent 妈妈 1965-05-12 F
 ```
 
-## 错误处理
+## 输出示例
 
-- **格式错误**: "参数格式错误，请使用：/profile set F 175 70 1990-01-01"
-- **范围错误**: "身高应在50-250cm之间，体重应在2-300kg之间"
-- **日期错误**: "出生日期不能晚于今天"
-- **未设置**: "请先设置基础参数：/profile set F 175 70 1990-01-01"
+```
+✅ 档案已保存
+👤 姓名：张三 | 男 | 36岁 | 身高 175cm | 体重 70kg | BMI 22.9
+🎯 健康目标：改善睡眠、适度减重
+⚠️ 过敏史：青霉素
+💊 长期用药：无
+下一步：用 /analyze 上传最近的体检报告，或用 /record 开始记录日常健康数据。
+```

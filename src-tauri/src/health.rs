@@ -18,6 +18,9 @@ pub struct SaveHealthAttachmentRequest {
     pub mime_type: String,
     /// Original file extension (without dot), e.g. "jpg".
     pub extension: String,
+    /// When provided, save under `<workspace_root>/.artifacts/health/attachments/<YYYY>/<MM>/`
+    /// instead of the app data directory.
+    pub workspace_root: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -63,18 +66,31 @@ pub async fn health_save_attachment(
         .map_err(|e| format!("base64 decode error: {e}"))?;
 
     // Determine target directory
-    let app_data = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("app_data_dir error: {e}"))?;
-
-    // YYYY/MM subdirectory for easier browsing
     let now = chrono_lite_yyyymm();
-    let target_dir: PathBuf = app_data
-        .join("health")
-        .join("attachments")
-        .join(&now.0)
-        .join(&now.1);
+
+    let target_dir: PathBuf = match request
+        .workspace_root
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+    {
+        Some(root) => PathBuf::from(root)
+            .join(".artifacts")
+            .join("health")
+            .join("attachments")
+            .join(&now.0)
+            .join(&now.1),
+        None => {
+            let app_data = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("app_data_dir error: {e}"))?;
+            app_data
+                .join("health")
+                .join("attachments")
+                .join(&now.0)
+                .join(&now.1)
+        }
+    };
     fs::create_dir_all(&target_dir)
         .map_err(|e| format!("create_dir_all error: {e}"))?;
 

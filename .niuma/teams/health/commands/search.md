@@ -1,5 +1,6 @@
 ---
 description: 搜索 IMA 健康知识库，查找历史上传的检查报告和健康文档
+agent: 健康向导
 arguments:
   - name: query
     description: 搜索关键词（如：血常规、体检报告、2026年、心电图）

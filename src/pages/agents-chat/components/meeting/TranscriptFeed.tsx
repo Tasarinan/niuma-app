@@ -3,10 +3,11 @@
  * Adapted from pages/app/components/completion/MeetingTranscriptPanel.tsx.
  */
 import { useEffect, useRef } from "react";
-import { Loader2, TrashIcon } from "lucide-react";
+import { Loader2, Mic, TrashIcon } from "lucide-react";
 import { Button, ScrollArea, SpeakerTaggingPopover } from "@/components";
 import { useApp } from "@/store";
 import { SpeakerIdFactory } from "@/types";
+import { cn } from "@/lib/utils";
 import type { SpeakerInfo, TranscriptEntry } from "@/types";
 
 const SPEAKER_COLORS: Record<string, string> = {
@@ -39,10 +40,14 @@ export function TranscriptFeed({
   transcript,
   clearTranscript,
   assignSpeaker,
+  isRecording,
+  micListening,
 }: {
   transcript: TranscriptEntry[];
   clearTranscript: () => void;
   assignSpeaker: (speakerId: string, label: string, profileId?: string) => void;
+  isRecording?: boolean;
+  micListening?: boolean;
 }) {
   const { sttTranslationEnabled } = useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -56,9 +61,32 @@ export function TranscriptFeed({
 
   if (transcript.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-slate-50 text-slate-400">
-        <p className="text-sm font-semibold text-slate-500">会议转录尚未开始</p>
-        <p className="text-xs">点击顶部“开始会议”按钮，实时转录将显示在这里</p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-slate-50 text-slate-400">
+        {isRecording ? (
+          <>
+            <span className="flex size-10 items-center justify-center rounded-full bg-red-50 ring-4 ring-red-100">
+              <Mic className={cn("size-5 text-red-500", micListening && "animate-pulse")} />
+            </span>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-slate-600">
+                {micListening ? "正在监听发言…" : "等待语音输入"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">转录内容将实时显示在这里</p>
+            </div>
+            <span className="flex items-center gap-1.5 text-[11px] text-red-500">
+              <span className="size-1.5 animate-pulse rounded-full bg-red-500" />
+              录音中
+            </span>
+          </>
+        ) : (
+          <>
+            <Mic className="size-7 text-slate-200" />
+            <div className="text-center">
+              <p className="text-sm font-semibold text-slate-500">会议转录尚未开始</p>
+              <p className="mt-1 text-xs">点击顶部"开始会议"按钮，实时转录将显示在这里</p>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -69,15 +97,17 @@ export function TranscriptFeed({
         <span className="text-[11px] font-medium text-slate-400">
           {transcript.length} 条转录
         </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={clearTranscript}
-          className="h-7 px-2 text-xs text-slate-400 hover:text-red-500"
-        >
-          <TrashIcon className="mr-1 h-3.5 w-3.5" />
-          清空
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearTranscript}
+            className="h-7 px-2 text-xs text-slate-400 hover:text-red-500"
+          >
+            <TrashIcon className="mr-1 h-3.5 w-3.5" />
+            清空
+          </Button>
+        </div>
       </div>
       <ScrollArea ref={scrollRef} className="flex-1 min-h-0">
         <div className="space-y-3 p-5">

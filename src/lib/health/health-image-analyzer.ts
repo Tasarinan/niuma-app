@@ -138,6 +138,41 @@ const DEFAULT_SYSTEM_PROMPT = `你是一个健康记录助手。
 
 // ─── JSON extraction helper ───────────────────────────────────────────────────
 
+/** Resize + re-encode image to JPEG ≤1280px before sending to the AI.
+ *  Reduces base64 payload from ~5 MB to ~200-400 KB for typical phone photos.
+ */
+async function compressImageForAnalysis(img: ImageContent): Promise<ImageContent> {
+  if (typeof document === "undefined") return img; // non-browser context
+  const MAX_DIM = 1280;
+  const QUALITY = 0.82;
+  return new Promise((resolve) => {
+    const src = `data:${img.mimeType};base64,${img.data}`;
+    const image = new Image();
+    image.onload = () => {
+      let { width, height } = image;
+      if (width <= MAX_DIM && height <= MAX_DIM) {
+        resolve(img); // already small enough
+        return;
+      }
+      const scale = MAX_DIM / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(img); return; }
+      ctx.drawImage(image, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", QUALITY);
+      const base64 = dataUrl.split(",")[1] ?? img.data;
+      resolve({ type: "image", mimeType: "image/jpeg", data: base64 });
+    };
+    image.onerror = () => resolve(img); // fallback: use original
+    image.src = src;
+  });
+}
+
+
 function extractJson(text: string): unknown {
   // Try parsing directly first
   const trimmed = text.trim();
@@ -221,7 +256,9 @@ export async function analyzeHealthImage(
     }
   );
 
-  await runtime.prompt("请分析上传的图片并返回 JSON。", opts.images);
+  // Compress images before sending to reduce payload and avoid proxy timeouts
+  const compressedImages = await Promise.all(opts.images.map(compressImageForAnalysis));
+  await runtime.prompt("请分析上传的图片并返回 JSON。", compressedImages);
   await runtime.waitForIdle();
 
   if (errorMsg) {

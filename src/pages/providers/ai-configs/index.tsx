@@ -11,7 +11,11 @@ import {
   saveProviderConfig,
   getActiveProvider,
   setActiveProvider,
+  getProxyUrl,
+  setProxyUrl,
 } from "@/lib/providers/storage";
+import { invoke } from "@tauri-apps/api/core";
+import { ensureAgentFetch } from "@/lib/agent/agent-fetch";
 import {
   ZERO_TOKEN_PLATFORMS,
   openZeroTokenLogin,
@@ -47,7 +51,14 @@ export const AIProviders = () => {
   const [isZtChecking, setIsZtChecking] = useState(false);
   const [ztResult, setZtResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [activeProvider, setActiveProviderState] = useState(() => getActiveProvider());
+  const [proxyUrl, setProxyUrlState] = useState(() => getProxyUrl());
   const { t } = useTranslation("pages");
+
+  // Apply saved proxy on mount so test connection also goes through it
+  useEffect(() => {
+    const saved = getProxyUrl();
+    if (saved) void invoke("set_proxy_url", { proxyUrl: saved }).catch(console.warn);
+  }, []);
 
   // Load stored config for the selected provider
   const loadConfig = useCallback((id: string) => {
@@ -89,6 +100,9 @@ export const AIProviders = () => {
     });
     setActiveProvider({ providerId: selectedId, model });
     setActiveProviderState({ providerId: selectedId, model });
+    // Save and apply proxy
+    setProxyUrl(proxyUrl);
+    void invoke("set_proxy_url", { proxyUrl }).catch(console.warn);
     setResult({ ok: true, msg: t("aiConfigs.saved") });
     setTimeout(() => setResult(null), 2000);
   };
@@ -141,6 +155,8 @@ export const AIProviders = () => {
     setResult(null);
     try {
       const effectiveBaseUrl = baseUrl.trim() || currentDef.baseUrl;
+      // Register host so the fetch shim routes it through Tauri plugin-http (proxy-aware)
+      try { await ensureAgentFetch(new URL(effectiveBaseUrl).host); } catch { /**/ }
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (apiKey.trim()) {
         if (currentDef.api === "anthropic-messages") {
@@ -334,7 +350,18 @@ export const AIProviders = () => {
               </p>
             </div>
 
-            {/* Model */}
+            {/* HTTP Proxy */}
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">HTTP Proxy <span className="text-xs text-muted-foreground/60">(optional)</span></label>
+              <input
+                type="text"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                placeholder="http://10.144.1.10:8080"
+                value={proxyUrl}
+                onChange={(e) => setProxyUrlState(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground/60">设置后所有 API 请求经过此代理转发，清空则直连</p>
+            </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-sm text-muted-foreground">{t("aiConfigs.model")}</label>

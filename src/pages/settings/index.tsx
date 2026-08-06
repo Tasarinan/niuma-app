@@ -3,6 +3,7 @@ import {
   AlwaysOnTopToggle,
   AppIconToggle,
   AutostartToggle,
+  ContentProtectedToggle,
   LocaleToggle,
 } from "./components";
 import { PageLayout } from "@/components/layouts";
@@ -26,6 +27,9 @@ const Settings = () => {
 
       {/* Always On Top Toggle */}
       <AlwaysOnTopToggle />
+
+      {/* Content Protection Toggle */}
+      <ContentProtectedToggle />
     </PageLayout>
   );
 };

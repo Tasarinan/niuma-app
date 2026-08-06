@@ -63,8 +63,8 @@ export function useGroupChat() {
   }, []);
 
   const createChannel = useCallback(
-    (name: string, agentIds: string[], avatar?: string, kind?: GroupChannel["kind"], tags?: string[]) => {
-      const channel = storageCreateChannel(name, agentIds, avatar, kind, tags);
+    (name: string, agentIds: string[], avatar?: string, kind?: GroupChannel["kind"], tags?: string[], teamId?: string) => {
+      const channel = storageCreateChannel(name, agentIds, avatar, kind, tags, teamId);
       setChannels(loadChannels());
       setSelectedId(channel.id);
       setMessages([]);
@@ -74,7 +74,7 @@ export function useGroupChat() {
   );
 
   const editChannel = useCallback(
-    (id: string, patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind" | "tags">>) => {
+    (id: string, patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind" | "tags" | "teamId">>) => {
       storageUpdateChannel(id, patch);
       const updated = loadChannels();
       setChannels(updated);
@@ -107,7 +107,7 @@ export function useGroupChat() {
   // ─── Send message ──────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (content: string, images?: ImageContent[], channelIdOverride?: string) => {
+    async (content: string, images?: ImageContent[], channelIdOverride?: string, targetAgentNames?: string[]) => {
       const targetId = channelIdOverride ?? selectedId;
       if (!targetId || !content.trim() || isSending) return;
 
@@ -152,6 +152,13 @@ export function useGroupChat() {
         .map((id) => agents.find((a) => a.id === id))
         .filter(Boolean)
         .filter((agent) => {
+          // Command-level agent routing takes priority over @mentions
+          if (targetAgentNames && targetAgentNames.length > 0) {
+            return targetAgentNames.some((n) =>
+              agent!.name.trim().toLowerCase() === n.trim().toLowerCase() ||
+              agent!.name.trim().toLowerCase().includes(n.trim().toLowerCase())
+            );
+          }
           if (mentions.length === 0) return true;
           return mentions.some((mn) => agent!.name.toLowerCase().includes(mn));
         });

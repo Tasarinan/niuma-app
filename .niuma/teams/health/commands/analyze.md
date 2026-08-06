@@ -1,5 +1,6 @@
 ---
 description: 上传并分析检查报告、影像图片、处方——附件存至 IMA 健康知识库，AI 解读结果存本地数据库
+agent: 报告分析师
 arguments:
   - name: type
     description: 报告类型：lab(检验单)/imaging(影像)/medication(处方药盒)/other(其他)

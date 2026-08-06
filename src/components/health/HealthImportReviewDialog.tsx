@@ -277,6 +277,7 @@ export function HealthImportReviewDialog({
       });
 
       // 2. Save attachments via Tauri command
+      const workspaceRoot = await invoke<string>("get_niuma_root_dir").catch(() => "");
       for (const img of images) {
         let attachId: string;
         let filePath: string;
@@ -296,6 +297,7 @@ export function HealthImportReviewDialog({
                 base64Data: img.data,
                 mimeType: img.mimeType,
                 extension: extFromMime(img.mimeType),
+                workspaceRoot: workspaceRoot || undefined,
               },
             }
           );

@@ -201,7 +201,6 @@ pub fn create_agent_chat_window<R: Runtime>(
         .min_inner_size(800.0, 600.0)
         .hidden_title(true)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .content_protected(true)
         .visible(visible)
         .traffic_light_position(LogicalPosition::new(14.0, 18.0));
 
@@ -212,7 +211,6 @@ pub fn create_agent_chat_window<R: Runtime>(
         .decorations(false)
         .inner_size(800.0, 600.0)
         .min_inner_size(800.0, 600.0)
-        .content_protected(true)
         .visible(visible);
 
     let window = base_builder.build()?;
@@ -226,6 +224,28 @@ pub fn create_agent_chat_window<R: Runtime>(
     });
 
     Ok(window)
+}
+
+/// Tauri command: enable or disable screen-capture protection on the agent-chat window at runtime.
+/// When `protected` is true the window contents are excluded from screenshots and screen recording.
+#[tauri::command]
+pub fn set_content_protected<R: Runtime>(
+    app: AppHandle<R>,
+    protected: bool,
+) -> Result<(), String> {
+    // Apply to agent-chat window if open; fall back gracefully if it hasn't been created yet.
+    if let Some(window) = app.get_webview_window("agent-chat") {
+        window
+            .set_content_protected(protected)
+            .map_err(|e| format!("Failed to set content protection: {}", e))?;
+    }
+    // Also apply to the dashboard window when it exists.
+    if let Some(window) = app.get_webview_window("dashboard") {
+        window
+            .set_content_protected(protected)
+            .map_err(|e| format!("Failed to set content protection on dashboard: {}", e))?;
+    }
+    Ok(())
 }
 
 pub fn create_dashboard_window_at<R: Runtime>(

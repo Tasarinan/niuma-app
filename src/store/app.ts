@@ -18,6 +18,7 @@ import {
   updateAppIconVisibility,
   updateAlwaysOnTop,
   updateAutostart,
+  updateContentProtected,
   DEFAULT_CUSTOMIZABLE_STATE,
   CursorType,
   updateCursorType,
@@ -215,6 +216,16 @@ export const useAppStore = create<IContextType>((set, get) => ({
     } catch (error) {
       console.error("Failed to toggle autostart:", error);
       set({ customizable: updateAutostart(!isEnabled) });
+    }
+  },
+
+  toggleContentProtected: async (isEnabled) => {
+    const newState = updateContentProtected(isEnabled);
+    set({ customizable: newState });
+    try {
+      await invoke("set_content_protected", { protected: isEnabled });
+    } catch (error) {
+      console.error("Failed to toggle content protection:", error);
     }
   },
 
@@ -430,6 +441,7 @@ export function initAppStore(): void {
       await Promise.all([
         invoke("set_app_icon_visibility", { visible: customizable.appIcon.isVisible }),
         invoke("set_always_on_top", { enabled: customizable.alwaysOnTop.isEnabled }),
+        invoke("set_content_protected", { protected: customizable.contentProtected?.isEnabled ?? false }),
       ]);
     } catch (error) {
       console.error("Failed to apply customizable settings:", error);

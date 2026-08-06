@@ -13,15 +13,37 @@ mod shortcuts;
 mod unified;
 mod window;
 mod zero_token;
+mod speaker;
+
+use capture::CaptureState;
+use speaker::VadConfig;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 #[cfg(target_os = "macos")]
 use tauri::{AppHandle, WebviewWindow};
 use tauri_plugin_posthog::{init as posthog_init, PostHogConfig, PostHogOptions};
 use tokio::task::JoinHandle;
-mod speaker;
-use capture::CaptureState;
-use speaker::VadConfig;
+
+/// Set or clear the HTTP/HTTPS proxy for all outbound reqwest HTTP clients.
+#[tauri::command]
+fn set_proxy_url(proxy_url: String) {
+    if proxy_url.trim().is_empty() {
+        unsafe {
+            std::env::remove_var("HTTP_PROXY");
+            std::env::remove_var("HTTPS_PROXY");
+            std::env::remove_var("http_proxy");
+            std::env::remove_var("https_proxy");
+        }
+    } else {
+        let url = proxy_url.trim().to_string();
+        unsafe {
+            std::env::set_var("HTTP_PROXY", &url);
+            std::env::set_var("HTTPS_PROXY", &url);
+            std::env::set_var("http_proxy", &url);
+            std::env::set_var("https_proxy", &url);
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 #[allow(deprecated)]
@@ -405,6 +427,7 @@ pub fn run() {
             capture::start_screen_capture,
             capture::capture_selected_area,
             capture::save_capture_snapshot,
+            capture::save_transcript_file,
             capture::close_overlay_window,
             shortcuts::check_shortcuts_registered,
             shortcuts::get_registered_shortcuts,
@@ -414,6 +437,7 @@ pub fn run() {
             shortcuts::set_app_icon_visibility,
             shortcuts::set_always_on_top,
             shortcuts::exit_app,
+            window::set_content_protected,
             activate::activate_license_api,
             activate::deactivate_license_api,
             activate::validate_license_api,
@@ -474,6 +498,7 @@ pub fn run() {
             zero_token::zt_window_exists,
             zero_token::zt_report_result,
             health::health_save_attachment,
+            set_proxy_url,
         ])
         .setup(|app| {
             // Setup main window positioning

@@ -74,6 +74,41 @@ pub fn save_capture_snapshot(app: tauri::AppHandle, base64_data: String) -> Resu
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// Save a plain-text / markdown transcript to `.artifacts/transcripts/`.
+/// Returns the absolute path of the written file.
+#[tauri::command]
+pub fn save_transcript_file(
+    app: tauri::AppHandle,
+    content: String,
+    filename: String,
+) -> Result<String, String> {
+    let artifact_dir = resolve_artifact_root_dir(&app);
+    let transcript_dir = artifact_dir.join("transcripts");
+    fs::create_dir_all(&transcript_dir)
+        .map_err(|e| format!("Failed to create transcripts directory: {}", e))?;
+
+    // Sanitise the filename – keep only safe chars.
+    let safe_name: String = filename
+        .chars()
+        .map(|c| if c.is_alphanumeric() || matches!(c, '-' | '_' | '.') { c } else { '-' })
+        .collect();
+    let file_name = if safe_name.is_empty() {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        format!("transcript-{}.md", ts)
+    } else {
+        safe_name
+    };
+
+    let file_path = transcript_dir.join(file_name);
+    fs::write(&file_path, content.as_bytes())
+        .map_err(|e| format!("Failed to write transcript file: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SelectionCoords {
     pub x: u32,

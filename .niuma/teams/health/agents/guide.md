@@ -1,6 +1,6 @@
 ---
-name: guide
-description: 健康向导——健康频道默认 Agent，负责个人与家庭档案管理、日常健康问答、命令路由与快速记录。
+name: 健康向导
+description: 健康频道默认 Agent，负责个人与家庭档案管理、日常健康问答、命令路由与快速记录。
 avatar: 🩺
 role: 健康向导
 providerId: ""

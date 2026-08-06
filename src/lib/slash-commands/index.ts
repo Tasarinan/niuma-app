@@ -59,6 +59,8 @@ export interface SlashCommandDefinition {
   arguments: CommandArgument[];
   /** Full raw markdown content including frontmatter */
   content: string;
+  /** Agent name (Chinese or English) that should handle this command exclusively */
+  agent?: string;
 }
 
 export interface SlashCommandExtension {
@@ -245,6 +247,7 @@ function rawToDefinition(name: string, path: string, raw: string): SlashCommandD
     argumentHint: meta["argument-hint"] ?? undefined,
     arguments: parseCommandArguments(raw),
     content: raw,
+    agent: meta.agent?.trim() || undefined,
   };
 }
 

@@ -86,6 +86,7 @@ export function useMeetingChannel(channelId: string) {
   const addMicTranscript = useCallback(
     (text: string, speaker: SpeakerInfo) => {
       if (!text.trim()) return;
+      console.log("[MeetingChannel][MIC] transcript:", text);
       const timestamp = Date.now();
       setTranscript((prev) => [...prev, { original: text, timestamp, speaker, audioSource: "microphone" }]);
       translateInBackground(text, timestamp);
@@ -97,6 +98,7 @@ export function useMeetingChannel(channelId: string) {
   const addSystemAudioTranscript = useCallback(
     (text: string, timestamp: number) => {
       if (!text.trim()) return;
+      console.log("[MeetingChannel][SYSTEM] transcript:", text);
       const entry: TranscriptEntry = {
         original: text,
         timestamp,
@@ -167,6 +169,7 @@ export function useMeetingChannel(channelId: string) {
     sttLanguage,
     startOnLoad: false,
     onTranscript: (transcription) => {
+      console.log("[MeetingChannel][VAD] onTranscript fired:", transcription);
       addMicTranscript(transcription, {
         speakerId: SpeakerIdFactory.you(),
         speakerLabel: "You",
@@ -179,6 +182,7 @@ export function useMeetingChannel(channelId: string) {
   });
 
   useEffect(() => {
+    console.log("[MeetingChannel] isRecording changed:", isRecording, "| mic.listening:", mic.listening);
     if (isRecording) {
       mic.start();
     } else {

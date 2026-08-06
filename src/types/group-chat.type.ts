@@ -12,6 +12,8 @@ export interface GroupChannel {
   tags?: string[];
   /** Channel type. "meeting" channels enable live meeting transcription/diarization. Defaults to "chat" when unset. */
   kind?: "chat" | "meeting";
+  /** Slug of the bound team in .niuma/teams/<teamId>/. When set, the channel auto-loads that team's agents, skills, and commands. */
+  teamId?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -14,6 +14,9 @@
  * the rest of the app is unaffected. Hosts are registered per agent run.
  */
 
+import { invoke } from "@tauri-apps/api/core";
+import { getProxyUrl } from "@/lib/providers/storage";
+
 function isTauri(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -51,6 +54,11 @@ let installed = false;
 export async function ensureAgentFetch(host: string): Promise<void> {
   if (host) allowedHosts.add(host);
   if (installed || !isTauri()) return;
+  // Apply stored proxy before installing the fetch shim
+  const storedProxy = getProxyUrl();
+  if (storedProxy) {
+    await invoke("set_proxy_url", { proxyUrl: storedProxy }).catch(console.warn);
+  }
   const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
   installed = true;
 

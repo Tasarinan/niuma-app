@@ -38,6 +38,7 @@ export type IContextType = {
   toggleAppIconVisibility: (isVisible: boolean) => Promise<void>;
   toggleAlwaysOnTop: (isEnabled: boolean) => Promise<void>;
   toggleAutostart: (isEnabled: boolean) => Promise<void>;
+  toggleContentProtected: (isEnabled: boolean) => Promise<void>;
   loadData: () => void;
   NiumaApiEnabled: boolean;
   setNiumaApiEnabled: (enabled: boolean) => void;

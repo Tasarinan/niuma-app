@@ -123,6 +123,19 @@ const BUILTIN_PROVIDERS: ProviderDef[] = [
     supportsVision: false,
     type: "api",
   },
+  // ── Agnes AI ───────────────────────────────────────────────────────────────
+  {
+    id: "agnes",
+    name: "Agnes AI",
+    api: "openai-completions",
+    baseUrl: "https://apihub.agnes-ai.com/v1",
+    requiresKey: true,
+    suggestedModels: [
+      "agnes-2.5-flash",
+    ],
+    supportsVision: true,
+    type: "api",
+  },
   // ── Zero-token / browser session providers ─────────────────────────────────
   {
     id: "zt-doubao",

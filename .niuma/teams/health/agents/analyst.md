@@ -1,6 +1,6 @@
 ---
-name: analyst
-description: 检查报告分析师——解读检验单、影像报告、处方图片，将附件上传至 IMA 健康知识库，将 AI 解读结果存入本地数据库。
+name: 报告分析师
+description: 解读检验单、影像报告、处方图片，将附件上传至 IMA 健康知识库，将 AI 解读结果存入本地数据库。
 avatar: 🔬
 role: 检查报告分析师
 providerId: ""

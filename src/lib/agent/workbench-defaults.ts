@@ -9,8 +9,8 @@ import { bridgeEnabledNiumaSkills } from "./skill-bridge";
 
 const WORKBENCH_DEFAULTS_KEY = "niuma:workbench-default-teams:v1";
 
-export type WorkbenchTeamId = "creative" | "health" | "meeting";
-export type WorkbenchTeamAccent = "rose" | "emerald" | "sky";
+export type WorkbenchTeamId = string;
+export type WorkbenchTeamAccent = "rose" | "emerald" | "sky" | "violet" | "amber";
 
 export interface WorkbenchTeamPreset {
   id: WorkbenchTeamId;
@@ -30,6 +30,23 @@ export interface WorkbenchTeamPreset {
 }
 
 export const WORKBENCH_TEAM_PRESETS: WorkbenchTeamPreset[] = [
+  {
+    id: "content",
+    name: "内容创作",
+    eyebrow: "策划 · 文案 · 视频 · 品牌",
+    description: "内容创作与文案写作全能团队。从选题策划、文案撰写、视频脚本到品牌叙事，覆盖完整内容生产链路，支持中英双语输出。",
+    avatar: "✍️",
+    accent: "amber",
+    kind: "chat",
+    commandDir: "teams/content/commands",
+    agentFiles: ["aria.md", "iris.md", "tina.md", "sam.md", "rose.md"],
+    skillSlugs: ["writing", "frontend-slides", "sum", "tr"],
+    starterPrompts: [
+      "/draft 写一篇关于AI对内容创作影响的博客",
+      "/adapt 把这篇文章改成小红书和抖音版本",
+      "/brief 新品上市内容推广计划",
+    ],
+  },
   {
     id: "creative",
     name: "创作团队",
@@ -92,27 +109,50 @@ export const WORKBENCH_TEAM_PRESETS: WorkbenchTeamPreset[] = [
   },
   {
     id: "meeting",
-    name: "会议团队",
-    eyebrow: "纪要 / 决策 / 待办 / 跟进",
-    description: "会议中记录重点，会议后生成纪要、行动项、追问和回复草稿。",
-    avatar: "🎙️",
+    name: "会议",
+    legacyNames: ["会议团队"],
+    eyebrow: "准备 · 记录 · 跟进",
+    description: "AI 驱动的全流程会议辅助助手。从会前准备、会中实时辅助到会后跟进，帮助团队提升会议质量。",
+    avatar: "🎯",
     accent: "sky",
     kind: "meeting",
-    agentFiles: ["assistant.md", "quinn.md", "frank.md", "kate.md"],
-    skillSlugs: ["meetpoints", "meetactions", "meetquestions", "meetreply", "sum", "ima-skill"],
+    agentFiles: ["facilitator.md", "noter.md", "summarizer.md", "tracker.md", "communicator.md"],
+    legacyAgentFiles: ["assistant.md", "quinn.md", "frank.md", "kate.md"],
+    commandDir: "teams/meeting/commands",
+    skillSlugs: ["meetpoints", "meetactions", "meetquestions", "meetreply", "ima-skill"],
     starterPrompts: [
       "把这次会议整理成纪要和行动项",
       "根据会议内容提炼决策、风险和下一步",
       "生成会后给团队的同步消息",
     ],
-  },
-];
+  },  {
+    id: "study",
+    name: "学习",
+    eyebrow: "语法 / 词汇 / 阅读 / 写作",
+    description: "GPT-Tutor 语言学习频道。语法、词汇、阅读理解、句子分析和写作辅助一体化。",
+    avatar: "📚",
+    accent: "violet",
+    kind: "chat",
+    commandDir: "teams/study/commands",
+    agentFiles: ["tutor.md", "grammar-coach.md", "vocab-coach.md", "reader.md", "writer.md"],
+    skillSlugs: ["gt-grammar", "gt-vocab", "gt-reading", "gt-sentence", "gt-writing"],
+    starterPrompts: [
+      "gt-vocab analyze — 分析单词",
+      "gt-grammar — 语法讲解与纠错",
+      "gt-reading — 文章阅读理解",
+    ],
+  },];
 
 export function getWorkbenchTeamPreset(
   channel: GroupChannel | null | undefined,
   presets: WorkbenchTeamPreset[] = WORKBENCH_TEAM_PRESETS,
 ) {
   if (!channel) return null;
+  // Primary: explicit teamId binding
+  if (channel.teamId) {
+    return presets.find((p) => p.id === channel.teamId) ?? null;
+  }
+  // Fallback: legacy name-based matching for channels created before teamId existed
   const channelName = channel.name.trim();
   return presets.find(
     (preset) =>
@@ -136,6 +176,9 @@ export async function loadWorkbenchTeamPresets(): Promise<WorkbenchTeamPreset[]>
   if (!root) return WORKBENCH_TEAM_PRESETS;
 
   const separator = root.includes("/") ? "/" : "\\";
+
+  // Load manifests for all hardcoded presets
+  const knownIds = new Set(WORKBENCH_TEAM_PRESETS.map((p) => p.id));
   const presets = await Promise.all(
     WORKBENCH_TEAM_PRESETS.map(async (preset) => {
       const manifestPath = [root, ".niuma", "teams", preset.id, "TEAM.md"].join(separator);
@@ -143,6 +186,40 @@ export async function loadWorkbenchTeamPresets(): Promise<WorkbenchTeamPreset[]>
       return raw ? applyTeamManifest(preset, raw) : preset;
     }),
   );
+
+  // Discover additional teams from .niuma/teams/ not in hardcoded list
+  try {
+    const teamsDir = [root, ".niuma", "teams"].join(separator);
+    const entries = await invoke<Array<{ path: string; is_directory: boolean }>>("list_directory", { path: teamsDir }).catch(() => [] as Array<{ path: string; is_directory: boolean }>);
+    for (const entry of entries) {
+      if (!entry.is_directory) continue;
+      const slug = entry.path.split(/[\\/]/).pop() ?? "";
+      if (!slug || knownIds.has(slug)) continue;
+      const manifestPath = [entry.path, "TEAM.md"].join(separator);
+      const raw = await invoke<string>("read_text_file", { path: manifestPath }).catch(() => "");
+      if (!raw) continue;
+      const dynamic = applyTeamManifest(
+        {
+          id: slug,
+          name: slug,
+          eyebrow: "",
+          description: "",
+          avatar: "💬",
+          accent: "violet" as WorkbenchTeamAccent,
+          kind: "chat",
+          agentFiles: [],
+          skillSlugs: [],
+          starterPrompts: [],
+        },
+        raw,
+      );
+      presets.push(dynamic);
+      knownIds.add(slug);
+    }
+  } catch {
+    // ignore discovery errors
+  }
+
   return presets;
 }
 
@@ -187,7 +264,9 @@ function parseTeamFrontmatter(raw: string): Record<string, string> {
 
 function parseManifestList(raw: string, heading: string): string[] {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = raw.match(new RegExp(`^## ${escapedHeading}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`, "m"));
+  // No `m` flag so `$` matches end-of-string (not end-of-line), ensuring the
+  // lazy quantifier captures all list items until the next section or EOF.
+  const match = raw.match(new RegExp(`## ${escapedHeading}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`));
   if (!match) return [];
 
   return match[1]
@@ -212,7 +291,7 @@ function normalizeAgentFile(value: string): string {
 }
 
 function isWorkbenchTeamAccent(value: string | undefined): value is WorkbenchTeamAccent {
-  return value === "rose" || value === "emerald" || value === "sky";
+  return value === "rose" || value === "emerald" || value === "sky" || value === "violet" || value === "amber";
 }
 
 export async function syncWorkbenchTeamChannel(
@@ -258,14 +337,13 @@ export async function syncWorkbenchTeamChannel(
 
   if (options.channel && options.editChannel && agentIds.length > 0) {
     const patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind" | "tags">> = {};
-    if (options.channel.name !== preset.name) patch.name = preset.name;
     if (options.channel.avatar !== preset.avatar) patch.avatar = preset.avatar;
     if ((options.channel.kind ?? "chat") !== preset.kind) patch.kind = preset.kind;
-    // When all new preset agents are confirmed present and there are legacy agents to remove,
-    // replace channel members with only the new agents. If not all new agents are ready yet
-    // (catalog cache miss), fall back to additive merge to avoid data loss.
+    // When all preset agents are confirmed present, replace channel members with exactly
+    // the preset's agents (removes unrelated or legacy agents). If not all agents are
+    // ready yet (catalog cache miss), fall back to additive merge to avoid data loss.
     const allNewAgentsReady = agentIds.length >= preset.agentFiles.length;
-    const targetAgentIds = (preset.legacyAgentFiles?.length && allNewAgentsReady)
+    const targetAgentIds = allNewAgentsReady
       ? agentIds
       : unique([...options.channel.agentIds, ...agentIds]);
     if (!sameStringArray(options.channel.agentIds, targetAgentIds)) patch.agentIds = targetAgentIds;

@@ -30,4 +30,5 @@ create-shortcut.ps1
 
 # Documentation - Ignore all documentation files
 docs/*
-artifact/*
+.artifacts/*
+.niuma/*

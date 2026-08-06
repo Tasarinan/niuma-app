@@ -51,6 +51,9 @@ export async function runMinimalHealthUploadUsecase(input: {
   const self = await getOrCreateSelfPerson();
   const now = Date.now();
 
+  // Resolve workspace root so attachments land in <root>/.artifacts/health/...
+  const workspaceRoot = await invoke<string>("get_niuma_root_dir").catch(() => "");
+
   const record = await createHealthRecord({
     personId: self.id,
     type: "note",
@@ -71,6 +74,7 @@ export async function runMinimalHealthUploadUsecase(input: {
           base64Data: img.data,
           mimeType: img.mimeType,
           extension: extFromMime(img.mimeType),
+          workspaceRoot: workspaceRoot || undefined,
         },
       });
 

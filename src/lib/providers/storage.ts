@@ -80,3 +80,26 @@ export function setActiveProvider(active: ActiveProvider): void {
     console.warn("[providerStorage] Failed to persist active provider");
   }
 }
+
+// ─── Proxy settings ───────────────────────────────────────────────────────────
+const PROXY_KEY = "niuma_proxy_url_v1";
+
+export function getProxyUrl(): string {
+  try {
+    return localStorage.getItem(PROXY_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function setProxyUrl(url: string): void {
+  try {
+    if (url.trim()) {
+      localStorage.setItem(PROXY_KEY, url.trim());
+    } else {
+      localStorage.removeItem(PROXY_KEY);
+    }
+  } catch {
+    console.warn("[providerStorage] Failed to persist proxy URL");
+  }
+}

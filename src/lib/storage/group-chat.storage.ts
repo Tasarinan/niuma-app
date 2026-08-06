@@ -23,7 +23,8 @@ export function createChannel(
   agentIds: string[],
   avatar = "💬",
   kind: GroupChannel["kind"] = "chat",
-  tags: string[] = []
+  tags: string[] = [],
+  teamId?: string
 ): GroupChannel {
   const now = new Date().toISOString();
   const channel: GroupChannel = {
@@ -33,6 +34,7 @@ export function createChannel(
     agentIds,
     tags,
     kind,
+    ...(teamId ? { teamId } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -42,7 +44,7 @@ export function createChannel(
 
 export function updateChannel(
   id: string,
-  patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind" | "tags">>
+  patch: Partial<Pick<GroupChannel, "name" | "avatar" | "agentIds" | "kind" | "tags" | "teamId">>
 ): void {
   const channels = loadChannels().map((c) =>
     c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c

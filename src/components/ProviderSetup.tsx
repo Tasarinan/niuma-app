@@ -19,6 +19,8 @@ import {
 } from "@/components/ui";
 import { useProvider } from "@/hooks/useProvider";
 import type { ProviderDef } from "@/lib/providers/registry";
+import { getProxyUrl, setProxyUrl } from "@/lib/providers/storage";
+import { invoke } from "@tauri-apps/api/core";
 
 function ProviderTypeBadge({ type }: { type: ProviderDef["type"] }) {
   const map: Record<ProviderDef["type"], string> = {
@@ -59,6 +61,7 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
   const [model, setModel] = useState(active?.model ?? "");
   const [modelInput, setModelInput] = useState(active?.model ?? "");
   const [saved, setSaved] = useState(false);
+  const [proxyUrl, setProxyUrlState] = useState(() => getProxyUrl());
   const { t } = useTranslation("pages");
 
   const selectedDef = providers.find((p) => p.id === selectedId);
@@ -82,6 +85,9 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
       baseUrlOverride: baseUrlOverride || undefined,
     });
     selectProvider(selectedId, modelInput.trim() || model);
+    // Save and apply proxy
+    setProxyUrl(proxyUrl);
+    void invoke("set_proxy_url", { proxyUrl }).catch(console.warn);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -144,6 +150,21 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
               placeholder={selectedDef.baseUrl}
               value={baseUrlOverride}
               onChange={(e) => setBaseUrlOverride(e.target.value)}
+            />
+          </div>
+
+          {/* HTTP Proxy */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              HTTP Proxy
+              <span className="ml-1 text-gray-400 font-normal">(optional, e.g. http://10.144.1.10:8080)</span>
+            </Label>
+            <Input
+              type="url"
+              className="h-8 text-xs font-mono"
+              placeholder="http://proxy-host:port"
+              value={proxyUrl}
+              onChange={(e) => setProxyUrlState(e.target.value)}
             />
           </div>
 

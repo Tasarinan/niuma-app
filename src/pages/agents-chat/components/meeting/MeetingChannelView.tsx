@@ -1,18 +1,45 @@
 /**
  * MeetingChannelView - main UI for a "meeting" GroupChannel.
- * Renders in place of the normal message stream + input box: a control bar,
- * a center transcript feed, and a right-hand identified-participants panel.
+ *
+ * Layout:
+ *   [control bar]
+ *   [TranscriptFeed] | [AgentActivityPanel]
+ *
+ * Participants are lifted via onParticipantsChange so the parent can
+ * display them in the shared right-sidebar members panel.
  */
-import { useMeetingChannel } from "./useMeetingChannel";
+import { useEffect } from "react";
+import { useMeetingChannel, type MeetingParticipant } from "./useMeetingChannel";
+import { useMeetingAgents } from "./useMeetingAgents";
 import { MeetingControlBar } from "./MeetingControlBar";
 import { TranscriptFeed } from "./TranscriptFeed";
-import { ParticipantsPanel } from "./ParticipantsPanel";
+import { AgentActivityPanel } from "./AgentActivityPanel";
 import { PermissionFlow } from "../../../app/components/speech/PermissionFlow";
 import { SetupInstructions } from "../../../app/components/speech/SetupInstructions";
 import type { GroupChannel } from "@/types";
 
-export function MeetingChannelView({ channel }: { channel: GroupChannel }) {
+export function MeetingChannelView({
+  channel,
+  onParticipantsChange,
+}: {
+  channel: GroupChannel;
+  onParticipantsChange?: (
+    participants: MeetingParticipant[],
+    assignSpeaker: (speakerId: string, label: string, profileId?: string) => void,
+  ) => void;
+}) {
   const meeting = useMeetingChannel(channel.id);
+
+  const { notes, clearNotes, sendManualMessage } = useMeetingAgents({
+    channelName: channel.name,
+    agentIds: channel.agentIds,
+    transcript: meeting.transcript,
+    isRecording: meeting.isRecording,
+  });
+
+  useEffect(() => {
+    onParticipantsChange?.(meeting.participants, meeting.assignSpeaker);
+  }, [meeting.participants, meeting.assignSpeaker, onParticipantsChange]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -41,8 +68,10 @@ export function MeetingChannelView({ channel }: { channel: GroupChannel }) {
             transcript={meeting.transcript}
             clearTranscript={meeting.clearTranscript}
             assignSpeaker={meeting.assignSpeaker}
+            isRecording={meeting.isRecording}
+            micListening={meeting.micListening}
           />
-          <ParticipantsPanel participants={meeting.participants} assignSpeaker={meeting.assignSpeaker} />
+          <AgentActivityPanel notes={notes} clearNotes={clearNotes} onSend={sendManualMessage} />
         </div>
       )}
     </div>

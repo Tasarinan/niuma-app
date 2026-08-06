@@ -42,7 +42,7 @@ import {
 import { Markdown } from "@/components";
 import { useAgents, useGroupChat } from "@/hooks";
 import type { AgentInput } from "@/hooks";
-import { MeetingChannelView } from "./components/meeting";
+import { MeetingChannelView, type MeetingParticipant } from "./components/meeting";
 import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
 import { loadHiredAgentFiles } from "@/lib/storage";
 import {
@@ -53,6 +53,7 @@ import {
   syncWorkbenchTeamChannel,
   WORKBENCH_TEAM_PRESETS,
   type WorkbenchTeamAccent,
+  type WorkbenchTeamPreset,
 } from "@/lib/agent/workbench-defaults";
 import {
   getSeedSlashCommands,
@@ -68,6 +69,7 @@ import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, 
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { MAX_FILES } from "@/config";
 import {
+  AtSign,
   BookOpen,
   Download,
   Edit2,
@@ -81,6 +83,7 @@ import {
   MessageSquareText,
   Mic,
   MoreVertical,
+  Trash2,
   Paperclip,
   Plus,
   Search,
@@ -279,6 +282,26 @@ const TEAM_STYLES: Record<
     tint: "bg-sky-50/60",
     send: "bg-sky-600 hover:bg-sky-500 focus-visible:ring-sky-200",
   },
+  violet: {
+    border: "border-violet-200",
+    icon: "bg-violet-50 text-violet-600 ring-violet-100",
+    rail: "bg-violet-500",
+    soft: "bg-violet-50 text-violet-700 ring-violet-100",
+    solid: "bg-violet-600",
+    text: "text-violet-600",
+    tint: "bg-violet-50/60",
+    send: "bg-violet-600 hover:bg-violet-500 focus-visible:ring-violet-200",
+  },
+  amber: {
+    border: "border-amber-200",
+    icon: "bg-amber-50 text-amber-600 ring-amber-100",
+    rail: "bg-amber-500",
+    soft: "bg-amber-50 text-amber-700 ring-amber-100",
+    solid: "bg-amber-600",
+    text: "text-amber-600",
+    tint: "bg-amber-50/60",
+    send: "bg-amber-600 hover:bg-amber-500 focus-visible:ring-amber-200",
+  },
 };
 
 // ─── Export helpers ───────────────────────────────────────────────────────────
@@ -343,6 +366,7 @@ function ChannelModal({
   onClose,
   initial,
   existingDefs,
+  availableTeams,
   onSave,
 }: {
   open: boolean;
@@ -351,19 +375,24 @@ function ChannelModal({
   initial?: GroupChannel | null;
   /** Current AgentDefinition list, used to reverse-map agentIds → catalog agents. */
   existingDefs: AgentDefinition[];
-  /** Receives (name, selectedCatalogIds, avatar, kind, tags). */
-  onSave: (name: string, selectedCatalogIds: string[], avatar: string, kind: "chat" | "meeting", tags: string[]) => void;
+  /** Teams available for binding. */
+  availableTeams: WorkbenchTeamPreset[];
+  /** Receives (name, selectedCatalogIds, avatar, kind, tags, teamId). */
+  onSave: (name: string, selectedCatalogIds: string[], avatar: string, kind: "chat" | "meeting", tags: string[], teamId?: string) => void;
 }) {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(CHANNEL_ICONS[0] ?? "");
   const [kind, setKind] = useState<"chat" | "meeting">("chat");
-  const [tags, setTags] = useState<[string, string]>(["", ""]);
+  const [teamId, setTeamId] = useState<string | undefined>(undefined);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
   const [hiredCatalog, setHiredCatalog] = useState<CatalogAgent[]>([]);
   const [loading, setLoading] = useState(false);
   const { t } = useTranslation("pages");
   const { t: tCommon } = useTranslation("common");
 
+  // Reset form fields only when the modal opens or the target channel changes.
+  // Must NOT depend on `existingDefs` — agent-list refreshes (from background sync)
+  // would otherwise wipe whatever the user is currently typing.
   useEffect(() => {
     if (!open) return;
     setName(initial?.name ?? "");
@@ -373,7 +402,16 @@ function ChannelModal({
         : (CHANNEL_ICONS[0] ?? "")
     );
     setKind(initial?.kind ?? "chat");
-    setTags([initial?.tags?.[0] ?? "", initial?.tags?.[1] ?? ""]);
+    setTeamId(initial?.teamId);
+  }, [open, initial]);
+
+  // Load catalog + pre-select agents separately. Capture existingDefs in a ref
+  // so we can read the latest value without adding it as a trigger dependency.
+  const existingDefsRef = useRef(existingDefs);
+  useEffect(() => { existingDefsRef.current = existingDefs; });
+
+  useEffect(() => {
+    if (!open) return;
     setLoading(true);
     const hiredSet = loadHiredAgentFiles();
     loadAgentCatalog()
@@ -385,12 +423,12 @@ function ChannelModal({
         if (initial) {
           const preSelected: string[] = [];
           for (const agentId of initial.agentIds) {
-            const def = existingDefs.find((d) => d.id === agentId);
+            const def = existingDefsRef.current.find((d) => d.id === agentId);
             if (def) {
               const match = hired.find(
                 (ca) => ca.name.trim().toLowerCase() === def.name.trim().toLowerCase()
               );
-                if (match) preSelected.push(match.id);
+              if (match) preSelected.push(match.id);
             }
           }
           setSelectedCatalogIds(preSelected);
@@ -399,7 +437,7 @@ function ChannelModal({
         }
       })
       .finally(() => setLoading(false));
-  }, [open, initial, existingDefs]);
+  }, [open, initial]);
 
   const toggleCatalogAgent = (id: string) =>
     setSelectedCatalogIds((prev) =>
@@ -409,15 +447,24 @@ function ChannelModal({
   const isImg = (av?: string) =>
     !!av && (av.startsWith("/") || av.startsWith("http") || av.startsWith("data:"));
 
-  const updateTag = (index: 0 | 1, value: string) => {
-    setTags((current) => {
-      const next: [string, string] = [...current];
-      next[index] = value;
-      return next;
-    });
+  const handleTeamSelect = (id: string | undefined) => {
+    setTeamId(id);
+    if (id) {
+      const preset = availableTeams.find((t) => t.id === id);
+      if (preset) {
+        if (!initial && !name.trim()) setName(preset.name);
+        // Auto-set channel kind to match the team preset (e.g. meeting team → "meeting")
+        if (preset.kind === "meeting" || preset.kind === "chat") setKind(preset.kind);
+        // Auto-select team agents that exist in the hired catalog
+        if (hiredCatalog.length > 0 && preset.agentFiles.length > 0) {
+          const teamIds = hiredCatalog
+            .filter((a) => preset.agentFiles.includes(a.file))
+            .map((a) => a.id);
+          if (teamIds.length > 0) setSelectedCatalogIds(teamIds);
+        }
+      }
+    }
   };
-
-  const cleanTags = () => Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean))).slice(0, 2);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -471,26 +518,31 @@ function ChannelModal({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-slate-500">{t("chatPage.channelTagsLabel")}</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                value={tags[0]}
-                onChange={(e) => updateTag(0, e.target.value)}
-                placeholder={t("chatPage.channelTagPlaceholder", { index: 1 })}
-                className="rounded-xl"
-                maxLength={18}
-              />
-              <Input
-                value={tags[1]}
-                onChange={(e) => updateTag(1, e.target.value)}
-                placeholder={t("chatPage.channelTagPlaceholder", { index: 2 })}
-                className="rounded-xl"
-                maxLength={18}
-              />
+          {/* Team binding — above icon picker */}
+          {availableTeams.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-500">绑定团队</Label>
+              <div className="flex flex-wrap gap-2">
+                {availableTeams.map((tp) => (
+                  <button
+                    key={tp.id}
+                    type="button"
+                    onClick={() => handleTeamSelect(teamId === tp.id ? undefined : tp.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                      teamId === tp.id
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 text-slate-500 hover:border-slate-300"
+                    )}
+                  >
+                    <span>{tp.avatar}</span>
+                    {tp.name}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400">绑定后自动加载该团队的智能体、技能和命令</p>
             </div>
-            <p className="text-[10px] text-slate-400">{t("chatPage.channelTagsHint")}</p>
-          </div>
+          )}
 
           {/* Icon picker */}
           <div className="space-y-2">
@@ -601,7 +653,7 @@ function ChannelModal({
             size="sm"
             className="rounded-md px-5"
             onClick={() => {
-              onSave(name, selectedCatalogIds, avatar, kind, cleanTags());
+              onSave(name, selectedCatalogIds, avatar, kind, [], teamId);
               onClose();
             }}
             disabled={!name.trim()}
@@ -691,6 +743,8 @@ export default function ChatPage({
     selectChannel,
     createChannel,
     editChannel: hookEditChannel,
+    removeChannel,
+    clearChannelMessages,
     sendMessage,
     isSending,
     stopGeneration,
@@ -705,6 +759,8 @@ export default function ChatPage({
   const [editChannelState, setEditChannelState] = useState<GroupChannel | null>(null);
   const [showChannels, setShowChannels] = useState(true);
   const [showMembers, setShowMembers] = useState(true);
+  const [meetingParticipants, setMeetingParticipants] = useState<MeetingParticipant[]>([]);
+  const meetingAssignSpeakerRef = useRef<(speakerId: string, label: string, profileId?: string) => void>(() => {});
   const [isImaConnecting, setIsImaConnecting] = useState(false);
   const [workbenchTeamPresets, setWorkbenchTeamPresets] = useState(() => WORKBENCH_TEAM_PRESETS);
   const defaultTeamsSeedStartedRef = useRef(false);
@@ -820,16 +876,6 @@ export default function ChatPage({
   }, [activeMessages]);
 
   useEffect(() => {
-    for (const channel of channels) {
-      const preset = getWorkbenchTeamPreset(channel, workbenchTeamPresets);
-      if (preset && channel.name !== preset.name) {
-        hookEditChannel(channel.id, { name: preset.name });
-        break;
-      }
-    }
-  }, [channels, hookEditChannel, workbenchTeamPresets]);
-
-  useEffect(() => {
     if (!activeChannel || !activeTeamPreset) return;
     const syncKey = [
       activeChannel.id,
@@ -929,6 +975,29 @@ export default function ChatPage({
     slashArgumentCompletion !== null &&
     slashArgumentCompletion.choices.length > 0;
   const isSlashMenuOpen = isCommandMenuOpen || isArgumentMenuOpen;
+
+  // ─── @ mention picker ────────────────────────────────────────────────────────
+  const [mentionMenuDismissed, setMentionMenuDismissed] = useState(false);
+  const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
+
+  const mentionState = useMemo(() => {
+    const match = /@(\S*)$/.exec(input);
+    if (!match) return null;
+    return { query: match[1], atIndex: match.index };
+  }, [input]);
+
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionState) return [];
+    const q = mentionState.query.toLowerCase();
+    return activeAgents.filter((a) => q === "" || a.name.toLowerCase().includes(q));
+  }, [mentionState, activeAgents]);
+
+  const isMentionMenuOpen =
+    !mentionMenuDismissed &&
+    !isSlashMenuOpen &&
+    mentionState !== null &&
+    mentionSuggestions.length > 0;
+
   const activeInvocationCommand = useMemo(() => {
     const invocation = parseSlashInvocation(input);
     if (!invocation) return null;
@@ -939,6 +1008,8 @@ export default function ChatPage({
     setInput(e.target.value);
     setSlashMenuDismissed(false);
     setSlashMenuIndex(0);
+    setMentionMenuDismissed(false);
+    setMentionMenuIndex(0);
   };
 
   const selectSlashCommand = (command: SlashCommandDefinition) => {
@@ -961,6 +1032,19 @@ export default function ChatPage({
     setInput(inserted);
     setSlashMenuIndex(0);
     setSlashMenuDismissed(false);
+    requestAnimationFrame(() => {
+      textareaRef.current?.setSelectionRange(inserted.length, inserted.length);
+      textareaRef.current?.focus();
+    });
+  };
+
+  const selectMention = (agent: MemberDisplayAgent) => {
+    if (!mentionState) return;
+    const before = input.slice(0, mentionState.atIndex);
+    const inserted = `${before}@${agent.name} `;
+    setInput(inserted);
+    setMentionMenuIndex(0);
+    setMentionMenuDismissed(true);
     requestAnimationFrame(() => {
       textareaRef.current?.setSelectionRange(inserted.length, inserted.length);
       textareaRef.current?.focus();
@@ -1118,6 +1202,14 @@ export default function ChatPage({
       agentInput = "请分析我上传的图片。";
     }
 
+    // Resolve command-level agent routing (command frontmatter agent: field)
+    const _slashForRouting = parseSlashInvocation(text);
+    const commandAgentNames: string[] | undefined = (() => {
+      if (!_slashForRouting) return undefined;
+      const cmd = slashCommands.find((c) => c.name === _slashForRouting.command);
+      return cmd?.agent ? [cmd.agent] : undefined;
+    })();
+
     // In health channel, keep UI minimal: run local DB integration for key commands
     // and append structured context so skills/agents can continue with analysis.
     if (isHealthChannel) {
@@ -1151,7 +1243,7 @@ export default function ChatPage({
       }
     }
 
-    await sendMessage(agentInput, images);
+    await sendMessage(agentInput, images, undefined, commandAgentNames);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1198,8 +1290,7 @@ export default function ChatPage({
    * Creates AgentDefinitions on-the-fly for any hired agent not yet in the repo.
    */
   const handleChannelSave = useCallback(
-    async (name: string, selectedCatalogIds: string[], avatar: string, kind: "chat" | "meeting", tags: string[]) => {
-      // Load hired catalog to get full CatalogAgent objects
+    async (name: string, selectedCatalogIds: string[], avatar: string, kind: "chat" | "meeting", tags: string[], teamId?: string) => {
       const hiredSet = loadHiredAgentFiles();
       const all = await loadAgentCatalog();
       const hired = all.filter((a) => hiredSet.has(a.file));
@@ -1213,9 +1304,9 @@ export default function ChatPage({
       }
 
       if (editChannelState) {
-        hookEditChannel(editChannelState.id, { name, agentIds, avatar, kind, tags });
+        hookEditChannel(editChannelState.id, { name, agentIds, avatar, kind, tags, teamId: teamId ?? undefined });
       } else {
-        createChannel(name, agentIds, avatar || randomIcon(), kind, tags);
+        createChannel(name, agentIds, avatar || randomIcon(), kind, tags, teamId);
       }
     },
     [agents, editChannelState, hookEditChannel, createChannel, createAgent]
@@ -1302,12 +1393,7 @@ export default function ChatPage({
             const channelAvatar = channel.avatar && isIconUrl(channel.avatar)
               ? channel.avatar
               : CHANNEL_ICONS[index % CHANNEL_ICONS.length];
-            const channelTags = channel.tags?.filter(Boolean).slice(0, 2) ?? [];
-            const preview = selected && activeMessages[activeMessages.length - 1]?.content
-              ? activeMessages[activeMessages.length - 1].content
-              : channelTags.length > 0
-                ? channelTags.join(" / ")
-                : t("chatPage.memberCount", { count: channel.agentIds.length });
+            const memberCount = channel.agentIds.length;
             return (
               <button
                 key={channel.id}
@@ -1321,10 +1407,9 @@ export default function ChatPage({
                 <AvatarTile src={channelAvatar} label={channel.name} className="size-9" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[11px] font-bold">{channel.name}</span>
-                  <span className="mt-0.5 block truncate text-[9px] font-medium text-slate-400">{preview}</span>
-                </span>
-                <span className="self-start pt-1 text-[8px] font-medium text-slate-400">
-                  {selected ? "现在" : index < 3 ? "昨天" : "2 天前"}
+                  <span className="mt-0.5 block truncate text-[9px] font-medium text-slate-400">
+                    {t("chatPage.memberCount", { count: memberCount })}
+                  </span>
                 </span>
               </button>
             );
@@ -1407,46 +1492,80 @@ export default function ChatPage({
                 </button>
               </>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                  title="More"
-                  aria-label="More"
-                >
-                  <MoreVertical className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                {activeChannel && (
-                  <>
-                    <DropdownMenuItem onClick={handleExport}>
-                      <Download className="size-4" />
-                      {t("chatPage.export")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setEditChannelState(activeChannel);
-                        setModalOpen(true);
-                      }}
-                    >
-                      <Edit2 className="size-4" />
-                      {t("chatPage.editChannel")}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem onClick={onToggleMaximize}>
-                  <Maximize2 className="size-4" />
-                  放大 / 还原
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onClose} variant="destructive">
-                  <X className="size-4" />
-                  关闭
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {onToggleMaximize && (
+              <button
+                type="button"
+                onClick={onToggleMaximize}
+                title="放大 / 还原"
+                aria-label="放大 / 还原"
+                className="flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              >
+                <Maximize2 className="size-4" />
+              </button>
+            )}
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                title="关闭"
+                aria-label="关闭"
+                className="flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+            {activeChannel && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                    title="More"
+                    aria-label="More"
+                  >
+                    <MoreVertical className="size-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={handleExport}>
+                    <Download className="size-4" />
+                    {t("chatPage.export")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditChannelState(activeChannel);
+                      setModalOpen(true);
+                    }}
+                  >
+                    <Edit2 className="size-4" />
+                    {t("chatPage.editChannel")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      if (window.confirm(`确定删除频道「${activeChannel.name}」？此操作不可恢复。`)) {
+                        removeChannel(activeChannel.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                    删除频道
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      if (window.confirm("清除当前频道所有对话记录？")) {
+                        clearChannelMessages(activeChannel.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                    清除对话
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
@@ -1455,7 +1574,14 @@ export default function ChatPage({
             {t("chatPage.selectChannel")}
           </div>
         ) : activeChannel.kind === "meeting" ? (
-          <MeetingChannelView key={activeChannel.id} channel={activeChannel} />
+          <MeetingChannelView
+            key={activeChannel.id}
+            channel={activeChannel}
+            onParticipantsChange={(ps, assign) => {
+              setMeetingParticipants(ps);
+              meetingAssignSpeakerRef.current = assign;
+            }}
+          />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div
@@ -1582,13 +1708,16 @@ export default function ChatPage({
                     </div>
                   )}
                   <Popover
-                    open={isSlashMenuOpen}
+                    open={isSlashMenuOpen || isMentionMenuOpen}
                     onOpenChange={(open) => {
-                      if (!open) setSlashMenuDismissed(true);
+                      if (!open) {
+                        setSlashMenuDismissed(true);
+                        setMentionMenuDismissed(true);
+                      }
                     }}
                   >
                     <PopoverAnchor asChild>
-                  <div className="mx-auto flex max-w-5xl items-end gap-3 rounded-[22px] border border-slate-100 bg-white px-4 py-4 shadow-xl shadow-slate-200/80 transition-all focus-within:border-slate-200">
+                  <div className="mx-auto flex max-w-5xl items-end gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-xl shadow-slate-200/80 transition-all focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300">
                         <input
                           ref={fileInputRef}
                           type="file"
@@ -1630,6 +1759,29 @@ export default function ChatPage({
                           value={input}
                           onChange={handleInputChange}
                           onKeyDown={(e) => {
+                            if (isMentionMenuOpen) {
+                              const count = mentionSuggestions.length;
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setMentionMenuIndex((i) => (i + 1) % count);
+                                return;
+                              }
+                              if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setMentionMenuIndex((i) => (i - 1 + count) % count);
+                                return;
+                              }
+                              if (e.key === "Enter" || e.key === "Tab") {
+                                e.preventDefault();
+                                selectMention(mentionSuggestions[mentionMenuIndex]);
+                                return;
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                setMentionMenuDismissed(true);
+                                return;
+                              }
+                            }
                             if (isSlashMenuOpen) {
                               const suggestionCount = isCommandMenuOpen
                                 ? slashCommandSuggestions.length
@@ -1673,7 +1825,7 @@ export default function ChatPage({
                           }}
                           placeholder={t("chatPage.inputPlaceholder", { name: activeChannel.name })}
                           rows={2}
-                          className="min-h-[52px] max-h-48 flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-6 shadow-none focus-visible:ring-0"
+                          className="min-h-[52px] max-h-48 flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-7 shadow-none focus-visible:ring-0 caret-slate-800"
                         />
                         <button
                           type="button"
@@ -1730,18 +1882,52 @@ export default function ChatPage({
                       onOpenAutoFocus={(e) => e.preventDefault()}
                       onCloseAutoFocus={(e) => e.preventDefault()}
                     >
-                      <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-2 pb-1.5 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                        <span>
-                          {isCommandMenuOpen
-                            ? "Command"
-                            : slashArgumentCompletion
-                              ? `${slashArgumentCompletion.argument.required ? "Required" : "Optional"} · ${slashArgumentCompletion.argument.name}`
-                              : "Argument"}
-                        </span>
-                        <span>Description</span>
-                      </div>
+                      {isMentionMenuOpen ? (
+                        <div className="border-b border-slate-100 px-2 pb-1.5 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400 flex items-center gap-1">
+                          <AtSign className="size-3" />
+                          <span>提及成员</span>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-2 pb-1.5 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                          <span>
+                            {isCommandMenuOpen
+                              ? "Command"
+                              : slashArgumentCompletion
+                                ? `${slashArgumentCompletion.argument.required ? "Required" : "Optional"} · ${slashArgumentCompletion.argument.name}`
+                                : "Argument"}
+                          </span>
+                          <span>Description</span>
+                        </div>
+                      )}
                       <div className="max-h-56 space-y-0.5 overflow-y-auto">
-                        {isCommandMenuOpen ? slashCommandSuggestions.map((command, idx) => (
+                        {isMentionMenuOpen ? mentionSuggestions.map((agent, idx) => (
+                          <button
+                            key={agent.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectMention(agent);
+                            }}
+                            className={cn(
+                              "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                              idx === mentionMenuIndex
+                                ? "bg-slate-100 text-slate-950"
+                                : "hover:bg-slate-100"
+                            )}
+                          >
+                            {agent.avatar ? (
+                              <img src={agent.avatar} alt={agent.name} className="size-6 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <span className="flex size-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-600">
+                                {agent.name.slice(0, 1)}
+                              </span>
+                            )}
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium text-slate-800">{agent.name}</span>
+                              {agent.role && <span className="block truncate text-[10px] text-slate-400">{agent.role}</span>}
+                            </span>
+                          </button>
+                        )) : isCommandMenuOpen ? slashCommandSuggestions.map((command, idx) => (
                           <button
                             key={command.name}
                             type="button"
@@ -1845,6 +2031,31 @@ export default function ChatPage({
               </span>
             </div>
           ))}
+          {activeChannel?.kind === "meeting" && meetingParticipants.length > 0 && (
+            <>
+              <div className="mb-2 mt-4 border-t border-slate-100 pt-3">
+                <p className="px-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                  参会人 · {meetingParticipants.length}
+                </p>
+              </div>
+              {meetingParticipants.map((p) => (
+                <button
+                  key={p.speakerId}
+                  type="button"
+                  onClick={() => meetingAssignSpeakerRef.current(p.speakerId, p.label)}
+                  className="mb-2 flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left hover:bg-slate-50"
+                >
+                  <span className="flex size-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] font-bold text-slate-500">
+                    {p.label.slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[11px] font-bold text-slate-800">{p.label}</span>
+                    <span className="block truncate text-[9px] text-slate-400">{p.messageCount} 条发言</span>
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
         </ScrollArea>
       </aside>
       )}
@@ -1858,8 +2069,9 @@ export default function ChatPage({
         }}
         initial={editChannelState}
         existingDefs={agents}
-        onSave={(name, selectedCatalogIds, avatar, kind, tags) => {
-          void handleChannelSave(name, selectedCatalogIds, avatar, kind, tags);
+        availableTeams={workbenchTeamPresets}
+        onSave={(name, selectedCatalogIds, avatar, kind, tags, teamId) => {
+          void handleChannelSave(name, selectedCatalogIds, avatar, kind, tags, teamId);
         }}
       />
       {(() => {
