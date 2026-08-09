@@ -7,7 +7,10 @@ const isAnyPopoverOpen = (): boolean => {
   const popoverContents = document.querySelectorAll(
     "[data-radix-popper-content-wrapper]"
   );
-  return popoverContents.length > 0;
+  if (popoverContents.length > 0) return true;
+  // Also block collapse while the quick-search panel is expanded.
+  if (document.body.dataset.quickSearchOpen === "true") return true;
+  return false;
 };
 
 export const useWindowResize = () => {

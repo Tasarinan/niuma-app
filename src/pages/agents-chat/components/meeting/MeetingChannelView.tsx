@@ -70,6 +70,9 @@ export function MeetingChannelView({
             assignSpeaker={meeting.assignSpeaker}
             isRecording={meeting.isRecording}
             micListening={meeting.micListening}
+            snapshots={meeting.snapshots}
+            onSaveSnapshot={meeting.saveTranscriptSnapshot}
+            onDeleteSnapshot={meeting.removeSnapshot}
           />
           <AgentActivityPanel notes={notes} clearNotes={clearNotes} onSend={sendManualMessage} />
         </div>

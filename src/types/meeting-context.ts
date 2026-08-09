@@ -3,6 +3,28 @@
 // Entity types that can be extracted from conversations
 export type EntityType = "person" | "project" | "term" | "company";
 
+// ── Transcript Snapshots ─────────────────────────────────────────────────────
+
+/** A saved snapshot of a meeting transcript (application / camelCase). */
+export interface MeetingSnapshot {
+  id: string;
+  title: string;
+  transcript: string;
+  entryCount: number;
+  createdAt: number;
+}
+
+/** Database row shape for meeting_snapshots table (snake_case). */
+export interface DbMeetingSnapshot {
+  id: string;
+  title: string;
+  transcript: string;
+  entry_count: number;
+  created_at: number;
+}
+
+// ── Meeting Summaries ────────────────────────────────────────────────────────
+
 // TypeScript interfaces for application use (camelCase)
 export interface MeetingSummary {
   id: string;

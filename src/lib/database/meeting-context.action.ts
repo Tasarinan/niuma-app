@@ -3,6 +3,8 @@ import { invalidateContextCache } from "@/lib/functions/context-builder";
 import type {
   MeetingSummary,
   DbMeetingSummary,
+  MeetingSnapshot,
+  DbMeetingSnapshot,
   KnowledgeEntity,
   DbKnowledgeEntity,
   KnowledgeProfile,
@@ -725,5 +727,103 @@ export async function cleanupUserFromParticipants(
   } catch (error) {
     console.error("Failed to cleanup user from participants:", error);
     throw error;
+  }
+}
+
+// ============================================================================
+// MeetingSnapshot CRUD
+// ============================================================================
+
+function dbRowToMeetingSnapshot(row: DbMeetingSnapshot): MeetingSnapshot {
+  return {
+    id: row.id,
+    title: row.title,
+    transcript: row.transcript,
+    entryCount: row.entry_count,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Save (insert or replace) a transcript snapshot.
+ */
+export async function saveMeetingSnapshot(
+  snapshot: MeetingSnapshot
+): Promise<void> {
+  const db = await getDatabase();
+  try {
+    await db.execute(
+      `INSERT OR REPLACE INTO meeting_snapshots (id, title, transcript, entry_count, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        snapshot.id,
+        snapshot.title,
+        snapshot.transcript,
+        snapshot.entryCount,
+        snapshot.createdAt,
+      ]
+    );
+  } catch (error) {
+    console.error("Failed to save meeting snapshot:", error);
+    throw error;
+  }
+}
+
+/**
+ * List all snapshots ordered newest-first, with optional full-text filter.
+ */
+export async function listMeetingSnapshots(
+  query = "",
+  limit = 50
+): Promise<MeetingSnapshot[]> {
+  const db = await getDatabase();
+  const normalized = query.trim().toLowerCase();
+  try {
+    const rows = normalized
+      ? await db.select<DbMeetingSnapshot[]>(
+          `SELECT * FROM meeting_snapshots
+           WHERE lower(title) LIKE ? OR lower(transcript) LIKE ?
+           ORDER BY created_at DESC LIMIT ?`,
+          [`%${normalized}%`, `%${normalized}%`, limit]
+        )
+      : await db.select<DbMeetingSnapshot[]>(
+          `SELECT * FROM meeting_snapshots ORDER BY created_at DESC LIMIT ?`,
+          [limit]
+        );
+    return rows.map(dbRowToMeetingSnapshot);
+  } catch (error) {
+    console.error("Failed to list meeting snapshots:", error);
+    return [];
+  }
+}
+
+/**
+ * Delete a single snapshot by id. Returns true if a row was removed.
+ */
+export async function deleteMeetingSnapshot(id: string): Promise<boolean> {
+  const db = await getDatabase();
+  try {
+    const result = await db.execute(
+      `DELETE FROM meeting_snapshots WHERE id = ?`,
+      [id]
+    );
+    return result.rowsAffected > 0;
+  } catch (error) {
+    console.error("Failed to delete meeting snapshot:", error);
+    return false;
+  }
+}
+
+/**
+ * Delete ALL snapshots. Used by the bulk-clear action.
+ */
+export async function deleteAllMeetingSnapshots(): Promise<boolean> {
+  const db = await getDatabase();
+  try {
+    await db.execute(`DELETE FROM meeting_snapshots`);
+    return true;
+  } catch (error) {
+    console.error("Failed to delete all meeting snapshots:", error);
+    return false;
   }
 }

@@ -8,8 +8,7 @@ import {
   DEFAULT_TRANSLATION_ENABLED,
   DEFAULT_TRANSLATION_LANGUAGE,
 } from "@/config";
-import { getResponseSettings, updateLanguage } from "@/lib/storage/response-settings.storage";
-import { DEFAULT_LANGUAGE } from "@/lib/response-settings.constants";
+import { getResponseSettings } from "@/lib/storage/response-settings.storage";
 import { getPlatform, safeLocalStorage, trackAppStart } from "@/lib";
 import { getShortcutsConfig } from "@/lib/storage";
 import {
@@ -141,7 +140,6 @@ export const useAppStore = create<IContextType>((set, get) => ({
   sttTranslationLanguage:
     safeLocalStorage.getItem(STORAGE_KEYS.STT_TRANSLATION_LANGUAGE) ||
     DEFAULT_TRANSLATION_LANGUAGE,
-  responseLanguage: getResponseSettings().language || DEFAULT_LANGUAGE,
   userIdentity: getUserIdentity(),
   allAiProviders: computeAllAi([]),
   allSttProviders: computeAllStt([]),
@@ -313,9 +311,6 @@ export const useAppStore = create<IContextType>((set, get) => ({
       set({ sttTranslationLanguage: savedTranslationLanguage });
     }
 
-    // Response language
-    set({ responseLanguage: getResponseSettings().language || DEFAULT_LANGUAGE });
-
     // User identity
     set({ userIdentity: getUserIdentity() });
   },
@@ -378,12 +373,6 @@ export const useAppStore = create<IContextType>((set, get) => ({
   setSttTranslationLanguage: (language) => {
     set({ sttTranslationLanguage: language });
     safeLocalStorage.setItem(STORAGE_KEYS.STT_TRANSLATION_LANGUAGE, language);
-    get().loadData();
-  },
-
-  setResponseLanguage: (language) => {
-    set({ responseLanguage: language });
-    updateLanguage(language); // Persists to RESPONSE_SETTINGS in localStorage
     get().loadData();
   },
 

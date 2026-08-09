@@ -66,10 +66,6 @@ export type IContextType = {
   sttTranslationLanguage: string;
   setSttTranslationLanguage: (language: string) => void;
 
-  // Response language setting (for AI responses)
-  responseLanguage: string;
-  setResponseLanguage: (language: string) => void;
-
   // User Identity settings
   userIdentity: UserIdentity | null;
   setUserIdentity: (identity: UserIdentity) => Promise<void>;

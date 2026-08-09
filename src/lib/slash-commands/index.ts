@@ -82,11 +82,8 @@ export interface SlashCommandExtension {
   ) => SlashCommandResolution | null;
 }
 
-export type SlashCommandAction = "open-dashboard" | "open-chat";
-
 export type SlashCommandResolution =
-  | { kind: "prompt"; text: string }
-  | { kind: "action"; action: SlashCommandAction; promptText?: string };
+  | { kind: "prompt"; text: string };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -275,86 +272,6 @@ function ensureDefaultExtensionsRegistered(): void {
   if (defaultExtensionsRegistered) return;
   defaultExtensionsRegistered = true;
 
-  registerSlashCommandExtension({
-    name: "command-list",
-    builtin: true,
-    description: "List available slash commands",
-    handler: (_args, context) => {
-      const lines = context.commands
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((cmd) => `- /${cmd.name}${cmd.description ? ` - ${cmd.description}` : ""}`);
-
-      return {
-        kind: "prompt",
-        text: [
-        "Available slash commands:",
-        lines.length > 0 ? lines.join("\n") : "(none)",
-      ].join("\n"),
-      };
-    },
-  });
-
-  registerSlashCommandExtension({
-    name: "dashboard",
-    builtin: true,
-    description: "Open dashboard window",
-    handler: () => ({ kind: "action", action: "open-dashboard" }),
-  });
-
-  registerSlashCommandExtension({
-    name: "chat",
-    builtin: true,
-    description: "Open agent chat window",
-    handler: () => ({ kind: "action", action: "open-chat" }),
-  });
-
-  registerSlashCommandExtension({
-    name: "command",
-    builtin: true,
-    description: "Run another slash command by name",
-    argumentHint: "<name> [args]",
-    handler: (args, context) => {
-      const trimmed = args.trim();
-      if (!trimmed) {
-        return { kind: "prompt", text: "Usage: /command <name> [args]" };
-      }
-
-      const firstSpace = trimmed.indexOf(" ");
-      const rawTarget = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
-      const targetName = normalizeCommandName(rawTarget);
-      const targetArgs = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
-
-      if (!targetName || targetName === "command") {
-        return { kind: "prompt", text: "Usage: /command <name> [args]" };
-      }
-
-      const target = context.commands.find((cmd) => cmd.name === targetName);
-      if (!target) {
-        return {
-          kind: "prompt",
-          text: `Unknown slash command: /${targetName}`,
-        };
-      }
-
-      if (target.source === "file") {
-        return {
-          kind: "prompt",
-          text: buildCommandExecutionPrompt(target, targetArgs),
-        };
-      }
-
-      const extension = slashCommandExtensions.get(target.name);
-      if (!extension) {
-        return {
-          kind: "prompt",
-          text: `Slash command /${targetName} is not executable.`,
-        };
-      }
-
-      return extension.handler(targetArgs, context) ?? null;
-    },
-  });
 }
 
 function extensionToDefinition(

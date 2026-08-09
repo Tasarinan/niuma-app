@@ -59,5 +59,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("migrations/health-core.sql"),
             kind: MigrationKind::Up,
         },
+        // Migration 9: Meeting transcript snapshot persistence
+        Migration {
+            version: 9,
+            description: "create_meeting_snapshots_table",
+            sql: include_str!("migrations/meeting-snapshots.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

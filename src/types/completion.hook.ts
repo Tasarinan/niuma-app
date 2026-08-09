@@ -56,6 +56,8 @@ export interface UseCompletionReturn {
   submit: (speechText?: string) => Promise<void>;
   /** Function to forward text into the main agent-chat window */
   sendToMainChat: (text: string) => Promise<void>;
+  /** Stream a one-shot AI response through the active Pi agent (no state side-effects). */
+  streamOnce: (prompt: string, systemPrompt: string, onDelta: (text: string) => void, signal: AbortSignal) => Promise<void>;
   /** Function to cancel the current completion request */
   cancel: () => void;
   /** Function to reset the completion state (clears input, response, error, files) */

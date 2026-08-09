@@ -107,7 +107,7 @@ export function useGroupChat() {
   // ─── Send message ──────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (content: string, images?: ImageContent[], channelIdOverride?: string, targetAgentNames?: string[]) => {
+    async (content: string, images?: ImageContent[], channelIdOverride?: string, targetAgentNames?: string[], displayContent?: string) => {
       const targetId = channelIdOverride ?? selectedId;
       if (!targetId || !content.trim() || isSending) return;
 
@@ -123,7 +123,7 @@ export function useGroupChat() {
         id: crypto.randomUUID(),
         channelId: targetId,
         role: "user",
-        content: content.trim(),
+        content: (displayContent ?? content).trim(),
         images: images?.length
           ? images.map((img) => ({ mimeType: img.mimeType, data: img.data }))
           : undefined,
@@ -148,33 +148,43 @@ export function useGroupChat() {
       let m: RegExpExecArray | null;
       while ((m = mentionRegex.exec(content)) !== null) mentions.push(m[1].toLowerCase());
 
-      const respondingAgents = channel.agentIds
+      const allChannelAgents = channel.agentIds
         .map((id) => agents.find((a) => a.id === id))
-        .filter(Boolean)
-        .filter((agent) => {
-          // Command-level agent routing takes priority over @mentions
-          if (targetAgentNames && targetAgentNames.length > 0) {
-            return targetAgentNames.some((n) =>
-              agent!.name.trim().toLowerCase() === n.trim().toLowerCase() ||
-              agent!.name.trim().toLowerCase().includes(n.trim().toLowerCase())
-            );
-          }
-          if (mentions.length === 0) return true;
-          return mentions.some((mn) => agent!.name.toLowerCase().includes(mn));
-        });
+        .filter(Boolean) as AgentDefinition[];
+
+      const noExplicitTarget = (!targetAgentNames || targetAgentNames.length === 0) && mentions.length === 0;
+      // Smart dispatch: no explicit target + multiple agents → first agent coordinates
+      const useSmartDispatch = noExplicitTarget && allChannelAgents.length > 1;
+
+      const initialAgents: AgentDefinition[] = useSmartDispatch
+        ? [allChannelAgents[0]]
+        : allChannelAgents.filter((agent) => {
+            if (targetAgentNames && targetAgentNames.length > 0) {
+              return targetAgentNames.some((n) =>
+                agent.name.trim().toLowerCase() === n.trim().toLowerCase() ||
+                agent.name.trim().toLowerCase().includes(n.trim().toLowerCase())
+              );
+            }
+            if (mentions.length === 0) return true;
+            return mentions.some((mn) => agent.name.toLowerCase().includes(mn));
+          });
 
       // Bridge the Skills page's enabled .niuma skills (file-based) into the
       // DB-backed Skill store so `resolveAgent`'s load_skill/run_skill tools
       // actually pick them up for this turn — without persisting the change
       // to any agent's stored `enabledSkillIds`.
       const bridgedSkillIds =
-        respondingAgents.length > 0
+        initialAgents.length > 0
           ? await bridgeEnabledNiumaSkills().catch(() => [])
           : [];
 
-      // Call each agent sequentially
+      // Call agents sequentially; smart-dispatch may add routed agent after dispatcher runs
+      const agentsToRun: AgentDefinition[] = [...initialAgents];
       let currentMsgs = msgsAfterUser;
-      for (const agent of respondingAgents) {
+      let agentRunIdx = 0;
+      while (agentRunIdx < agentsToRun.length) {
+        const agent = agentsToRun[agentRunIdx++];
+        const isDispatcherTurn = useSmartDispatch && agentRunIdx === 1;
         if (signal.aborted) break;
         if (!agent) continue;
 
@@ -203,13 +213,24 @@ export function useGroupChat() {
         const agentModelId = agent.modelId || activeProvider?.model || "";
 
         // Group context appended to agent's own system prompt
-        const otherMembers = respondingAgents
-          .filter((a) => a?.id !== agent.id)
-          .map((a) => `${a?.name} (${a?.role ?? "AI"})`)
+        const otherMembers = allChannelAgents
+          .filter((a) => a.id !== agent.id)
+          .map((a) => `${a.name} (${a.role ?? "AI"})`)
           .join(", ");
         const groupCtx = otherMembers
           ? `\n\nYou are in a group chat channel named "${channel.name}". Other participants: ${otherMembers}. Respond as ${agent.name} (${agent.role ?? "AI assistant"}). Be concise and in-character.`
           : `\n\nYou are in a channel named "${channel.name}". Respond as ${agent.name}.`;
+
+        // Smart-dispatch instruction: coordinator picks the best team member to answer
+        const dispatchInstruction = isDispatcherTurn
+          ? (() => {
+              const roster = allChannelAgents
+                .filter((a) => a.id !== agent.id)
+                .map((a) => `- ${a.name}：${a.role || 'AI助手'}`)
+                .join('\n');
+              return `\n\n[团队协调] 团队其他成员：\n${roster}\n\n请先用1-2句话表达对问题的初步理解，然后另起一行写：\nROUTE: @成员名称\n从上面列表中选择最适合深入回答此问题的成员。如果你自己最合适，写你自己的名字（${agent.name}）。`;
+            })()
+          : "";
 
         const transcript = history
           .map((h) => (h.role === "assistant" ? `${agent.name}: ${h.content}` : h.content))
@@ -220,10 +241,16 @@ export function useGroupChat() {
           ...agent,
           providerId: agentProviderId,
           modelId: agentModelId,
-          systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock,
+          systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock + dispatchInstruction,
           enabledSkillIds: Array.from(
             new Set([...(agent.enabledSkillIds ?? []), ...bridgedSkillIds])
           ),
+          // Auto-enable bash when the agent has skills — skills like ima-skill use
+          // `node ima_api.cjs` via bash. Without bash the AI falls back to a direct
+          // WebView fetch which is blocked by CORS ("Connection error.").
+          enabledInternalTools: bridgedSkillIds.length > 0
+            ? Array.from(new Set([...(agent.enabledInternalTools ?? []), "bash" as const]))
+            : (agent.enabledInternalTools ?? []),
         };
 
         let fullContent = "";
@@ -289,6 +316,21 @@ export function useGroupChat() {
           next.delete(placeholderId);
           return next;
         });
+
+        // Smart dispatch: parse ROUTE from dispatcher's response and queue routed agent
+        if (isDispatcherTurn && !signal.aborted) {
+          const routeMatch = fullContent.match(/ROUTE:\s*@([^\s\n]+)/i);
+          if (routeMatch) {
+            const routedName = routeMatch[1].toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, '');
+            const routedAgent = allChannelAgents
+              .filter((a) => a.id !== agent.id)
+              .find((a) => {
+                const n = a.name.toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, '');
+                return n.includes(routedName) || routedName.includes(n);
+              });
+            if (routedAgent) agentsToRun.push(routedAgent);
+          }
+        }
       }
 
       // Persist final state

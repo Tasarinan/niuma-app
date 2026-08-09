@@ -13,11 +13,9 @@ import { listen } from "@tauri-apps/api/event";
 import curl2Json from "@bany/curl-to-json";
 import { shouldUseNiumaAPI } from "./Niuma.api";
 import { CHUNK_POLL_INTERVAL_MS } from "../chat-constants";
-import { getResponseSettings, RESPONSE_LENGTHS, LANGUAGES } from "@/lib";
 import { getContextForInjection } from "./context-builder";
 
 async function buildEnhancedSystemPrompt(baseSystemPrompt?: string): Promise<string> {
-  const responseSettings = getResponseSettings();
   const prompts: string[] = [];
 
   // Inject context memory at the beginning (if enabled and available)
@@ -32,20 +30,6 @@ async function buildEnhancedSystemPrompt(baseSystemPrompt?: string): Promise<str
 
   if (baseSystemPrompt) {
     prompts.push(baseSystemPrompt);
-  }
-
-  const lengthOption = RESPONSE_LENGTHS.find(
-    (l) => l.id === responseSettings.responseLength
-  );
-  if (lengthOption?.prompt?.trim()) {
-    prompts.push(lengthOption.prompt);
-  }
-
-  const languageOption = LANGUAGES.find(
-    (l) => l.id === responseSettings.language
-  );
-  if (languageOption?.prompt?.trim()) {
-    prompts.push(languageOption.prompt);
   }
 
   return prompts.join(" ");

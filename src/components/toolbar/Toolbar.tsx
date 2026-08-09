@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { ToolbarButton } from "./ToolbarButton";
 import { DragButton, WingIcon } from "@/components";
@@ -27,6 +28,8 @@ import {
   type AutoSpeechVADState,
 } from "@/pages/app/components/completion/AutoSpeechVad";
 import { MAX_FILES } from "@/config";
+import { useQuickSearch } from "@/hooks/useQuickSearch";
+import { QuickSearchPanel } from "./QuickSearchPanel";
 
 // Toolbar strip height in logical pixels (matches tauri.conf.json initial height)
 
@@ -38,6 +41,22 @@ interface ToolbarProps {
 
 export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
   const { selectedAudioDevices, sttLanguage } = useApp();
+  const qs = useQuickSearch(completion.streamOnce);
+
+  // Resize window when quick-search panel opens / closes.
+  useEffect(() => {
+    if (qs.isOpen) {
+      // Mark body so useWindowResize doesn't collapse the window while the panel is open.
+      document.body.dataset.quickSearchOpen = "true";
+      const win = getCurrentWebviewWindow();
+      invoke("set_window_height", { window: win, height: 500 }).catch(() => {});
+    } else {
+      delete document.body.dataset.quickSearchOpen;
+      // Collapse back to toolbar-only height.
+      const win = getCurrentWebviewWindow();
+      invoke("set_window_height", { window: win, height: 54 }).catch(() => {});
+    }
+  }, [qs.isOpen]);
 
   // Real VAD capture state, reported by the headless controller mounted
   // below whenever completion.enableVAD is true. Drives the existing
@@ -63,6 +82,32 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
     }
     wasLoadingRef.current = completion.isLoading;
   }, [completion.isLoading, completion.response, tts.isEnabled, tts]);
+
+  /**
+   * Intercept the toolbar Enter key:
+   * - slash commands → route to agent-chat via sendToMainChat (original behaviour)
+   * - anything else  → trigger inline quick-search panel
+   */
+  const handleQuickSearchKeyPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" || e.shiftKey) return;
+      if (completion.isSlashMenuOpen) return; // let handleInputKeyDown manage it
+
+      const text = completion.input.trim();
+      if (!text) return;
+
+      // Slash commands still go to agent-chat.
+      if (text.startsWith("/")) {
+        completion.handleKeyPress(e);
+        return;
+      }
+
+      e.preventDefault();
+      completion.setInput("");
+      void qs.runSearch(text);
+    },
+    [completion, qs]
+  );
 
   const handleOpenDashboard = useCallback(async () => {
     try {
@@ -174,6 +219,7 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
       >
         <Input
           {...completion}
+          handleKeyPress={handleQuickSearchKeyPress}
           isHidden={isHidden}
         />
       </div>
@@ -204,6 +250,18 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
         {/* Drag handle */}
         <DragButton />
       </div>
+
+      {/* ── Quick-search panel (expands below toolbar pill) ── */}
+      <QuickSearchPanel
+        isOpen={qs.isOpen}
+        query={qs.query}
+        localResults={qs.localResults}
+        webResults={qs.webResults}
+        aiSummary={qs.aiSummary}
+        status={qs.status}
+        error={qs.error}
+        onClose={qs.close}
+      />
     </div>
   );
 }

@@ -33,9 +33,6 @@ import {
   DropdownMenuTrigger,
   Input,
   Label,
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
   ScrollArea,
   Textarea,
 } from "@/components/ui";
@@ -761,7 +758,9 @@ export default function ChatPage({
   const [showMembers, setShowMembers] = useState(true);
   const [meetingParticipants, setMeetingParticipants] = useState<MeetingParticipant[]>([]);
   const meetingAssignSpeakerRef = useRef<(speakerId: string, label: string, profileId?: string) => void>(() => {});
-  const [isImaConnecting, setIsImaConnecting] = useState(false);
+  const [imaEnabled, setImaEnabled] = useState(false);
+  const [webEnabled, setWebEnabled] = useState(false);
+  const [isAugmenting, setIsAugmenting] = useState(false);
   const [workbenchTeamPresets, setWorkbenchTeamPresets] = useState(() => WORKBENCH_TEAM_PRESETS);
   const defaultTeamsSeedStartedRef = useRef(false);
   const activeTeamSyncKeyRef = useRef("");
@@ -1093,12 +1092,6 @@ export default function ChatPage({
     return asRecord(response.data ?? response);
   };
 
-  const formatKnowledgeBases = (items: Record<string, unknown>[]) =>
-    items
-      .slice(0, 8)
-      .map((item, index) => `${index + 1}. ${String(item.name ?? "未命名知识库")} (${String(item.id ?? "无 ID")})`)
-      .join("\n");
-
   const formatKnowledgeResults = (items: Record<string, unknown>[]) =>
     items
       .slice(0, 5)
@@ -1118,64 +1111,102 @@ export default function ChatPage({
     return firstArray(searchData, ["info_list", "infoList"]);
   };
 
-  const connectIma = async () => {
-    if (isImaConnecting) return;
-    const query = input.trim();
-    setIsImaConnecting(true);
-    setSlashMenuIndex(0);
-    setSlashMenuDismissed(true);
+  const searchWeb = async (query: string): Promise<string> => {
+    const skillsDir = await invoke<string>("get_niuma_skills_dir");
+    const sep = skillsDir.includes("/") ? "/" : "\\";
+    const skillDir = `${skillsDir}${sep}web-access`;
 
-    try {
-      const knowledgeBaseData = await runImaApi("openapi/wiki/v1/search_knowledge_base", {
-        query: "",
-        cursor: "",
-        limit: 10,
+    // Detect Xiaohongshu intent → route to xiaohongshu_search.mjs (requires CDP)
+    const isXhsQuery = /小红书|xhs|xiaohongshu/i.test(query);
+    if (isXhsQuery) {
+      // Extract keywords: strip "小红书上" / "小红书" / "调研" etc., keep subject nouns
+      const keywords = query
+        .replace(/调研|小红书(?:上)?|风评|口碑|评价|评论|怎么样|怎样|如何|搜索|查询|找|看看/g, " ")
+        .replace(/[，。？！、\s]+/g, " ")
+        .trim();
+      const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
+        req: {
+          command: "node",
+          args: [`scripts${sep}xiaohongshu_search.mjs`, keywords, "8"],
+          cwd: skillDir,
+          sandboxMode: "read-only",
+          timeoutMs: 60000,
+        },
       });
-      const knowledgeBases = firstArray(knowledgeBaseData, ["info_list", "infoList"]);
-
-      if (!query) {
-        const inserted = knowledgeBases.length > 0
-          ? `Ima 知识库已连接：\n${formatKnowledgeBases(knowledgeBases)}`
-          : "Ima 已连接，但没有找到知识库。";
-        setInput(inserted);
-        focusInputEnd(inserted);
-        return;
+      if (result.timedOut) throw new Error("小红书搜索超时");
+      if (result.exitCode !== 0) {
+        const stderr = result.stderr.trim();
+        let msg = "";
+        try { msg = (JSON.parse(stderr) as { msg?: string }).msg ?? ""; } catch { msg = ""; }
+        throw new Error(msg || stderr || "小红书搜索失败");
       }
-
-      let knowledgeBaseId = window.localStorage.getItem(IMA_DEFAULT_KB_ID_KEY) || "";
-      if (knowledgeBaseId && !knowledgeBases.some((item) => String(item.id ?? "") === knowledgeBaseId)) {
-        knowledgeBaseId = "";
-        window.localStorage.removeItem(IMA_DEFAULT_KB_ID_KEY);
+      interface XhsPost { title: string; desc: string; url: string; likes: string }
+      const parsed = JSON.parse(result.stdout || "{}") as { results?: Record<string, XhsPost[]> };
+      const sections: string[] = [];
+      for (const [kw, posts] of Object.entries(parsed.results ?? {})) {
+        if (posts.length === 0) continue;
+        const items = posts.map((p, i) =>
+          `${i + 1}. ${p.title}${p.desc ? `\n   ${p.desc}` : ""}${p.likes ? ` 👍${p.likes}` : ""}${p.url ? `\n   ${p.url}` : ""}`
+        ).join("\n\n");
+        sections.push(`【${kw}】\n${items}`);
       }
-      if (!knowledgeBaseId && knowledgeBases.length === 1) {
-        knowledgeBaseId = String(knowledgeBases[0].id ?? "");
-        if (knowledgeBaseId) window.localStorage.setItem(IMA_DEFAULT_KB_ID_KEY, knowledgeBaseId);
-      }
-
-      const searchableBases = knowledgeBaseId
-        ? knowledgeBases.filter((item) => String(item.id ?? "") === knowledgeBaseId)
-        : knowledgeBases;
-      const groups: string[] = [];
-      for (const knowledgeBase of searchableBases.slice(0, 10)) {
-        const id = String(knowledgeBase.id ?? "");
-        if (!id) continue;
-        const results = await searchImaKnowledge(query, id);
-        if (results.length === 0) continue;
-        groups.push(`【${String(knowledgeBase.name ?? "Ima 知识库")}】\n${formatKnowledgeResults(results)}`);
-      }
-
-      const inserted = groups.length > 0
-        ? `基于 Ima 知识库结果回答：${query}\n\n${groups.join("\n\n")}`
-        : `Ima 知识库未找到匹配内容。\n\n原查询：${query}`;
-      setInput(inserted);
-      focusInputEnd(inserted);
-    } catch (error) {
-      const inserted = `Ima 连接失败：${compactImaError(error)}${query ? `\n\n原查询：${query}` : ""}`;
-      setInput(inserted);
-      focusInputEnd(inserted);
-    } finally {
-      setIsImaConnecting(false);
+      return sections.join("\n\n");
     }
+
+    // Default: Bing general web search
+    const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
+      req: {
+        command: "node",
+        args: [`scripts${sep}web_search.mjs`, query, "6"],
+        cwd: skillDir,
+        sandboxMode: "read-only",
+        timeoutMs: 30000,
+      },
+    });
+    if (result.timedOut) throw new Error("Web 搜索超时");
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr.trim();
+      let msg = "";
+      try { msg = (JSON.parse(stderr) as { msg?: string }).msg ?? ""; } catch { msg = ""; }
+      throw new Error(msg || stderr || result.stdout.trim() || "Web 搜索失败");
+    }
+    interface WebSearchItem { title: string; url: string; snippet: string }
+    const parsed = JSON.parse(result.stdout || "{}") as { results?: WebSearchItem[] };
+    return (parsed.results ?? [])
+      .map((r, i) => `${i + 1}. ${r.title}${r.snippet ? `\n   ${r.snippet}` : ""}\n   ${r.url}`)
+      .join("\n\n");
+  };
+
+  const gatherImaResults = async (query: string): Promise<string> => {
+    const knowledgeBaseData = await runImaApi("openapi/wiki/v1/search_knowledge_base", {
+      query: "",
+      cursor: "",
+      limit: 10,
+    });
+    const knowledgeBases = firstArray(knowledgeBaseData, ["info_list", "infoList"]);
+
+    let knowledgeBaseId = window.localStorage.getItem(IMA_DEFAULT_KB_ID_KEY) || "";
+    if (knowledgeBaseId && !knowledgeBases.some((item) => String(item.id ?? "") === knowledgeBaseId)) {
+      knowledgeBaseId = "";
+      window.localStorage.removeItem(IMA_DEFAULT_KB_ID_KEY);
+    }
+    if (!knowledgeBaseId && knowledgeBases.length === 1) {
+      knowledgeBaseId = String(knowledgeBases[0].id ?? "");
+      if (knowledgeBaseId) window.localStorage.setItem(IMA_DEFAULT_KB_ID_KEY, knowledgeBaseId);
+    }
+
+    const searchableBases = knowledgeBaseId
+      ? knowledgeBases.filter((item) => String(item.id ?? "") === knowledgeBaseId)
+      : knowledgeBases;
+    const groups: string[] = [];
+    for (const knowledgeBase of searchableBases.slice(0, 10)) {
+      const id = String(knowledgeBase.id ?? "");
+      if (!id) continue;
+      const results = await searchImaKnowledge(query, id);
+      if (results.length === 0) continue;
+      groups.push(`【${String(knowledgeBase.name ?? "Ima 知识库")}】\n${formatKnowledgeResults(results)}`);
+    }
+    return groups.join("\n\n");
   };
 
   const send = async () => {
@@ -1189,13 +1220,10 @@ export default function ChatPage({
     setAttachedImages([]);
     setSlashMenuDismissed(true);
 
-    if (resolution?.kind === "action") {
-      if (resolution.action === "open-dashboard") await invoke("open_dashboard");
-      if (resolution.action === "open-chat") await invoke("open_agent_chat_window");
-      return;
-    }
-
     let agentInput = resolution?.kind === "prompt" ? resolution.text : text;
+    // When a slash command expands to a prompt, show the original "/command"
+    // in the chat bubble instead of the full expanded template.
+    const displayText = resolution?.kind === "prompt" ? text : undefined;
 
     // Allow image-only send by supplying a minimal fallback prompt.
     if (!agentInput.trim() && images && images.length > 0) {
@@ -1243,7 +1271,39 @@ export default function ChatPage({
       }
     }
 
-    await sendMessage(agentInput, images, undefined, commandAgentNames);
+    // Augment with web/IMA search results when toggles are on
+    if ((webEnabled || imaEnabled) && agentInput.trim()) {
+      setIsAugmenting(true);
+      const parts: string[] = [];
+      const searchDate = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+      try {
+        if (webEnabled) {
+          try {
+            const webResults = await searchWeb(text);
+            if (webResults.trim()) {
+              parts.push(`[实时网络搜索结果 · ${searchDate}]\n请优先参考以下搜索结果回答用户问题，这是最新的网络信息：\n\n${webResults}`);
+            }
+          } catch (e) {
+            parts.push(`[Web 搜索失败: ${compactImaError(e)}]`);
+          }
+        }
+        if (imaEnabled) {
+          try {
+            const imaResults = await gatherImaResults(text);
+            if (imaResults.trim()) parts.push(`[Ima 知识库结果]\n${imaResults}`);
+          } catch (e) {
+            parts.push(`[Ima 搜索失败: ${compactImaError(e)}]`);
+          }
+        }
+        if (parts.length > 0) {
+          agentInput = `${agentInput}\n\n${parts.join("\n\n")}`;
+        }
+      } finally {
+        setIsAugmenting(false);
+      }
+    }
+
+    await sendMessage(agentInput, images, undefined, commandAgentNames, displayText);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1586,7 +1646,7 @@ export default function ChatPage({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div
                   ref={scrollRef}
-              className="flex-1 space-y-6 overflow-y-auto px-6 py-6"
+                  className="flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-6"
                 >
                   {activeMessages.length === 0 ? (
                 <div className="mx-auto flex min-h-full max-w-xl items-center text-sm text-slate-400">
@@ -1624,7 +1684,7 @@ export default function ChatPage({
                             )}
                             <div
                               className={cn(
-                                "rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
+                                "overflow-x-auto rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
                                 isUser
                                   ? cn("rounded-tr-md text-white", activeTeamStyle?.solid ?? "bg-[#7771e8]")
                                   : "rounded-tl-md bg-white text-slate-800 ring-1 ring-slate-100"
@@ -1707,16 +1767,93 @@ export default function ChatPage({
                       )}
                     </div>
                   )}
-                  <Popover
-                    open={isSlashMenuOpen || isMentionMenuOpen}
-                    onOpenChange={(open) => {
-                      if (!open) {
-                        setSlashMenuDismissed(true);
-                        setMentionMenuDismissed(true);
-                      }
-                    }}
-                  >
-                    <PopoverAnchor asChild>
+                  {/* PI-style inline command/mention/argument menu — no floating popover */}
+                  {(isSlashMenuOpen || isMentionMenuOpen) && (
+                    <div className="mx-auto mb-2 max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                      {/* Header row */}
+                      {isMentionMenuOpen ? (
+                        <div className="border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400 flex items-center gap-1">
+                          <AtSign className="size-3" />
+                          <span>提及成员</span>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                          <span>
+                            {isCommandMenuOpen
+                              ? "Command"
+                              : slashArgumentCompletion
+                                ? `${slashArgumentCompletion.argument.required ? "Required" : "Optional"} · ${slashArgumentCompletion.argument.name}`
+                                : "Argument"}
+                          </span>
+                          <span>Description</span>
+                        </div>
+                      )}
+                      {/* Items */}
+                      <div className="max-h-48 space-y-0.5 overflow-y-auto p-1">
+                        {isMentionMenuOpen ? mentionSuggestions.map((agent, idx) => (
+                          <button
+                            key={agent.id}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); selectMention(agent); }}
+                            className={cn(
+                              "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                              idx === mentionMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
+                            )}
+                          >
+                            {agent.avatar ? (
+                              <img src={agent.avatar} alt={agent.name} className="size-6 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <span className="flex size-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-600">
+                                {agent.name.slice(0, 1)}
+                              </span>
+                            )}
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium text-slate-800">{agent.name}</span>
+                              {agent.role && <span className="block truncate text-[10px] text-slate-400">{agent.role}</span>}
+                            </span>
+                          </button>
+                        )) : isCommandMenuOpen ? slashCommandSuggestions.map((command, idx) => (
+                          <button
+                            key={command.name}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); selectSlashCommand(command); }}
+                            className={cn(
+                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                              idx === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
+                            )}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium text-slate-800">/{command.name}</span>
+                              {commandArgumentHint(command) && (
+                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">
+                                  {commandArgumentHint(command)}
+                                </span>
+                              )}
+                            </span>
+                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
+                              <span className="line-clamp-2">{command.description || "No description"}</span>
+                              <span className="mt-0.5 block text-[9px] uppercase text-slate-300">{command.sourceLabel}</span>
+                            </span>
+                          </button>
+                        )) : slashArgumentCompletion?.choices.map((choice, idx) => (
+                          <button
+                            key={choice.value}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); selectSlashArgument(choice.value); }}
+                            className={cn(
+                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-2 text-left text-xs transition-colors",
+                              idx === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
+                            )}
+                          >
+                            <span className="truncate font-mono font-medium text-slate-800">{choice.value}</span>
+                            <span className="text-[11px] text-slate-500">
+                              {choice.description || slashArgumentCompletion.argument.description}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="mx-auto flex max-w-5xl items-end gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-xl shadow-slate-200/80 transition-all focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300">
                         <input
                           ref={fileInputRef}
@@ -1829,20 +1966,32 @@ export default function ChatPage({
                         />
                         <button
                           type="button"
-                          onClick={() => void connectIma()}
-                          disabled={isImaConnecting}
-                          title="连接 Ima 知识库"
-                          className="flex h-7 items-center gap-1 rounded-md bg-[#f0efff] px-2 text-xs font-bold text-[#8b82ff] disabled:opacity-60"
+                          onClick={() => setImaEnabled((v) => !v)}
+                          disabled={isAugmenting}
+                          title={imaEnabled ? "禁用 Ima 知识库" : "启用 Ima 知识库"}
+                          className={cn(
+                            "flex h-7 items-center gap-1 rounded-md px-2 text-xs font-bold transition-colors disabled:opacity-60",
+                            imaEnabled
+                              ? "bg-[#f0efff] text-[#8b82ff]"
+                              : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                          )}
                         >
-                          {isImaConnecting ? <Loader2 className="size-3.5 animate-spin" /> : <BookOpen className="size-3.5" />}
+                          {isAugmenting && imaEnabled ? <Loader2 className="size-3.5 animate-spin" /> : <BookOpen className="size-3.5" />}
                           Ima
                         </button>
                         <button
                           type="button"
-                          title="Web"
-                          className="flex size-8 flex-shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                          onClick={() => setWebEnabled((v) => !v)}
+                          disabled={isAugmenting}
+                          title={webEnabled ? "禁用网络搜索" : "启用网络搜索"}
+                          className={cn(
+                            "flex size-8 flex-shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-60",
+                            webEnabled
+                              ? "bg-[#e8f4fd] text-[#2196f3]"
+                              : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                          )}
                         >
-                          <Globe2 className="size-4" />
+                          {isAugmenting && webEnabled ? <Loader2 className="size-4 animate-spin" /> : <Globe2 className="size-4" />}
                         </button>
                         <button
                           type="button"
@@ -1873,120 +2022,7 @@ export default function ChatPage({
                           </button>
                         )}
                       </div>
-                    </PopoverAnchor>
-                    <PopoverContent
-                      side="top"
-                      align="start"
-                      sideOffset={8}
-                      className="w-[420px] max-w-[calc(100vw-2rem)] p-1"
-                      onOpenAutoFocus={(e) => e.preventDefault()}
-                      onCloseAutoFocus={(e) => e.preventDefault()}
-                    >
-                      {isMentionMenuOpen ? (
-                        <div className="border-b border-slate-100 px-2 pb-1.5 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400 flex items-center gap-1">
-                          <AtSign className="size-3" />
-                          <span>提及成员</span>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-2 pb-1.5 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                          <span>
-                            {isCommandMenuOpen
-                              ? "Command"
-                              : slashArgumentCompletion
-                                ? `${slashArgumentCompletion.argument.required ? "Required" : "Optional"} · ${slashArgumentCompletion.argument.name}`
-                                : "Argument"}
-                          </span>
-                          <span>Description</span>
-                        </div>
-                      )}
-                      <div className="max-h-56 space-y-0.5 overflow-y-auto">
-                        {isMentionMenuOpen ? mentionSuggestions.map((agent, idx) => (
-                          <button
-                            key={agent.id}
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              selectMention(agent);
-                            }}
-                            className={cn(
-                              "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
-                              idx === mentionMenuIndex
-                                ? "bg-slate-100 text-slate-950"
-                                : "hover:bg-slate-100"
-                            )}
-                          >
-                            {agent.avatar ? (
-                              <img src={agent.avatar} alt={agent.name} className="size-6 rounded-full object-cover flex-shrink-0" />
-                            ) : (
-                              <span className="flex size-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-600">
-                                {agent.name.slice(0, 1)}
-                              </span>
-                            )}
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium text-slate-800">{agent.name}</span>
-                              {agent.role && <span className="block truncate text-[10px] text-slate-400">{agent.role}</span>}
-                            </span>
-                          </button>
-                        )) : isCommandMenuOpen ? slashCommandSuggestions.map((command, idx) => (
-                          <button
-                            key={command.name}
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              selectSlashCommand(command);
-                            }}
-                            className={cn(
-                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
-                              idx === slashMenuIndex
-                                ? "bg-slate-100 text-slate-950"
-                                : "hover:bg-slate-100"
-                            )}
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium text-slate-800">
-                                /{command.name}
-                              </span>
-                              {commandArgumentHint(command) && (
-                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">
-                                  {commandArgumentHint(command)}
-                                </span>
-                              )}
-                            </span>
-                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
-                              <span className="line-clamp-2">
-                                {command.description || "No description"}
-                              </span>
-                              <span className="mt-0.5 block text-[9px] uppercase text-slate-300">
-                                {command.sourceLabel}
-                              </span>
-                            </span>
-                          </button>
-                        )) : slashArgumentCompletion?.choices.map((choice, idx) => (
-                          <button
-                            key={choice.value}
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              selectSlashArgument(choice.value);
-                            }}
-                            className={cn(
-                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-2 text-left text-xs transition-colors",
-                              idx === slashMenuIndex
-                                ? "bg-slate-100 text-slate-950"
-                                : "hover:bg-slate-100"
-                            )}
-                          >
-                            <span className="truncate font-mono font-medium text-slate-800">
-                              {choice.value}
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              {choice.description || slashArgumentCompletion.argument.description}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+
             </div>
           </div>
         )}

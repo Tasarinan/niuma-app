@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Header, Selection, Switch } from "@/components";
 import { PageLayout } from "@/components/layouts";
 import { STT_LANGUAGES, TRANSLATION_LANGUAGES } from "@/config";
-import { LANGUAGES } from "@/lib";
 import { providerSupportsAutoDetect } from "@/lib/functions/stt.function";
 import { useApp } from "@/store";
 import { useTranslation } from "react-i18next";
@@ -13,15 +12,12 @@ import { DiarizationSettings, SpeakerProfiles, STTProviders } from "./components
 const Speakers = () => {
   const { t } = useTranslation("pages");
   const {
-    hasActiveLicense,
     sttLanguage,
     setSttLanguage,
     sttTranslationEnabled,
     setSttTranslationEnabled,
     sttTranslationLanguage,
     setSttTranslationLanguage,
-    responseLanguage,
-    setResponseLanguage,
     selectedSttProvider,
     allSttProviders,
   } = useApp();
@@ -36,20 +32,6 @@ const Speakers = () => {
     const isAutoDetect = sttLanguage === "auto" || sttLanguage === "";
     return isAutoDetect && currentSttProvider && !providerSupportsAutoDetect(currentSttProvider);
   }, [sttLanguage, currentSttProvider]);
-
-  const handleLanguageChange = (languageId: string) => {
-    if (!hasActiveLicense) {
-      return;
-    }
-    setResponseLanguage(languageId);
-  };
-
-  const languageOptions = useMemo(() => {
-    return LANGUAGES.map((lang) => ({
-      label: `${lang.flag} ${lang.name}`,
-      value: lang.id,
-    }));
-  }, []);
 
   return (
     <PageLayout
@@ -100,33 +82,6 @@ const Speakers = () => {
 
       {/* Speaker Profiles for Voice Enrollment */}
       <SpeakerProfiles />
-
-      {/* Response Language Section */}
-      <div className="space-y-4 pt-4 border-t">
-        <Header
-          title={t("languagePage.responseLang")}
-          description={t("languagePage.responseLangDesc")}
-          isMainTitle
-        />
-
-        {!hasActiveLicense && (
-          <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-            <p className="text-[10px] lg:text-xs text-muted-foreground">
-              {t("languagePage.responseLicenseRequired")}
-            </p>
-          </div>
-        )}
-
-        <div className="max-w-md">
-          <Selection
-            selected={responseLanguage}
-            onChange={handleLanguageChange}
-            options={languageOptions}
-            placeholder={t("languagePage.selectLanguage")}
-            disabled={!hasActiveLicense}
-          />
-        </div>
-      </div>
 
       {/* Speech Translation Section */}
       <div className="space-y-4 pt-4 border-t">

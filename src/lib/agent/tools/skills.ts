@@ -97,6 +97,29 @@ export function buildLoadSkillTool(skills: Skill[]): AgentTool {
 /** Matches fenced ```bash/```sh (or unlabeled) code blocks in a SKILL.md body. */
 const CURL_BLOCK_RE = /```(?:bash|sh)?\s*\n([\s\S]*?)```/g;
 
+interface SandboxRunResponse {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  timedOut: boolean;
+}
+
+/**
+ * Extract a node.js script name from a bash code block, e.g.:
+ *   node "$SKILL_DIR/ima_api.cjs" ...  →  "ima_api.cjs"
+ */
+function extractNodeScript(markdown: string): string | null {
+  CURL_BLOCK_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = CURL_BLOCK_RE.exec(markdown)) !== null) {
+    const block = match[1];
+    // Match: node [anything/]<script.cjs|.js|.mjs>
+    const m = block.match(/\bnode\b[\s\S]*?[/\\"']([A-Za-z0-9_\-]+\.(?:cjs|mjs|js))/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 /** Placeholder syntaxes supported in curl templates: {x}, {{x}}, <x>. */
 const PLACEHOLDER_RE =
   /\{([A-Za-z_][A-Za-z0-9_]*)\}|\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}|<([a-zA-Z_][a-zA-Z0-9_]*)>/g;
@@ -233,9 +256,11 @@ export function buildRunSkillTool(skills: Skill[]): AgentTool {
     name: "run_skill",
     label: "Run skill",
     description:
-      "Execute an available skill's HTTP call (a curl command embedded in its " +
-      "SKILL.md) with the given named arguments, and return the response. Only " +
-      "works for skills whose instructions include a curl command; for " +
+      "Execute an available skill's HTTP call with the given named arguments. " +
+      "For curl-based skills: pass named args to substitute into the curl template placeholders. " +
+      "For node.js-based skills (e.g. ima-skill): pass {\"apiPath\":\"openapi/...\",\"body\":\"{}\",\"options\":\"{}\"} — " +
+      "apiPath is the IMA API path, body and options are JSON strings. " +
+      "Only works for skills whose instructions include a curl or node command; for " +
       "instruction-only skills use `load_skill` instead.",
     parameters: Type.Object({
       name: Type.String({ description: "Exact skill name to run." }),
@@ -255,9 +280,54 @@ export function buildRunSkillTool(skills: Skill[]): AgentTool {
         );
       }
       const curlTemplate = extractCurlTemplate(skill.content ?? "");
+
+      // ── Node.js execution path (for skills like ima-skill that use node scripts) ──
       if (!curlTemplate) {
+        const nodeScript = extractNodeScript(skill.content ?? "");
+        if (nodeScript && skill.sourceType === "niuma") {
+          const skillsDir = await invoke<string>("get_niuma_skills_dir", {}).catch(() => "");
+          const rootDir = await invoke<string>("get_niuma_root_dir", {}).catch(() => "");
+          if (!skillsDir) {
+            throw new Error(`Skill "${skill.name}": 无法解析 skills 目录，请确认工作区路径已配置。`);
+          }
+          const sep = skillsDir.includes("/") ? "/" : "\\";
+          const slug = skill.source || skill.name || skill.id;
+          const scriptPath = `${skillsDir}${sep}${slug}${sep}${nodeScript}`;
+
+          let parsedArgs: Record<string, unknown> = {};
+          if (params.args) {
+            try { parsedArgs = JSON.parse(params.args); } catch {}
+          }
+          const apiPath = String(parsedArgs.apiPath ?? parsedArgs.api_path ?? "");
+          const bodyArg = String(parsedArgs.body ?? "{}");
+          const optionsArg = String(parsedArgs.options ?? "{}");
+          const scriptArgs = apiPath ? [scriptPath, apiPath, bodyArg, optionsArg] : [scriptPath];
+
+          const res = await invoke<SandboxRunResponse>("run_sandboxed_command", {
+            req: {
+              command: "node",
+              args: scriptArgs,
+              cwd: rootDir || undefined,
+              sandboxMode: "read-only",
+            },
+          });
+
+          if (res.timedOut) {
+            throw new Error(`Skill "${skill.name}": 执行超时`);
+          }
+          if (res.exitCode !== 0) {
+            let errMsg = res.stderr || "(无错误信息)";
+            try { errMsg = (JSON.parse(res.stderr) as { msg?: string }).msg ?? errMsg; } catch {}
+            throw new Error(`IMA API 错误: ${errMsg}`);
+          }
+          return {
+            content: [text(res.stdout || "(空响应)")],
+            details: { skill: skill.name, script: nodeScript, exitCode: res.exitCode },
+          };
+        }
+
         throw new Error(
-          `Skill "${skill.name}" 没有可执行的 curl 指令，请改用 load_skill 读取说明后手动处理。`
+          `Skill "${skill.name}" 没有可执行的 curl 或 node 指令，请改用 load_skill 读取说明后手动处理。`
         );
       }
 

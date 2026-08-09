@@ -23,9 +23,14 @@ import {
   shouldSummarizeMeeting,
   type MeetingTranscriptLine,
 } from "@/lib/functions/meeting-summarizer";
+import {
+  saveMeetingSnapshot,
+  listMeetingSnapshots,
+  deleteMeetingSnapshot,
+} from "@/lib/database";
 import { useMeetingAudio, useSpeakerDiarization, useTranslation, useMicVadTranscription } from "@/hooks";
 import { STORAGE_KEYS } from "@/config";
-import { SpeakerIdFactory, type SpeakerInfo, type TranscriptEntry } from "@/types";
+import { SpeakerIdFactory, type SpeakerInfo, type TranscriptEntry, type MeetingSnapshot } from "@/types";
 
 export interface MeetingParticipant {
   speakerId: string;
@@ -44,6 +49,17 @@ export function useMeetingChannel(channelId: string) {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [assemblyAIKey, setAssemblyAIKey] = useState("");
+
+  // ── Snapshot state ─────────────────────────────────────────────────────────
+  const [snapshots, setSnapshots] = useState<MeetingSnapshot[]>([]);
+
+  // Load persisted snapshots once on mount.
+  useEffect(() => {
+    listMeetingSnapshots()
+      .then(setSnapshots)
+      .catch((err) => console.warn("[MeetingChannel] Failed to load snapshots:", err));
+  }, []);
+
   // System audio permission flow (mirrors pages/app/components/speech/{PermissionFlow,SetupInstructions}
   // and useSystemAudio.ts's setupRequired/handleSetup pattern).
   const [permissionRequired, setPermissionRequired] = useState(false);
@@ -56,6 +72,62 @@ export function useMeetingChannel(channelId: string) {
 
   const transcriptRef = useRef(transcript);
   transcriptRef.current = transcript;
+
+  // ── Snapshot helpers (use transcriptRef, so declared after it) ────────────
+
+  /** Build a plain-text transcript string from current entries. */
+  const buildTranscriptText = useCallback((): string => {
+    return transcriptRef.current
+      .map((e) => {
+        const label = e.speaker?.speakerLabel || "Speaker";
+        const time = new Date(e.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        return `[${time}] ${label}: ${e.original}`;
+      })
+      .join("\n");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Save the current transcript as a named snapshot. */
+  const saveTranscriptSnapshot = useCallback(
+    async (title?: string): Promise<MeetingSnapshot | null> => {
+      const entries = transcriptRef.current;
+      if (entries.length === 0) return null;
+      const transcriptText = buildTranscriptText();
+      const firstEntry = entries[0];
+      const fallbackTitle = firstEntry
+        ? `会议记录 ${new Date(firstEntry.timestamp).toLocaleString()}`
+        : `会议记录 ${new Date().toLocaleString()}`;
+
+      const snapshot: MeetingSnapshot = {
+        id: crypto.randomUUID(),
+        title: title?.trim() || fallbackTitle,
+        transcript: transcriptText,
+        entryCount: entries.length,
+        createdAt: Date.now(),
+      };
+
+      try {
+        await saveMeetingSnapshot(snapshot);
+        setSnapshots((prev) => [snapshot, ...prev].slice(0, 50));
+        return snapshot;
+      } catch (err) {
+        console.error("[MeetingChannel] Failed to save snapshot:", err);
+        return null;
+      }
+    },
+    [buildTranscriptText]
+  );
+
+  /** Delete a snapshot by id from both SQLite and local state. */
+  const removeSnapshot = useCallback(async (id: string): Promise<void> => {
+    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+    await deleteMeetingSnapshot(id).catch((err) =>
+      console.warn("[MeetingChannel] Failed to delete snapshot:", err)
+    );
+  }, []);
 
   const updateTranscriptTranslation = useCallback(
     (timestamp: number, translation?: string, error?: string) => {
@@ -322,5 +394,9 @@ export function useMeetingChannel(channelId: string) {
     permissionRequired,
     handlePermissionGranted,
     handleSetup,
+    // snapshot persistence
+    snapshots,
+    saveTranscriptSnapshot,
+    removeSnapshot,
   };
 }

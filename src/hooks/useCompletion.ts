@@ -1488,6 +1488,66 @@ export const useCompletion = () => {
   };
 
   /**
+   * Stream a one-shot AI response through the active Pi agent without touching
+   * main conversation state. Used by the quick-search panel to generate its
+   * AI summary through the same assistant as the main chat.
+   */
+  const streamOnce = useCallback(async (
+    prompt: string,
+    systemPromptText: string,
+    onDelta: (text: string) => void,
+    signal: AbortSignal
+  ): Promise<void> => {
+    const connection = resolveActiveConnection();
+    const allSkills = useSkillStore.getState().items;
+    const enabledSkillIds = allSkills
+      .filter((s) => s.enabled !== false)
+      .map((s) => s.id);
+
+    const def: AgentDefinition = {
+      id: `quick-${Date.now()}`,
+      name: "Quick",
+      description: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      systemPrompt: systemPromptText,
+      providerId: connection.providerId,
+      modelId: connection.model,
+      enabledInternalTools: [],
+      enabledSkillIds,
+      enabledMcpServerIds: [],
+      sandboxMode: "read-only",
+      temperature: 0.7,
+      maxTokens: 2048,
+      workspacePath: "",
+    };
+
+    const agent = await createAgentRuntime(
+      def,
+      {
+        onAssistantDelta: (text) => { if (!signal.aborted) onDelta(text); },
+        onAssistantEnd: () => {},
+        onError: (msg) => console.error("[streamOnce]", msg),
+      },
+      {
+        skills: allSkills,
+        mcpServers: [],
+        providerVariables: {},
+        connection,
+      }
+    );
+
+    const onAbort = () => agent.abort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    try {
+      await agent.prompt(prompt);
+      await agent.waitForIdle();
+    } finally {
+      signal.removeEventListener("abort", onAbort);
+    }
+  }, []);
+
+  /**
    * Routes plain typed text from the toolbar's "Ask me anything" input into
    * the AgentChat window's single-agent "main chat" channel instead of
    * running the local one-shot completion popover. Opens/focuses the
@@ -1501,41 +1561,10 @@ export const useCompletion = () => {
     const trimmed = text.trim();
     const normalized = trimmed.toLowerCase();
 
-    // Built-in fallback so these commands work even before async command load finishes.
-    if (normalized === "/dashboard") {
-      try {
-        await invoke("open_dashboard");
-      } catch (err) {
-        console.error("Failed to open dashboard:", err);
-      }
-      return;
-    }
-
-    if (normalized === "/chat") {
-      try {
-        await invoke("open_agent_chat_window");
-      } catch (err) {
-        console.error("Failed to open agent chat window:", err);
-      }
-      return;
-    }
-
     const resolution = resolveSlashInvocation(trimmed, slashCommands);
     const routedText = resolution?.kind === "prompt" ? resolution.text : trimmed;
 
     try {
-      if (resolution?.kind === "action") {
-        if (resolution.action === "open-dashboard") {
-          await invoke("open_dashboard");
-          return;
-        }
-
-        if (resolution.action === "open-chat") {
-          await invoke("open_agent_chat_window");
-          return;
-        }
-      }
-
       if (routedText) {
         await emit("agent-chat:incoming-message", { text: routedText });
       }
@@ -1997,6 +2026,7 @@ export const useCompletion = () => {
     keepEngaged,
     setKeepEngaged,
     sendToMainChat,
+    streamOnce,
     // Meeting Assist Mode
     meetingAssistMode,
     setMeetingAssistMode,
