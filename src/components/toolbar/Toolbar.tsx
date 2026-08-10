@@ -85,8 +85,9 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
 
   /**
    * Intercept the toolbar Enter key:
-   * - slash commands → route to agent-chat via sendToMainChat (original behaviour)
-   * - anything else  → trigger inline quick-search panel
+   * - empty input     → open agent-chat window
+   * - slash commands  → route to agent-chat via sendToMainChat
+   * - anything else   → trigger inline quick-search panel
    */
   const handleQuickSearchKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -94,7 +95,13 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
       if (completion.isSlashMenuOpen) return; // let handleInputKeyDown manage it
 
       const text = completion.input.trim();
-      if (!text) return;
+
+      // Empty Enter → open agent-chat.
+      if (!text) {
+        e.preventDefault();
+        void completion.sendToMainChat("");
+        return;
+      }
 
       // Slash commands still go to agent-chat.
       if (text.startsWith("/")) {
@@ -102,6 +109,7 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
         return;
       }
 
+      // Non-empty, non-slash → quick search panel.
       e.preventDefault();
       completion.setInput("");
       void qs.runSearch(text);

@@ -3,6 +3,7 @@ import { useSkillStore, useMcpStore } from "@/store";
 import { useAgents } from "./useAgents";
 import { createAgentRuntime, bridgeEnabledNiumaSkills } from "@/lib/agent";
 import { getActiveProvider } from "@/lib/providers/storage";
+import { getProvider } from "@/lib/providers/registry";
 import type { Message } from "@/types";
 import type { AgentDefinition, GroupChannel, GroupMessage } from "@/types";
 import type { ImageContent } from "@earendil-works/pi-ai";
@@ -211,6 +212,21 @@ export function useGroupChat() {
         const activeProvider = getActiveProvider();
         const agentProviderId = agent.providerId || activeProvider?.providerId || "";
         const agentModelId = agent.modelId || activeProvider?.model || "";
+
+        // Zero-token (web) providers relay requests through a browser WebView
+        // session and cannot be used with the PI agent runtime. Show a clear
+        // error instead of silently hitting the website URL as an API endpoint.
+        const resolvedDef = getProvider(agentProviderId);
+        if (resolvedDef?.type === "web") {
+          const errContent = `[错误] 网页零Token提供商「${resolvedDef.name}」不支持智能体对话。\n请在「设置 → AI 提供商」切换到 API 提供商（如 OpenAI、Anthropic、DeepSeek 等）。`;
+          const errMsg: GroupMessage = { ...placeholder, content: errContent };
+          appendMessage(errMsg);
+          currentMsgs = currentMsgs.map((msg) => msg.id === placeholderId ? errMsg : msg);
+          setMessages([...currentMsgs]);
+          setStreamingIds((s) => { const next = new Set(s); next.delete(placeholderId); return next; });
+          agentRunIdx = agentsToRun.length; // stop processing further agents
+          continue;
+        }
 
         // Group context appended to agent's own system prompt
         const otherMembers = allChannelAgents

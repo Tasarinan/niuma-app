@@ -408,8 +408,21 @@ async function ensurePresetAgent(
   }
 
   const nextSkillIds = unique([...(existing.enabledSkillIds ?? []), ...targetSkillIds]);
-  if (!sameStringArray(existing.enabledSkillIds ?? [], nextSkillIds)) {
-    const updated = await updateAgent(existing.id, { enabledSkillIds: nextSkillIds });
+
+  // Sync avatar: if the catalog resolved a talent_icon image but the stored
+  // agent still carries an emoji or blank avatar, update it.
+  const catalogAvatar = catalogAgent.avatar ?? "";
+  const existingAvatar = existing.avatar ?? "";
+  const catalogIsImage = catalogAvatar.startsWith("/") || catalogAvatar.startsWith("http") || catalogAvatar.startsWith("data:");
+  const existingIsImage = existingAvatar.startsWith("/") || existingAvatar.startsWith("http") || existingAvatar.startsWith("data:");
+  const needsAvatarSync = catalogAgent.fromTeams && catalogIsImage && !existingIsImage;
+
+  const patch: UpdateInput<AgentDefinition> = {};
+  if (!sameStringArray(existing.enabledSkillIds ?? [], nextSkillIds)) patch.enabledSkillIds = nextSkillIds;
+  if (needsAvatarSync) patch.avatar = catalogAvatar;
+
+  if (Object.keys(patch).length > 0) {
+    const updated = await updateAgent(existing.id, patch);
     if (updated) {
       updateRepoAgent(updated);
       return updated;

@@ -52,17 +52,17 @@ const BUILTIN_PROVIDERS: ProviderDef[] = [
     supportsVision: true,
     type: "api",
   },
-  // ── Google Gemini ──────────────────────────────────────────────────────────
+  // ── Kimi (Moonshot) ──────────────────────────────────────────────────────────
   {
-    id: "gemini",
-    name: "Google Gemini",
+    id: "kimi",
+    name: "Kimi",
     api: "openai-completions",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    baseUrl: "https://api.moonshot.cn/v1",
     requiresKey: true,
     suggestedModels: [
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
-      "gemini-2.0-flash",
+      "moonshot-v1-8k",
+      "moonshot-v1-32k",
+      "moonshot-v1-128k",
     ],
     supportsVision: true,
     type: "api",

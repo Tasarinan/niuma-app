@@ -39,6 +39,8 @@ export interface CatalogAgent {
   enabledSkillIds?: string[];
   enabledMcpServerIds?: string[];
   workspacePath?: string;
+  /** True when the agent was loaded from .niuma/teams/<teamId>/agents/. */
+  fromTeams?: boolean;
 }
 
 interface DirEntry {
@@ -185,6 +187,7 @@ function markdownToAgent(entry: DirEntry, raw: string, context: AgentScanContext
     enabledMcpServerIds: parseListField(frontmatter.enabledMcpServerIds),
     workspacePath: frontmatter.workspacePath?.trim() || "",
     systemPrompt: content,
+    fromTeams: !!context.teamId,
   };
 }
 
@@ -289,11 +292,20 @@ export async function loadAgentCatalog(): Promise<CatalogAgent[]> {
     dedup.set(item.id, item);
   }
   const merged = Array.from(dedup.values());
-  // Assign avatars deterministically by sorted position for agents that lack one
+  // Assign avatars by stable hash of the agent slug so each agent always gets
+  // the same icon from talent_icon, but the distribution looks random.
+  // Team agents (fromTeams) always use talent_icon — overriding any emoji avatar
+  // they may have set in their frontmatter.
   const sorted = [...merged].sort((a, b) => a.file.localeCompare(b.file));
-  sorted.forEach((agent, i) => {
-    if (!agent.avatar) {
-      agent.avatar = TALENT_AVATAR_ITEMS[i % TALENT_AVATAR_ITEMS.length]?.avatarUrl ?? "🤖";
+  const talentLen = TALENT_AVATAR_ITEMS.length;
+  sorted.forEach((agent) => {
+    const needsIcon = agent.fromTeams ? true : !agent.avatar;
+    if (needsIcon && talentLen > 0) {
+      let h = 0;
+      for (let i = 0; i < agent.slug.length; i++) {
+        h = (Math.imul(31, h) + agent.slug.charCodeAt(i)) | 0;
+      }
+      agent.avatar = TALENT_AVATAR_ITEMS[Math.abs(h) % talentLen]?.avatarUrl ?? "🤖";
     }
   });
   cache = sorted;

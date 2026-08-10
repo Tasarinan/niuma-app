@@ -1559,7 +1559,6 @@ export const useCompletion = () => {
    */
   const sendToMainChat = useCallback(async (text: string) => {
     const trimmed = text.trim();
-    const normalized = trimmed.toLowerCase();
 
     const resolution = resolveSlashInvocation(trimmed, slashCommands);
     const routedText = resolution?.kind === "prompt" ? resolution.text : trimmed;

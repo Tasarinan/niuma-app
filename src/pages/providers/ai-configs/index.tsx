@@ -204,15 +204,29 @@ export const AIProviders = () => {
       {/* ── Active provider banner ───────────────────────────────────────── */}
       {activeProvider && (() => {
         const activeDef = getProvider(activeProvider.providerId);
+        const isWeb = activeDef?.type === "web";
         return (
-          <div className="flex items-center gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-            <span className="text-green-400 font-medium">{t("aiConfigs.activeLabel")}</span>
-            <span className="text-foreground">{activeDef?.name ?? activeProvider.providerId}</span>
-            {activeProvider.model && (
-              <span className="ml-1 text-muted-foreground">/ {activeProvider.model}</span>
+          <>
+            <div className="flex items-center gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+              <span className="text-green-400 font-medium">{t("aiConfigs.activeLabel")}</span>
+              <span className="text-foreground">{activeDef?.name ?? activeProvider.providerId}</span>
+              {activeProvider.model && (
+                <span className="ml-1 text-muted-foreground">/ {activeProvider.model}</span>
+              )}
+            </div>
+            {isWeb && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <span className="mt-0.5 shrink-0">⚠️</span>
+                <span>
+                  <span className="font-semibold">网页零Token模式不支持智能体对话。</span>
+                  {" "}工具调用、技能和流式输出需要正式 API。智能体频道请切换到 API 提供商（如 OpenAI、Anthropic、DeepSeek 等）。
+                  <br />
+                  <span className="opacity-70">网页模式仅适用于主工具栏的单轮对话。</span>
+                </span>
+              </div>
             )}
-          </div>
+          </>
         );
       })()}
 

@@ -10,6 +10,7 @@
  *   • Each row has an expand toggle and a delete button.
  */
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp, History, Loader2, Mic, SaveIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button, ScrollArea, SpeakerTaggingPopover } from "@/components";
@@ -53,6 +54,7 @@ function SnapshotRow({
   snapshot: MeetingSnapshot;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useTranslation("common");
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -62,7 +64,7 @@ function SnapshotRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-slate-800">{snapshot.title}</p>
           <p className="mt-0.5 text-[11px] text-slate-400">
-            {new Date(snapshot.createdAt).toLocaleString()} · {snapshot.entryCount} 条
+            {new Date(snapshot.createdAt).toLocaleString()} · {t("meeting.entryCount", { count: snapshot.entryCount })}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -71,7 +73,7 @@ function SnapshotRow({
             variant="ghost"
             onClick={() => setExpanded((v) => !v)}
             className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
-            title={expanded ? "收起" : "展开转录"}
+            title={expanded ? t("meeting.collapse") : t("meeting.expandTranscript")}
           >
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>
@@ -80,7 +82,7 @@ function SnapshotRow({
             variant="ghost"
             onClick={() => onDelete(snapshot.id)}
             className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
-            title="删除快照"
+            title={t("meeting.deleteSnapshot")}
           >
             <TrashIcon className="h-3.5 w-3.5" />
           </Button>
@@ -108,13 +110,14 @@ function SnapshotsPanel({
   snapshots: MeetingSnapshot[];
   onDelete: (id: string) => void;
 }) {
+  const { t } = useTranslation("common");
   if (snapshots.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-slate-50 text-slate-400">
         <History className="size-7 text-slate-200" />
         <div className="text-center">
-          <p className="text-sm font-semibold text-slate-500">暂无保存的快照</p>
-          <p className="mt-1 text-xs">在转录视图中点击"保存快照"将当前记录持久化</p>
+          <p className="text-sm font-semibold text-slate-500">{t("meeting.noSnapshots")}</p>
+          <p className="mt-1 text-xs">{t("meeting.noSnapshotsDesc")}</p>
         </div>
       </div>
     );
@@ -153,6 +156,7 @@ export function TranscriptFeed({
   onDeleteSnapshot?: (id: string) => void;
 }) {
   const { sttTranslationEnabled } = useApp();
+  const { t } = useTranslation("common");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<"live" | "snapshots">("live");
   const [isSaving, setIsSaving] = useState(false);
@@ -171,12 +175,12 @@ export function TranscriptFeed({
     try {
       const result = await onSaveSnapshot();
       if (result) {
-        toast.success("快照已保存", {
-          description: `"${result.title}" 已持久化到数据库`,
+        toast.success(t("meeting.snapshotSaved"), {
+          description: t("meeting.snapshotSavedDesc", { title: result.title }),
         });
       }
     } catch {
-      toast.error("保存失败");
+      toast.error(t("meeting.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -200,7 +204,7 @@ export function TranscriptFeed({
                 : "text-slate-500 hover:text-slate-700"
             )}
           >
-            实时转录
+            {t("meeting.liveTab")}
             {transcript.length > 0 && (
               <span className="ml-1 text-slate-400">{transcript.length}</span>
             )}
@@ -216,7 +220,7 @@ export function TranscriptFeed({
             )}
           >
             <History className="h-3 w-3" />
-            历史快照
+            {t("meeting.historyTab")}
             {snapshots.length > 0 && (
               <span className="ml-0.5 text-slate-400">{snapshots.length}</span>
             )}
@@ -234,14 +238,14 @@ export function TranscriptFeed({
                   onClick={handleSave}
                   disabled={liveEmpty || isSaving}
                   className="h-7 gap-1 px-2 text-xs text-slate-400 hover:text-indigo-600 disabled:opacity-40"
-                  title="将当前转录保存为快照"
+                  title={t("meeting.saveSnapshotTitle")}
                 >
                   {isSaving ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <SaveIcon className="h-3.5 w-3.5" />
                   )}
-                  保存快照
+                  {t("meeting.saveSnapshot")}
                 </Button>
               )}
               <Button
@@ -252,7 +256,7 @@ export function TranscriptFeed({
                 className="h-7 px-2 text-xs text-slate-400 hover:text-red-500 disabled:opacity-40"
               >
                 <TrashIcon className="mr-1 h-3.5 w-3.5" />
-                清空
+                {t("meeting.clear")}
               </Button>
             </>
           )}
@@ -271,21 +275,21 @@ export function TranscriptFeed({
               </span>
               <div className="text-center">
                 <p className="text-sm font-semibold text-slate-600">
-                  {micListening ? "正在监听发言…" : "等待语音输入"}
+                  {micListening ? t("meeting.listening") : t("meeting.waitingForInput")}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">转录内容将实时显示在这里</p>
+                <p className="mt-1 text-xs text-slate-400">{t("meeting.transcriptHint")}</p>
               </div>
               <span className="flex items-center gap-1.5 text-[11px] text-red-500">
                 <span className="size-1.5 animate-pulse rounded-full bg-red-500" />
-                录音中
+                {t("meeting.recording")}
               </span>
             </>
           ) : (
             <>
               <Mic className="size-7 text-slate-200" />
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-500">会议转录尚未开始</p>
-                <p className="mt-1 text-xs">点击顶部"开始会议"按钮，实时转录将显示在这里</p>
+              <p className="text-sm font-semibold text-slate-500">{t("meeting.notStarted")}</p>
+              <p className="mt-1 text-xs">{t("meeting.startHint")}</p>
               </div>
             </>
           )}
@@ -332,11 +336,11 @@ export function TranscriptFeed({
                           {entry.translation}
                         </p>
                       ) : entry.translationError ? (
-                        <p className="text-xs text-red-400">翻译失败</p>
-                      ) : (
-                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>翻译中…</span>
+                      <p className="text-xs text-red-400">{t("meeting.translationFailed")}</p>
+                    ) : (
+                      <div className="flex items-center gap-1 text-xs text-slate-400">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>{t("meeting.translating")}</span>
                         </div>
                       )}
                     </div>

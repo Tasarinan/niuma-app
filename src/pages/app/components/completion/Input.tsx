@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input as InputComponent } from "@/components";
 import { UseCompletionReturn } from "@/types";
 
@@ -20,12 +21,13 @@ export const Input = ({
   activeSlashCommandIndex,
   selectSlashCommand,
 }: InputProps) => {
+  const { t } = useTranslation("common");
   return (
     <div className="relative flex-1">
       <div className="relative select-none">
         <InputComponent
           ref={inputRef}
-          placeholder="Ask me anything... (type / for commands)"
+          placeholder={t("toolbar.inputPlaceholder")}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleInputKeyDown}

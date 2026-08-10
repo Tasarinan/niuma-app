@@ -6,6 +6,7 @@
  * Dismissed by pressing Escape or clicking the ✕ button.
  */
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Loader2,
   X,
@@ -118,6 +119,7 @@ export function QuickSearchPanel({
   error,
   onClose,
 }: QuickSearchPanelProps) {
+  const { t } = useTranslation("common");
   const panelRef = useRef<HTMLDivElement>(null);
   const summaryEndRef = useRef<HTMLDivElement>(null);
 
@@ -162,7 +164,7 @@ export function QuickSearchPanel({
           type="button"
           onClick={onClose}
           className="ml-2 shrink-0 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-          title="关闭 (Esc)"
+          title={t("quickSearch.close")}
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -182,11 +184,11 @@ export function QuickSearchPanel({
         <div className="overflow-y-auto p-3">
           <SectionHeader
             icon={<FileText className="h-3.5 w-3.5 text-slate-400" />}
-            label="本地文件"
+            label={t("quickSearch.localFiles")}
             loading={searching}
           />
           {!searching && !hasLocalResults && (
-            <p className="text-[11px] text-slate-400 px-2">无匹配文件</p>
+            <p className="text-[11px] text-slate-400 px-2">{t("quickSearch.noLocalFiles")}</p>
           )}
           <div className="space-y-0.5">
             {localResults.slice(0, 6).map((r, i) => (
@@ -199,11 +201,11 @@ export function QuickSearchPanel({
         <div className="overflow-y-auto p-3">
           <SectionHeader
             icon={<Globe className="h-3.5 w-3.5 text-slate-400" />}
-            label="在线搜索"
+            label={t("quickSearch.webSearch")}
             loading={searching}
           />
           {!searching && !hasWebResults && (
-            <p className="text-[11px] text-slate-400 px-2">无网络结果</p>
+            <p className="text-[11px] text-slate-400 px-2">{t("quickSearch.noWebResults")}</p>
           )}
           <div className="space-y-1">
             {webResults.slice(0, 4).map((r, i) => (
@@ -223,7 +225,7 @@ export function QuickSearchPanel({
               <Sparkles className="h-3.5 w-3.5 text-violet-500" />
             )}
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              AI 摘要
+              {t("quickSearch.aiSummary")}
             </span>
           </div>
           <div className="max-h-44 overflow-y-auto px-4 pb-3">

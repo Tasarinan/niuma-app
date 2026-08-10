@@ -43,5 +43,49 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "toolbar": {
+    "inputPlaceholder": "Ask me anything or call me teams"
+  },
+  "quickSearch": {
+    "close": "Close (Esc)",
+    "localFiles": "Local Files",
+    "noLocalFiles": "No matching files",
+    "webSearch": "Online Search",
+    "noWebResults": "No web results",
+    "aiSummary": "AI Summary"
+  },
+  "meeting": {
+    "startMeeting": "Start Meeting",
+    "stopMeeting": "Stop Meeting",
+    "videoInsights": "Video Insights",
+    "videoInsightsDesc": "Select a local video to auto-transcribe and extract key moments and summary.",
+    "transcribing": "Transcribing",
+    "systemAudio": "System audio (participants)",
+    "transcribingMic": "Transcribing microphone audio",
+    "generatingSummary": "Generating meeting summary",
+    "segmentCount": "{{count}} segments",
+    "snapshotSaved": "Snapshot saved",
+    "snapshotSavedDesc": "\"{{title}}\" has been saved to database",
+    "saveFailed": "Save failed",
+    "liveTab": "Live",
+    "historyTab": "Snapshots",
+    "saveSnapshot": "Save Snapshot",
+    "saveSnapshotTitle": "Save current transcript as snapshot",
+    "clear": "Clear",
+    "listening": "Listening\u2026",
+    "waitingForInput": "Waiting for voice input",
+    "transcriptHint": "Transcript will appear here in real time",
+    "recording": "Recording",
+    "notStarted": "Meeting transcript not started",
+    "startHint": "Click \"Start Meeting\" above to begin real-time transcription",
+    "translationFailed": "Translation failed",
+    "translating": "Translating\u2026",
+    "noSnapshots": "No saved snapshots yet",
+    "noSnapshotsDesc": "Click \"Save Snapshot\" in the live view to persist the current transcript",
+    "entryCount": "{{count}} entries",
+    "collapse": "Collapse",
+    "expandTranscript": "Expand transcript",
+    "deleteSnapshot": "Delete snapshot"
   }
 }

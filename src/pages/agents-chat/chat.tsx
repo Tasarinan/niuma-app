@@ -754,8 +754,8 @@ export default function ChatPage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editChannelState, setEditChannelState] = useState<GroupChannel | null>(null);
-  const [showChannels, setShowChannels] = useState(true);
-  const [showMembers, setShowMembers] = useState(true);
+  const [showChannels, setShowChannels] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const [meetingParticipants, setMeetingParticipants] = useState<MeetingParticipant[]>([]);
   const meetingAssignSpeakerRef = useRef<(speakerId: string, label: string, profileId?: string) => void>(() => {});
   const [imaEnabled, setImaEnabled] = useState(false);
@@ -1046,13 +1046,6 @@ export default function ChatPage({
     setMentionMenuDismissed(true);
     requestAnimationFrame(() => {
       textareaRef.current?.setSelectionRange(inserted.length, inserted.length);
-      textareaRef.current?.focus();
-    });
-  };
-
-  const focusInputEnd = (value: string) => {
-    requestAnimationFrame(() => {
-      textareaRef.current?.setSelectionRange(value.length, value.length);
       textareaRef.current?.focus();
     });
   };
@@ -1484,6 +1477,7 @@ export default function ChatPage({
           style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
         >
           <div className="flex min-w-0 items-center gap-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+            {activeTeamPreset?.id === "content" && (
             <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
               <button
                 type="button"
@@ -1514,6 +1508,7 @@ export default function ChatPage({
                 <FilePenLine className="size-3.5" />
               </button>
             </div>
+            )}
             <p className="ml-1 truncate text-base font-bold text-slate-950">
               {activeChannel?.name ?? "Channel"}
             </p>

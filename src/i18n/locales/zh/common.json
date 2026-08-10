@@ -43,5 +43,49 @@
     "light": "浅色",
     "dark": "深色",
     "system": "跟随系统"
+  },
+  "toolbar": {
+    "inputPlaceholder": "Ask me anything or call me teams"
+  },
+  "quickSearch": {
+    "close": "关闭 (Esc)",
+    "localFiles": "本地文件",
+    "noLocalFiles": "无匹配文件",
+    "webSearch": "在线搜索",
+    "noWebResults": "无网络结果",
+    "aiSummary": "AI 摘要"
+  },
+  "meeting": {
+    "startMeeting": "开始会议",
+    "stopMeeting": "结束会议",
+    "videoInsights": "视频要点分析",
+    "videoInsightsDesc": "选择一段本地视频，自动转录并提取关键时间点与摘要。",
+    "transcribing": "正在转录",
+    "systemAudio": "系统音频（参会人）",
+    "transcribingMic": "正在转录麦克风音频",
+    "generatingSummary": "正在生成会议总结",
+    "segmentCount": "{{count}} 条转录",
+    "snapshotSaved": "快照已保存",
+    "snapshotSavedDesc": "\"{{title}}\" 已持久化到数据库",
+    "saveFailed": "保存失败",
+    "liveTab": "实时转录",
+    "historyTab": "历史快照",
+    "saveSnapshot": "保存快照",
+    "saveSnapshotTitle": "将当前转录保存为快照",
+    "clear": "清空",
+    "listening": "正在监听发言\u2026",
+    "waitingForInput": "等待语音输入",
+    "transcriptHint": "转录内容将实时显示在这里",
+    "recording": "录音中",
+    "notStarted": "会议转录尚未开始",
+    "startHint": "点击顶部\u201c开始会议\u201d按钮，实时转录将显示在这里",
+    "translationFailed": "翻译失败",
+    "translating": "翻译中\u2026",
+    "noSnapshots": "暂无保存的快照",
+    "noSnapshotsDesc": "在转录视图中点击\u201c保存快照\u201d将当前记录持久化",
+    "entryCount": "{{count}} 条",
+    "collapse": "收起",
+    "expandTranscript": "展开转录",
+    "deleteSnapshot": "删除快照"
   }
 }

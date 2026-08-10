@@ -8,7 +8,6 @@ import {
   DEFAULT_TRANSLATION_ENABLED,
   DEFAULT_TRANSLATION_LANGUAGE,
 } from "@/config";
-import { getResponseSettings } from "@/lib/storage/response-settings.storage";
 import { getPlatform, safeLocalStorage, trackAppStart } from "@/lib";
 import { getShortcutsConfig } from "@/lib/storage";
 import {
