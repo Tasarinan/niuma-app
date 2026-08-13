@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -10,143 +9,73 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
 import {
   getContextMemorySettings,
   setContextMemorySettings,
-  invalidateContextCache,
 } from "@/lib/functions/context-builder";
-import { deleteAllMeetingContextData } from "@/lib/database";
 
-interface ContextSettingsProps {
-  onSettingsChange?: () => void;
-}
-
-export const ContextSettings = ({ onSettingsChange }: ContextSettingsProps) => {
-  const { t } = useTranslation("pages");
+export const ContextSettings = () => {
   const [enabled, setEnabled] = useState(true);
   const [maxTokens, setMaxTokens] = useState(1500);
-  const [days, setDays] = useState(30);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const settings = getContextMemorySettings();
-    setEnabled(settings.enabled);
-    setMaxTokens(settings.maxTokens);
-    setDays(settings.days);
+    const s = getContextMemorySettings();
+    setEnabled(s.enabled);
+    setMaxTokens(s.maxTokens);
   }, []);
 
   const handleEnabledChange = (checked: boolean) => {
     setEnabled(checked);
     setContextMemorySettings({ enabled: checked });
-    onSettingsChange?.();
   };
 
   const handleMaxTokensChange = (value: number[]) => {
-    const newValue = value[0];
-    setMaxTokens(newValue);
-    setContextMemorySettings({ maxTokens: newValue });
-    onSettingsChange?.();
-  };
-
-  const handleDaysChange = (value: number[]) => {
-    const newValue = value[0];
-    setDays(newValue);
-    setContextMemorySettings({ days: newValue });
-    onSettingsChange?.();
-  };
-
-  const handleDeleteAll = async () => {
-    if (!window.confirm(t("contextMemoryPage.settings.deleteConfirm"))) {
-      return;
-    }
-
-    setIsDeleting(true);
-    try {
-      await deleteAllMeetingContextData();
-      invalidateContextCache();
-      onSettingsChange?.();
-    } catch (error) {
-      console.error("Delete failed:", error);
-    } finally {
-      setIsDeleting(false);
-    }
+    const v = value[0];
+    setMaxTokens(v);
+    setContextMemorySettings({ maxTokens: v });
   };
 
   return (
     <Card className="shadow-none border border-border/70 rounded-xl">
       <CardHeader>
-        <CardTitle className="text-base">{t("contextMemoryPage.settings.title")}</CardTitle>
+        <CardTitle className="text-base">记忆注入设置</CardTitle>
         <CardDescription>
-          {t("contextMemoryPage.settings.description")}
+          控制是否将团队记忆（MEMORY.md）注入到智能体的系统提示词，以及允许智能体使用 <code className="text-xs">memory</code> 工具读写持久记忆。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Enable/Disable Toggle */}
+        {/* Enable toggle */}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label htmlFor="context-enabled">Enable Context Memory</Label>
+            <Label htmlFor="mem-enabled">启用团队记忆</Label>
             <p className="text-xs text-muted-foreground">
-              Automatically inject relevant context into AI prompts
+              开启后，智能体可以读取过工作中保存的记忆，并在对话中主动将重要信息写入记忆。
             </p>
           </div>
           <Switch
-            id="context-enabled"
+            id="mem-enabled"
             checked={enabled}
             onCheckedChange={handleEnabledChange}
           />
         </div>
 
-        {/* Max Tokens Slider */}
+        {/* Injection size */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Max Context Tokens</Label>
+            <Label>注入上限（Tokens）</Label>
             <span className="text-sm text-muted-foreground">{maxTokens}</span>
           </div>
           <Slider
             value={[maxTokens]}
             onValueChange={handleMaxTokensChange}
             min={500}
-            max={3000}
+            max={4000}
             step={100}
             disabled={!enabled}
           />
           <p className="text-xs text-muted-foreground">
-            Maximum tokens to include in context injection (500-3000)
+            MEMORY.md 索引注入系统提示词的最大内容量（500–4000 tokens）。越大记忆越详细，但会占用更多上下文窗口。
           </p>
-        </div>
-
-        {/* Days Slider */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label>Context Window (Days)</Label>
-            <span className="text-sm text-muted-foreground">{days} days</span>
-          </div>
-          <Slider
-            value={[days]}
-            onValueChange={handleDaysChange}
-            min={7}
-            max={90}
-            step={1}
-            disabled={!enabled}
-          />
-          <p className="text-xs text-muted-foreground">
-            Include recent summaries from the last {days} days
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleDeleteAll}
-            disabled={isDeleting}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            {isDeleting ? "Deleting..." : "Delete All Data"}
-          </Button>
         </div>
       </CardContent>
     </Card>

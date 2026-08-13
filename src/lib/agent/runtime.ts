@@ -24,6 +24,7 @@ import { ensureAgentFetch } from "./agent-fetch";
 import { sanitizeLeakedToolCallText } from "./leaked-tool-call-text";
 import type { CheckpointRequest, RequestCheckpoint } from "./tools/internal";
 import { buildMemorySystemPromptSnippet, buildMemoryTool } from "./memory";
+import { getContextMemorySettings } from "@/lib/functions/context-builder";
 
 export class ProviderUnavailableError extends Error {
   constructor(message: string) {
@@ -187,9 +188,12 @@ export async function createAgentRuntime(
   // ── Memory: inject team MEMORY.md snapshot + memory tool ─────────────────
   let systemPromptWithMemory = def.systemPrompt ?? "";
   const extraTools: import("@earendil-works/pi-agent-core").AgentTool[] = [];
-  if (deps.teamId) {
+  const memSettings = getContextMemorySettings();
+  if (deps.teamId && memSettings.enabled) {
+    // maxTokens * 4 chars per token as byte budget for MEMORY.md injection
+    const maxChars = memSettings.maxTokens * 4;
     const [memorySnippet] = await Promise.all([
-      buildMemorySystemPromptSnippet(deps.teamId).catch(() => ""),
+      buildMemorySystemPromptSnippet(deps.teamId, maxChars).catch(() => ""),
     ]);
     if (memorySnippet) {
       systemPromptWithMemory = systemPromptWithMemory + memorySnippet;
@@ -254,6 +258,21 @@ export async function createAgentRuntime(
             await callbacks.onError?.(msg.errorMessage);
           } else {
             await callbacks.onAssistantEnd?.(assistantText(event.message));
+            // Dispatch cost-tracking event so the dashboard can record usage
+            const usage = (msg as unknown as { usage?: { input?: number; output?: number } }).usage;
+            if (usage && typeof window !== "undefined") {
+              const inputTokens = usage.input ?? 0;
+              const outputTokens = usage.output ?? 0;
+              window.dispatchEvent(
+                new CustomEvent("api-usage-captured", {
+                  detail: {
+                    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+                    provider: connection.providerId,
+                    model: connection.model,
+                  },
+                })
+              );
+            }
           }
         }
         break;

@@ -705,7 +705,7 @@ export const useCompletion = () => {
                 enabledMcpServerIds: [],
                 sandboxMode: "read-only",
                 temperature: 0.7,
-                maxTokens: 4096,
+                maxTokens: getResponseSettings().maxTokens,
                 workspacePath: "",
               };
 
@@ -1524,7 +1524,7 @@ export const useCompletion = () => {
       enabledMcpServerIds: [],
       sandboxMode: "read-only",
       temperature: 0.7,
-      maxTokens: 2048,
+      maxTokens: getResponseSettings().maxTokens,
       workspacePath: "",
     };
 

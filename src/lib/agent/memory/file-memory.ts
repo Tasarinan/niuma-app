@@ -271,18 +271,17 @@ export async function deleteAllTeamMemory(teamId: string): Promise<void> {
 
 /**
  * Build the system-prompt snippet for a team.
- * Injects MEMORY.md index (≤200 lines) so agents know what topics exist.
+ * Injects MEMORY.md index so agents know what topics exist.
+ * maxChars caps the injected content (default 6000 chars ≈ 1500 tokens).
  */
 export async function buildMemorySystemPromptSnippet(
-  teamId: string
+  teamId: string,
+  maxChars = 6000
 ): Promise<string> {
   const index = await readMemoryIndex(teamId);
   if (!index || index.includes("_No entries yet._")) return "";
-  // Limit to first 200 lines / ~25KB
-  const lines = index.split(/\r?\n/);
-  const truncated =
-    lines.length > 200
-      ? lines.slice(0, 200).join("\n") + "\n[truncated]"
-      : index;
+  const truncated = index.length > maxChars
+    ? index.slice(0, maxChars) + "\n[truncated]"
+    : index;
   return `\n\n---\n## Team Memory (${teamId})\n${truncated}\n---`;
 }

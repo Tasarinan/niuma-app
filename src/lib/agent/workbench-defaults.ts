@@ -7,8 +7,6 @@ import { useSkillStore } from "@/store";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel } from "@/types";
 import { bridgeEnabledNiumaSkills } from "./skill-bridge";
 
-const WORKBENCH_DEFAULTS_KEY = "niuma:workbench-default-teams:v1";
-
 export type WorkbenchTeamId = string;
 export type WorkbenchTeamAccent = "rose" | "emerald" | "sky" | "violet" | "amber";
 
@@ -45,22 +43,6 @@ export const WORKBENCH_TEAM_PRESETS: WorkbenchTeamPreset[] = [
       "/draft 写一篇关于AI对内容创作影响的博客",
       "/adapt 把这篇文章改成小红书和抖音版本",
       "/brief 新品上市内容推广计划",
-    ],
-  },
-  {
-    id: "creative",
-    name: "创作团队",
-    eyebrow: "内容策划 / 写作 / 增长",
-    description: "从选题、文案、视频脚本到发布优化，一条线完成内容生产。",
-    avatar: "✍️",
-    accent: "rose",
-    kind: "chat",
-    agentFiles: ["aria.md", "tina.md", "sam.md", "mary.md", "atlas.md"],
-    skillSlugs: ["writing", "gt-writing-hub", "gt-check-revise", "frontend-slides", "ima-skill"],
-    starterPrompts: [
-      "帮我把一个想法整理成可发布的大纲",
-      "把这段内容改成小红书/公众号/短视频脚本",
-      "生成一套标题、开头和发布计划",
     ],
   },
   {
@@ -446,10 +428,10 @@ export async function ensureWorkbenchDefaultTeams(options: {
     avatar?: string,
     kind?: GroupChannel["kind"],
     tags?: string[],
+    teamId?: string,
   ) => GroupChannel;
 }): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  if (window.localStorage.getItem(WORKBENCH_DEFAULTS_KEY) === "done") return false;
 
   const presets = await loadWorkbenchTeamPresets();
   const catalog = await loadAgentCatalog();
@@ -470,12 +452,19 @@ export async function ensureWorkbenchDefaultTeams(options: {
   };
 
   const existingChannels = loadChannels();
-  const existingNames = new Set(existingChannels.map((channel) => channel.name));
+  // Primary check: a channel already bound to this teamId exists
+  const boundTeamIds = new Set(existingChannels.map((c) => c.teamId).filter(Boolean));
+  // Fallback: legacy channels created before teamId existed — match by name
+  const existingNames = new Set(existingChannels.map((c) => c.name));
   let createdAny = false;
 
   for (const preset of [...presets].reverse()) {
+    // Skip if any channel is already bound to this team
+    if (boundTeamIds.has(preset.id)) continue;
+    // Skip legacy name matches (channels created before teamId support)
     const legacyNames = preset.legacyNames ?? [];
     if (existingNames.has(preset.name) || legacyNames.some((name) => existingNames.has(name))) continue;
+
     const members = await Promise.all(
       preset.agentFiles.map((file) =>
         ensurePresetAgent(
@@ -493,11 +482,10 @@ export async function ensureWorkbenchDefaultTeams(options: {
     );
     const agentIds = members.filter((agent): agent is AgentDefinition => Boolean(agent)).map((agent) => agent.id);
     if (agentIds.length === 0) continue;
-    options.createChannel(preset.name, agentIds, preset.avatar, preset.kind);
+    options.createChannel(preset.name, agentIds, preset.avatar, preset.kind, [], preset.id);
     createdAny = true;
   }
 
-  window.localStorage.setItem(WORKBENCH_DEFAULTS_KEY, "done");
   await options.refreshAgents();
   return createdAny;
 }

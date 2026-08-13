@@ -3,6 +3,7 @@ import { useSkillStore, useMcpStore } from "@/store";
 import { useAgents } from "./useAgents";
 import { createAgentRuntime, bridgeEnabledNiumaSkills } from "@/lib/agent";
 import { getActiveProvider, getActiveApiProvider } from "@/lib/providers/storage";
+import { getResponseSettings } from "@/lib/storage/response-settings.storage";
 import { getProvider } from "@/lib/providers/registry";
 import type { Message } from "@/types";
 import type { AgentDefinition, GroupChannel, GroupMessage } from "@/types";
@@ -258,6 +259,9 @@ export function useGroupChat() {
           ...agent,
           providerId: agentProviderId,
           modelId: agentModelId,
+          // Apply the global response-length setting as fallback when the agent
+          // has no explicit maxTokens set in its definition.
+          maxTokens: agent.maxTokens ?? getResponseSettings().maxTokens,
           systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock + dispatchInstruction,
           enabledSkillIds: Array.from(
             new Set([...(agent.enabledSkillIds ?? []), ...bridgedSkillIds])
