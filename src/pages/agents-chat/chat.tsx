@@ -41,7 +41,8 @@ import { useAgents, useGroupChat } from "@/hooks";
 import type { AgentInput } from "@/hooks";
 import { MeetingChannelView, type MeetingParticipant } from "./components/meeting";
 import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
-import { loadHiredAgentFiles } from "@/lib/storage";
+import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
+import { loadHiredAgentFiles, loadDisabledSkillSlugs } from "@/lib/storage";
 import {
   ensureWorkbenchDefaultTeams,
   getWorkbenchTeamPreset,
@@ -88,6 +89,7 @@ import {
   Square,
   UserPlus,
   X,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -955,6 +957,14 @@ export default function ChatPage({
     };
   }, [activeTeamPreset?.commandDir]);
 
+  // ─── Skills catalog for /skills: picker ────────────────────────────────────
+  const [niumaSkills, setNiumaSkills] = useState<NiumaSkill[]>([]);
+  useEffect(() => {
+    fetchNiumaSkillCatalog()
+      .then((s) => setNiumaSkills(s))
+      .catch(() => {});
+  }, []);
+
   const slashQuery = useMemo(() => parseSlashQuery(input), [input]);
   const slashCommandSuggestions = useMemo(
     () =>
@@ -967,13 +977,36 @@ export default function ChatPage({
     () => getSlashArgumentCompletion(input, slashCommands),
     [input, slashCommands]
   );
+
+  // Detects "/skills:<filter>" prefix for the skills picker.
+  const skillsQuery = useMemo(() => {
+    const m = input.match(/^\/skills:(.*)$/i);
+    return m !== null ? m[1].toLowerCase() : null;
+  }, [input]);
+
+  const skillPickerItems = useMemo(() => {
+    if (skillsQuery === null) return [];
+    const q = skillsQuery.trim();
+    const disabledSlugs = loadDisabledSkillSlugs();
+    const enabled = niumaSkills.filter((s) => !disabledSlugs.has(s.slug));
+    if (!q) return enabled;
+    return enabled.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.command.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q)
+    );
+  }, [niumaSkills, skillsQuery]);
+
   const isCommandMenuOpen =
-    !slashMenuDismissed && slashQuery !== null && slashCommandSuggestions.length > 0;
+    !slashMenuDismissed && slashQuery !== null && skillsQuery === null && slashCommandSuggestions.length > 0;
   const isArgumentMenuOpen =
     !slashMenuDismissed &&
     slashArgumentCompletion !== null &&
     slashArgumentCompletion.choices.length > 0;
-  const isSlashMenuOpen = isCommandMenuOpen || isArgumentMenuOpen;
+  const isSkillPickerOpen =
+    !slashMenuDismissed && skillsQuery !== null;
+  const isSlashMenuOpen = isCommandMenuOpen || isArgumentMenuOpen || isSkillPickerOpen;
 
   // ─── @ mention picker ────────────────────────────────────────────────────────
   const [mentionMenuDismissed, setMentionMenuDismissed] = useState(false);
@@ -1028,6 +1061,17 @@ export default function ChatPage({
     const prefixLength = slashArgumentCompletion.prefix.length;
     const beforePrefix = prefixLength > 0 ? input.slice(0, -prefixLength) : input;
     const inserted = `${beforePrefix}${value} `;
+    setInput(inserted);
+    setSlashMenuIndex(0);
+    setSlashMenuDismissed(false);
+    requestAnimationFrame(() => {
+      textareaRef.current?.setSelectionRange(inserted.length, inserted.length);
+      textareaRef.current?.focus();
+    });
+  };
+
+  const selectSkillFromPicker = (skill: NiumaSkill) => {
+    const inserted = `/${skill.command} `;
     setInput(inserted);
     setSlashMenuIndex(0);
     setSlashMenuDismissed(false);
@@ -1771,6 +1815,12 @@ export default function ChatPage({
                           <AtSign className="size-3" />
                           <span>提及成员</span>
                         </div>
+                      ) : isSkillPickerOpen ? (
+                        <div className="border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400 flex items-center gap-2">
+                          <Zap className="size-3" />
+                          <span>选择技能</span>
+                          {skillPickerItems.length === 0 && <span className="text-slate-300">（无匹配）</span>}
+                        </div>
                       ) : (
                         <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
                           <span>
@@ -1805,6 +1855,28 @@ export default function ChatPage({
                             <span className="min-w-0">
                               <span className="block truncate font-medium text-slate-800">{agent.name}</span>
                               {agent.role && <span className="block truncate text-[10px] text-slate-400">{agent.role}</span>}
+                            </span>
+                          </button>
+                        )) : isSkillPickerOpen ? skillPickerItems.map((skill, idx) => (
+                          <button
+                            key={skill.slug}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); selectSkillFromPicker(skill); }}
+                            className={cn(
+                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                              idx === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
+                            )}
+                          >
+                            <span className="min-w-0 flex items-center gap-1.5">
+                              {skill.icon && <span className="text-sm leading-none">{skill.icon}</span>}
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium text-slate-800">{skill.name}</span>
+                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">/{skill.command}</span>
+                              </span>
+                            </span>
+                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
+                              <span className="line-clamp-2">{skill.description || "No description"}</span>
+                              {skill.category && <span className="mt-0.5 block text-[9px] uppercase text-slate-300">{skill.category}</span>}
                             </span>
                           </button>
                         )) : isCommandMenuOpen ? slashCommandSuggestions.map((command, idx) => (
@@ -1915,13 +1987,15 @@ export default function ChatPage({
                               }
                             }
                             if (isSlashMenuOpen) {
-                              const suggestionCount = isCommandMenuOpen
-                                ? slashCommandSuggestions.length
-                                : slashArgumentCompletion?.choices.length ?? 0;
+                              const suggestionCount = isSkillPickerOpen
+                                ? skillPickerItems.length
+                                : isCommandMenuOpen
+                                  ? slashCommandSuggestions.length
+                                  : slashArgumentCompletion?.choices.length ?? 0;
                               if (e.key === "ArrowDown") {
                                 e.preventDefault();
                                 setSlashMenuIndex(
-                                  (i) => (i + 1) % suggestionCount
+                                  (i) => suggestionCount > 0 ? (i + 1) % suggestionCount : 0
                                 );
                                 return;
                               }
@@ -1929,13 +2003,15 @@ export default function ChatPage({
                                 e.preventDefault();
                                 setSlashMenuIndex(
                                   (i) =>
-                                    (i - 1 + suggestionCount) % suggestionCount
+                                    suggestionCount > 0 ? (i - 1 + suggestionCount) % suggestionCount : 0
                                 );
                                 return;
                               }
                               if (e.key === "Enter" || e.key === "Tab") {
                                 e.preventDefault();
-                                if (isCommandMenuOpen) {
+                                if (isSkillPickerOpen && skillPickerItems[slashMenuIndex]) {
+                                  selectSkillFromPicker(skillPickerItems[slashMenuIndex]);
+                                } else if (isCommandMenuOpen) {
                                   selectSlashCommand(slashCommandSuggestions[slashMenuIndex]);
                                 } else if (slashArgumentCompletion) {
                                   selectSlashArgument(
