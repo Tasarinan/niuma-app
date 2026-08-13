@@ -4,6 +4,7 @@ import {
   AppIconToggle,
   AutostartToggle,
   ContentProtectedToggle,
+  DeleteChats,
   LocaleToggle,
 } from "./components";
 import { PageLayout } from "@/components/layouts";
@@ -30,6 +31,9 @@ const Settings = () => {
 
       {/* Content Protection Toggle */}
       <ContentProtectedToggle />
+
+      {/* Delete All Chats */}
+      <DeleteChats />
     </PageLayout>
   );
 };

@@ -28,5 +28,4 @@ export * from "./useTTS";
 export * from "./useProvider";
 export * from "./useGroupChat";
 export * from "./useArtifacts";
-export * from "./useStudio";
 export * from "./useVideoInsights";

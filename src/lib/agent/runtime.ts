@@ -23,6 +23,7 @@ import { resolveAgent } from "./agent-definition";
 import { ensureAgentFetch } from "./agent-fetch";
 import { sanitizeLeakedToolCallText } from "./leaked-tool-call-text";
 import type { CheckpointRequest, RequestCheckpoint } from "./tools/internal";
+import { buildMemorySystemPromptSnippet, buildMemoryTool } from "./memory";
 
 export class ProviderUnavailableError extends Error {
   constructor(message: string) {
@@ -83,6 +84,11 @@ export interface AgentRuntimeDeps {
   providerVariables: Record<string, string>;
   /** Pre-resolved connection, used instead of resolving from `providerVariables`. */
   connection?: ProviderConnection;
+  /**
+   * Team ID for shared file-based memory. When provided, MEMORY.md is injected
+   * into the system prompt and a `memory` tool is added to the agent.
+   */
+  teamId?: string;
 }
 
 export interface AgentRuntimeOptions {
@@ -178,7 +184,20 @@ export async function createAgentRuntime(
   const piModel = buildPiModel(connection, { maxTokens: def.maxTokens });
   const { streamFn } = createDirectRuntime([piModel], connection);
 
-  const resolved = await resolveAgent(def, {
+  // ── Memory: inject team MEMORY.md snapshot + memory tool ─────────────────
+  let systemPromptWithMemory = def.systemPrompt ?? "";
+  const extraTools: import("@earendil-works/pi-agent-core").AgentTool[] = [];
+  if (deps.teamId) {
+    const [memorySnippet] = await Promise.all([
+      buildMemorySystemPromptSnippet(deps.teamId).catch(() => ""),
+    ]);
+    if (memorySnippet) {
+      systemPromptWithMemory = systemPromptWithMemory + memorySnippet;
+    }
+    extraTools.push(buildMemoryTool(deps.teamId));
+  }
+
+  const resolved = await resolveAgent({ ...def, systemPrompt: systemPromptWithMemory }, {
     skills: deps.skills,
     mcpServers: deps.mcpServers,
     workspacePath: options.workspacePath ?? def.workspacePath,
@@ -189,7 +208,7 @@ export async function createAgentRuntime(
     initialState: {
       systemPrompt: resolved.systemPrompt,
       model: piModel,
-      tools: resolved.tools,
+      tools: [...resolved.tools, ...extraTools],
     },
     streamFn,
     beforeToolCall: async ({ toolCall, args }, signal) => {

@@ -12,8 +12,8 @@ import {
 import {
   getProviderConfig,
   saveProviderConfig,
-  getActiveProvider,
-  setActiveProvider,
+  getActiveApiProvider,
+  setActiveApiProvider,
   getProxyUrl,
   setProxyUrl,
 } from "@/lib/providers/storage";
@@ -82,7 +82,7 @@ function defaultModel(def: ProviderDef): string {
 
 export const ApiProvidersTab = () => {
   const providers = getAllProviders().filter((p) => p.type !== "web");
-  const initId = () => getActiveProvider()?.providerId ?? providers[0]?.id ?? "";
+  const initId = () => getActiveApiProvider()?.providerId ?? providers[0]?.id ?? "";
 
   const [selectedId, setSelectedId] = useState<string>(initId);
   const [apiKey, setApiKey] = useState("");
@@ -155,7 +155,8 @@ export const ApiProvidersTab = () => {
 
   const handleSave = () => {
     saveProviderConfig({ providerId: selectedId, apiKey, model, baseUrlOverride: baseUrl || undefined });
-    setActiveProvider({ providerId: selectedId, model });
+    setActiveApiProvider({ providerId: selectedId, model });
+    setActiveProvider({ providerId: selectedId, model }); // keep legacy key in sync for useGroupChat
     setProxyUrl(proxyUrl);
     void invoke("set_proxy_url", { proxyUrl }).catch(console.warn);
     setEnvFromFile(false);
@@ -201,7 +202,7 @@ export const ApiProvidersTab = () => {
     }
   };
 
-  const activeProvider = getActiveProvider();
+  const activeProvider = getActiveApiProvider();
   const isCurrentActive = activeProvider?.providerId === selectedId;
   const envKeyName = envKeyForProvider(selectedId);
 

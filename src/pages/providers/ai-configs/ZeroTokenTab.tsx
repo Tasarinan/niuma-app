@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getProvider } from "@/lib/providers/registry";
-import { getActiveProvider, setActiveProvider } from "@/lib/providers/storage";
+import { getActiveWebProvider, setActiveWebProvider, setActiveProvider } from "@/lib/providers/storage";
 import {
   ZERO_TOKEN_PLATFORMS,
   openZeroTokenLogin,
@@ -18,12 +18,15 @@ export const ZeroTokenTab = () => {
   const [ztPlatform, setZtPlatform] = useState<ZeroTokenPlatform>("doubao");
   const [isZtChecking, setIsZtChecking] = useState(false);
   const [ztResult, setZtResult] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [activeProvider, setActiveProviderState] = useState(() => getActiveProvider());
+  const [activeProvider, setActiveProviderState] = useState(() => getActiveWebProvider());
   const { t } = useTranslation("pages");
 
   const activate = (providerId: string) => {
     const def = getProvider(providerId);
     const mdl = def?.suggestedModels[0] ?? providerId;
+    // Write to dedicated web storage (for independent display)
+    setActiveWebProvider({ providerId, model: mdl });
+    // Keep legacy single-key in sync so toolbar zero-token path still works
     setActiveProvider({ providerId, model: mdl });
     setActiveProviderState({ providerId, model: mdl });
   };
@@ -56,8 +59,6 @@ export const ZeroTokenTab = () => {
     setTimeout(() => setZtResult(null), 2000);
   };
 
-  const isWebActive = activeProvider ? getProvider(activeProvider.providerId)?.type === "web" : false;
-
   return (
     <div className="space-y-5">
       {/* Warning */}
@@ -70,11 +71,11 @@ export const ZeroTokenTab = () => {
         </div>
       </div>
 
-      {/* Active indicator */}
-      {isWebActive && activeProvider && (
+      {/* Active indicator — shows the web provider saved in this tab independently */}
+      {activeProvider && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 px-3 py-1.5 text-xs text-blue-700 dark:text-blue-400">
           <CheckCircle2 className="size-3.5 shrink-0" />
-          <span className="font-medium">当前使用中：</span>
+          <span className="font-medium">当前配置：</span>
           <span>{getProvider(activeProvider.providerId)?.name ?? activeProvider.providerId}</span>
         </div>
       )}
@@ -100,7 +101,7 @@ export const ZeroTokenTab = () => {
               <span className="flex-1">{p.name}</span>
               {isActive && (
                 <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[9px] font-semibold text-white">
-                  使用中
+                  已配置
                 </span>
               )}
             </button>

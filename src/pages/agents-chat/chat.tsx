@@ -754,7 +754,7 @@ export default function ChatPage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editChannelState, setEditChannelState] = useState<GroupChannel | null>(null);
-  const [showChannels, setShowChannels] = useState(false);
+  const [showChannels, setShowChannels] = useState(true);
   const [showMembers, setShowMembers] = useState(false);
   const [meetingParticipants, setMeetingParticipants] = useState<MeetingParticipant[]>([]);
   const meetingAssignSpeakerRef = useRef<(speakerId: string, label: string, profileId?: string) => void>(() => {});

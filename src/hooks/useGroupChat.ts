@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { useSkillStore, useMcpStore } from "@/store";
 import { useAgents } from "./useAgents";
 import { createAgentRuntime, bridgeEnabledNiumaSkills } from "@/lib/agent";
-import { getActiveProvider } from "@/lib/providers/storage";
+import { getActiveProvider, getActiveApiProvider } from "@/lib/providers/storage";
 import { getProvider } from "@/lib/providers/registry";
 import type { Message } from "@/types";
 import type { AgentDefinition, GroupChannel, GroupMessage } from "@/types";
@@ -208,8 +208,9 @@ export function useGroupChat() {
         const history = buildHistory(currentMsgs.slice(0, -1), agent.id);
 
         // Resolve provider for this agent: prefer the agent's own providerId,
-        // fall back to the globally active provider (registry-based system).
-        const activeProvider = getActiveProvider();
+        // fall back to the dedicated API provider (web/zero-token providers are
+        // toolbar-only and cannot be used with the PI agent runtime).
+        const activeProvider = getActiveApiProvider() ?? getActiveProvider();
         const agentProviderId = agent.providerId || activeProvider?.providerId || "";
         const agentModelId = agent.modelId || activeProvider?.model || "";
 
@@ -300,6 +301,8 @@ export function useGroupChat() {
               skills: useSkillStore.getState().items,
               mcpServers: useMcpStore.getState().items,
               providerVariables: {},
+              // Pass teamId so the agent gets shared team memory
+              teamId: channel.teamId ?? undefined,
             }
           );
 

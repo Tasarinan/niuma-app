@@ -30,6 +30,8 @@ import {
 import { MAX_FILES } from "@/config";
 import { useQuickSearch } from "@/hooks/useQuickSearch";
 import { QuickSearchPanel } from "./QuickSearchPanel";
+import { getActiveProvider } from "@/lib/providers/storage";
+import { getProvider } from "@/lib/providers/registry";
 
 // Toolbar strip height in logical pixels (matches tauri.conf.json initial height)
 
@@ -109,10 +111,18 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
         return;
       }
 
-      // Non-empty, non-slash → quick search panel.
+      // Non-empty, non-slash:
+      // • Web zero-token active → quick search panel (inline AI summary)
+      // • API provider or no provider → forward to agent-chat channel
       e.preventDefault();
       completion.setInput("");
-      void qs.runSearch(text);
+      const activeStored = getActiveProvider();
+      const activeDef = activeStored ? getProvider(activeStored.providerId) : null;
+      if (activeDef?.type === "web") {
+        void qs.runSearch(text);
+      } else {
+        void completion.sendToMainChat(text);
+      }
     },
     [completion, qs]
   );

@@ -1,11 +1,53 @@
 import { Button, Header, Input, Selection, TextInput, ModelSelector } from "@/components";
 import { UseSettingsReturn } from "@/types";
 import curl2Json, { ResultJSON } from "@bany/curl-to-json";
-import { KeyIcon, TrashIcon, ExternalLink } from "lucide-react";
+import { KeyIcon, TrashIcon, ExternalLink, FileKey } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSTTProviderInfo } from "@/config/models.constants";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+
+// ── .env.local helpers ────────────────────────────────────────────────────────
+
+/** Env var names to probe for each STT provider id. */
+const STT_ENV_KEYS: Record<string, string[]> = {
+  "elevenlabs-stt": ["STT_API_KEY"],
+};
+
+function parseEnvFile(content: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (key) result[key] = val;
+  }
+  return result;
+}
+
+async function readEnvLocal(): Promise<Record<string, string>> {
+  const root = await invoke<string>("get_niuma_root_dir").catch(() => "");
+  const sep = root.includes("/") ? "/" : "\\";
+  for (const path of [`${root}${sep}.env.local`, `${root}${sep}..${sep}.env.local`]) {
+    try {
+      const raw = await invoke<string>("read_text_file", { path });
+      return parseEnvFile(raw);
+    } catch { /* try next */ }
+  }
+  return {};
+}
+
+async function readSttKeyFromEnv(providerId: string): Promise<string> {
+  const envVars = await readEnvLocal().catch(() => ({}));
+  for (const envKey of STT_ENV_KEYS[providerId] ?? []) {
+    if (envVars[envKey]) return envVars[envKey];
+  }
+  return "";
+}
 
 const handleOpenUrl = async (url: string) => {
   try {
@@ -37,6 +79,23 @@ export const Providers = ({
         setLocalSelectedProvider(json as ResultJSON);
       }
     }
+  }, [selectedSttProvider?.provider]);
+
+  // Auto-fill API key from .env.local when the field is empty
+  useEffect(() => {
+    if (!selectedSttProvider?.provider) return;
+    const apiKeyVar = findKeyAndValue("api_key");
+    const currentKey = apiKeyVar ? selectedSttProvider.variables?.[apiKeyVar.key] ?? "" : "";
+    if (currentKey.trim()) return; // already set
+    void readSttKeyFromEnv(selectedSttProvider.provider).then((envKey) => {
+      if (envKey && apiKeyVar) {
+        onSetSelectedSttProvider?.({
+          ...selectedSttProvider,
+          variables: { ...selectedSttProvider.variables, [apiKeyVar.key]: envKey },
+        });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSttProvider?.provider]);
 
   const findKeyAndValue = (key: string) => {
@@ -120,16 +179,43 @@ export const Providers = ({
 
       {findKeyAndValue("api_key") ? (
         <div className="space-y-2">
-          <Header
-            title="API Key"
-            description={`Enter your ${
-              allSttProviders?.find(
-                (p) => p?.id === selectedSttProvider?.provider
-              )?.isCustom
-                ? "Custom Provider"
-                : selectedSttProvider?.provider
-            } API key to authenticate and access STT models. Your key is stored locally and never shared.`}
-          />
+          <div className="flex items-center justify-between">
+            <Header
+              title="API Key"
+              description={`Enter your ${
+                allSttProviders?.find(
+                  (p) => p?.id === selectedSttProvider?.provider
+                )?.isCustom
+                  ? "Custom Provider"
+                  : selectedSttProvider?.provider
+              } API key to authenticate and access STT models. Your key is stored locally and never shared.`}
+            />
+            {selectedSttProvider?.provider && STT_ENV_KEYS[selectedSttProvider.provider] && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!selectedSttProvider) return;
+                  void readSttKeyFromEnv(selectedSttProvider.provider).then((envKey) => {
+                    const apiKeyVar = findKeyAndValue("api_key");
+                    if (envKey && apiKeyVar) {
+                      onSetSelectedSttProvider?.({
+                        ...selectedSttProvider,
+                        variables: { ...selectedSttProvider.variables, [apiKeyVar.key]: envKey },
+                      });
+                    } else {
+                      toast.error("未找到 API Key", {
+                        description: `在 .env.local 中未找到 ${(STT_ENV_KEYS[selectedSttProvider.provider] ?? []).join(" / ")}`,
+                      });
+                    }
+                  });
+                }}
+                className="flex shrink-0 items-center gap-1 text-[11px] text-primary hover:underline ml-2"
+              >
+                <FileKey className="size-3" />
+                从 .env.local 读取
+              </button>
+            )}
+          </div>
 
           <div className="space-y-2">
             <div className="flex gap-2">

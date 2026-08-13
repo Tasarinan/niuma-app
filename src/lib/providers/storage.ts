@@ -58,6 +58,9 @@ export function removeProviderConfig(providerId: string): void {
 
 /** The provider currently selected as "active" for the agent. */
 const ACTIVE_KEY = "niuma_active_provider_v1";
+/** Separate keys so API and web providers each track their own last selection. */
+const ACTIVE_API_KEY = "niuma_active_api_provider_v1";
+const ACTIVE_WEB_KEY = "niuma_active_web_provider_v1";
 
 export interface ActiveProvider {
   providerId: string;
@@ -78,6 +81,42 @@ export function setActiveProvider(active: ActiveProvider): void {
     localStorage.setItem(ACTIVE_KEY, JSON.stringify(active));
   } catch {
     console.warn("[providerStorage] Failed to persist active provider");
+  }
+}
+
+/** Last saved API (non-web) provider — used by agents. */
+export function getActiveApiProvider(): ActiveProvider | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_API_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveApiProvider(active: ActiveProvider): void {
+  try {
+    localStorage.setItem(ACTIVE_API_KEY, JSON.stringify(active));
+  } catch {
+    console.warn("[providerStorage] Failed to persist active API provider");
+  }
+}
+
+/** Last activated web (zero-token) provider — used by toolbar inline response. */
+export function getActiveWebProvider(): ActiveProvider | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_WEB_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveWebProvider(active: ActiveProvider): void {
+  try {
+    localStorage.setItem(ACTIVE_WEB_KEY, JSON.stringify(active));
+  } catch {
+    console.warn("[providerStorage] Failed to persist active web provider");
   }
 }
 

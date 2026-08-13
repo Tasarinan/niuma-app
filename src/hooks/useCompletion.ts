@@ -1498,6 +1498,12 @@ export const useCompletion = () => {
     onDelta: (text: string) => void,
     signal: AbortSignal
   ): Promise<void> => {
+    // streamOnce is only valid for zero-token (web) providers.
+    // API providers are reserved for agent channels (useGroupChat).
+    const activeStored = getActiveProvider();
+    const activeDef = activeStored ? getProvider(activeStored.providerId) : null;
+    if (!activeDef || activeDef.type !== "web") return;
+
     const connection = resolveActiveConnection();
     const allSkills = useSkillStore.getState().items;
     const enabledSkillIds = allSkills

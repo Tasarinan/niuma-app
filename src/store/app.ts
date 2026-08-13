@@ -120,7 +120,7 @@ export const useAppStore = create<IContextType>((set, get) => ({
   // defaultSettings.sttApi default). Only applies to fresh installs - users
   // who already saved a selection load it from localStorage below and this
   // initial value is never used. The API key is intentionally left blank
-  // for the user to fill in.
+  // for the user to fill in (or auto-filled from .env.local at runtime).
   selectedSttProvider: { provider: "elevenlabs-stt", variables: { model: "scribe_v1" } },
   screenshotConfiguration: {
     mode: "manual",
