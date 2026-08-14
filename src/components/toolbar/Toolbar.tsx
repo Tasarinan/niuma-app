@@ -32,8 +32,22 @@ import { useQuickSearch } from "@/hooks/useQuickSearch";
 import { QuickSearchPanel } from "./QuickSearchPanel";
 import { getActiveProvider } from "@/lib/providers/storage";
 import { getProvider } from "@/lib/providers/registry";
+import { usePomodoroTimer, type PomodoroRound } from "@/hooks/usePomodoroTimer";
 
 // Toolbar strip height in logical pixels (matches tauri.conf.json initial height)
+
+const POMODORO_COLORS: Record<PomodoroRound, string> = {
+  work:          "#ef4444",
+  "short-break": "#10b981",
+  "long-break":  "#3b82f6",
+  off:           "#6b7280",
+};
+const POMODORO_LABELS: Record<PomodoroRound, string> = {
+  work:          "专注",
+  "short-break": "短休息",
+  "long-break":  "长休息",
+  off:           "",
+};
 
 interface ToolbarProps {
   completion: UseCompletionReturn;
@@ -44,17 +58,35 @@ interface ToolbarProps {
 export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
   const { selectedAudioDevices, sttLanguage } = useApp();
   const qs = useQuickSearch(completion.streamOnce);
+  const pomodoro = usePomodoroTimer();
+
+  // ── Pomodoro keyboard shortcuts (Alt+1/2/3 switch mode, Alt+Space pause, Alt+0 stop) ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      if (e.key === "1") { e.preventDefault(); pomodoro.startTimer("work"); }
+      else if (e.key === "2") { e.preventDefault(); pomodoro.startTimer("short-break"); }
+      else if (e.key === "3") { e.preventDefault(); pomodoro.startTimer("long-break"); }
+      else if (e.key === " ") {
+        e.preventDefault();
+        if (!pomodoro.timerStarted) pomodoro.startTimer("work");
+        else if (pomodoro.isRunning) pomodoro.pauseTimer();
+        else pomodoro.resumeTimer();
+      } else if (e.key === "0") { e.preventDefault(); pomodoro.stopTimer(); }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pomodoro.timerStarted, pomodoro.isRunning]);
 
   // Resize window when quick-search panel opens / closes.
   useEffect(() => {
     if (qs.isOpen) {
-      // Mark body so useWindowResize doesn't collapse the window while the panel is open.
       document.body.dataset.quickSearchOpen = "true";
       const win = getCurrentWebviewWindow();
       invoke("set_window_height", { window: win, height: 500 }).catch(() => {});
     } else {
       delete document.body.dataset.quickSearchOpen;
-      // Collapse back to toolbar-only height.
       const win = getCurrentWebviewWindow();
       invoke("set_window_height", { window: win, height: 54 }).catch(() => {});
     }
@@ -230,16 +262,44 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
         </ToolbarButton>
       </div>
 
-      {/* ── Center: text input ── */}
+      {/* ── Center: text input with optional pomodoro overlay ── */}
       <div
         className="relative z-10 flex-1 flex items-center gap-2 min-w-0"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <Input
-          {...completion}
-          handleKeyPress={handleQuickSearchKeyPress}
-          isHidden={isHidden}
-        />
+        <div className="relative flex-1">
+          <Input
+            {...completion}
+            handleKeyPress={handleQuickSearchKeyPress}
+            isHidden={isHidden}
+          />
+          {/* Pomodoro timer — sits inside the input on the right */}
+          {pomodoro.timerStarted && (
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1 select-none">
+              <span
+                className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-mono font-semibold text-white leading-none"
+                style={{ background: POMODORO_COLORS[pomodoro.currentRound] }}
+              >
+                <span className="opacity-80 text-[9px]">{POMODORO_LABELS[pomodoro.currentRound]}</span>
+                <span>{pomodoro.formattedTime}</span>
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); pomodoro.isRunning ? pomodoro.pauseTimer() : pomodoro.resumeTimer(); }}
+                  className="opacity-75 hover:opacity-100 ml-0.5"
+                  title={pomodoro.isRunning ? "暂停 (Alt+Space)" : "继续 (Alt+Space)"}
+                >
+                  {pomodoro.isRunning ? "⏸" : "▶"}
+                </button>
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); pomodoro.stopTimer(); }}
+                  className="opacity-60 hover:opacity-100"
+                  title="停止 (Alt+0)"
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Right button group ── */}

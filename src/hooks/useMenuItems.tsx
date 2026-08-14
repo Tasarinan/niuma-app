@@ -14,6 +14,7 @@ import {
   BotIcon,
   PlugIcon,
   ZapIcon,
+  TimerIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
@@ -34,6 +35,11 @@ export const useMenuItems = () => {
       icon: BotIcon,
       label: t("agents"),
       href: "/agents",
+    },
+    {
+      icon: TimerIcon,
+      label: "番茄钟",
+      href: "/pomodoro",
     },
     {
       icon: ZapIcon,

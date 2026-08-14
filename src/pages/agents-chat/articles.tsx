@@ -67,6 +67,7 @@ interface ArticlesPageProps {
   onViewChange?: (view: WorkbenchView) => void;
   onToggleMaximize?: () => void;
   onClose?: () => void;
+  isMaximized?: boolean;
 }
 
 const STORAGE_KEY = "niuma.artifact.articles";
@@ -124,6 +125,7 @@ export default function ArticlesPage({
   onViewChange,
   onToggleMaximize,
   onClose,
+  isMaximized = false,
 }: ArticlesPageProps = {}) {
   const { treeRoots, refreshTree } = useArticleArtifactTree();
   const [articles, setArticles] = useState<ArticleRecord[]>(() => {
@@ -484,7 +486,7 @@ export default function ArticlesPage({
     );
 
   return (
-    <div className="flex h-full overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.06),_transparent_30%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
+    <div className="flex h-full w-full overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.06),_transparent_30%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
       {/* ── LEFT COLUMN: toolbar + editor ──────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col border-r border-slate-100 bg-white/80 backdrop-blur">
 
@@ -642,7 +644,7 @@ export default function ArticlesPage({
               when the preview-only mode is active. */}
           <div
             className={cn(
-              "min-w-0 overflow-y-auto",
+              "min-w-0 h-full overflow-y-auto",
               mode === "split" && "border-r border-slate-100",
               mode === "preview" && "hidden"
             )}
@@ -667,7 +669,10 @@ export default function ArticlesPage({
       </div>
 
       {/* ── RIGHT COLUMN: actions + meta ───────────────────────────────────── */}
-      <div className="flex w-72 flex-shrink-0 flex-col bg-white/70 backdrop-blur">
+      <div className={cn(
+        "w-72 flex-shrink-0 flex-col bg-white/70 backdrop-blur transition-all duration-300",
+        isMaximized ? "hidden" : "flex"
+      )}>
 
         {/* Action bar */}
         <div className="flex flex-shrink-0 items-center gap-1 border-b border-slate-100 px-3 py-2">

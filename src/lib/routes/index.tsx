@@ -14,6 +14,7 @@ import {
   ContextMemory,
   Speakers,
   Providers,
+  Pomodoro,
 } from "@/pages";
 import { DashboardLayout } from "@/components/layouts";
 
@@ -26,6 +27,7 @@ export default function AppRoutes() {
         <Route path="/agent-chat" element={<AgentChat />} />
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/pomodoro" element={<Pomodoro />} />
           <Route path="/shortcuts" element={<Shortcuts />} />
           <Route path="/screenshot" element={<Screenshot />} />
           <Route path="/settings" element={<Settings />} />

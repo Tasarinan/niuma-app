@@ -54,7 +54,7 @@ export const ArticleEditor = ({
     editorProps: {
       attributes: {
         class:
-          "article-editor typography min-h-[55vh] max-w-none px-8 py-10 text-[15px] outline-none sm:px-12",
+          "article-editor typography min-h-full max-w-none px-8 py-10 text-[15px] outline-none sm:px-12",
       },
     },
     extensions: [
@@ -125,7 +125,7 @@ export const ArticleEditor = ({
 
   return (
     <EditorContext.Provider value={providerValue}>
-      <EditorContent editor={editor} />
+      <EditorContent editor={editor} className="h-full" />
     </EditorContext.Provider>
   );
 };

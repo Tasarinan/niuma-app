@@ -1,4 +1,5 @@
 export { default as Dashboard } from "./dashboard";
+export { default as Pomodoro } from "./pomodoro";
 export { default as AgentChat } from "./agents-chat";
 export { default as Agents } from "./agents-chat/agents";
 export { default as Skills } from "./agents-chat/skills";

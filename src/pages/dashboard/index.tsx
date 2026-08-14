@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+﻿import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMenuItems } from "@/hooks";
 import { Button } from "@/components";
@@ -67,4 +67,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
