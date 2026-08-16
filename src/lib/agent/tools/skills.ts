@@ -11,7 +11,7 @@ import { Type } from "@earendil-works/pi-ai";
 import type { Static, TSchema } from "@earendil-works/pi-ai";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Skill } from "@/types";
-import { invoke, text } from "./shared";
+import { invoke, text, normalizeTauriPath } from "./shared";
 
 /** Identity helper that preserves TypeBox param inference for `execute`. */
 function defineTool<P extends TSchema>(def: {
@@ -47,11 +47,14 @@ export function formatSkillsPrompt(skills: Skill[]): string {
     .join("\n");
   return [
     "<available_skills>",
-    "The following skills are available. When a skill is relevant, call the",
-    "`load_skill` tool with its exact name to load detailed instructions before",
-    "acting. Only load a skill when it matches the task. If a skill's",
-    "instructions embed an HTTP/curl call, you may instead call `run_skill` to",
-    "execute it directly with named arguments.",
+    "The following skills are available. Workflow:",
+    "1. Call `load_skill` with the exact skill name to read its instructions.",
+    "2a. If the skill contains a curl/HTTP call: call `run_skill` to execute it directly.",
+    "2b. If the skill contains a node.js script (ima_api.cjs etc.): call `run_skill` with",
+    '    args={"apiPath":"openapi/...","body":"{...}"}. Do NOT use the `bash` tool for skills —',
+    "    script paths and working directories are managed automatically by `run_skill`.",
+    "2c. Instruction-only skills: follow the loaded instructions yourself.",
+    "IMPORTANT: Never call `bash` to run a skill's node/python script. Always use `run_skill`.",
     items,
     "</available_skills>",
   ].join("\n");
@@ -285,14 +288,15 @@ export function buildRunSkillTool(skills: Skill[]): AgentTool {
       if (!curlTemplate) {
         const nodeScript = extractNodeScript(skill.content ?? "");
         if (nodeScript && skill.sourceType === "niuma") {
-          const skillsDir = await invoke<string>("get_niuma_skills_dir", {}).catch(() => "");
-          const rootDir = await invoke<string>("get_niuma_root_dir", {}).catch(() => "");
+          const rawSkillsDir = await invoke<string>("get_niuma_skills_dir", {}).catch(() => "");
+          const skillsDir = normalizeTauriPath(rawSkillsDir);
           if (!skillsDir) {
             throw new Error(`Skill "${skill.name}": 无法解析 skills 目录，请确认工作区路径已配置。`);
           }
           const sep = skillsDir.includes("/") ? "/" : "\\";
           const slug = skill.source || skill.name || skill.id;
-          const scriptPath = `${skillsDir}${sep}${slug}${sep}${nodeScript}`;
+          const skillDir = `${skillsDir}${sep}${slug}`;
+          const scriptPath = `${skillDir}${sep}${nodeScript}`;
 
           let parsedArgs: Record<string, unknown> = {};
           if (params.args) {
@@ -307,7 +311,7 @@ export function buildRunSkillTool(skills: Skill[]): AgentTool {
             req: {
               command: "node",
               args: scriptArgs,
-              cwd: rootDir || undefined,
+              cwd: skillDir,  // ← run inside the skill's own directory
               sandboxMode: "read-only",
             },
           });

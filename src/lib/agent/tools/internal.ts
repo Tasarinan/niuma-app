@@ -15,7 +15,8 @@ import { Type } from "@earendil-works/pi-ai";
 import type { Static, TSchema } from "@earendil-works/pi-ai";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { AgentInternalToolId, SandboxMode } from "@/types";
-import { invoke, textResult } from "./shared";
+import { invoke, textResult, normalizeTauriPath } from "./shared";
+import { getImaKbConfig } from "@/lib/storage/ima.storage";
 
 export type InternalToolId = AgentInternalToolId;
 
@@ -54,6 +55,7 @@ export const INTERNAL_TOOL_IDS: InternalToolId[] = [
   "grep",
   "file_search",
   "web_search",
+  "ima_search",
 ];
 
 export interface InternalToolDeps {
@@ -464,6 +466,159 @@ function webSearchTool(): AgentTool {
   });
 }
 
+interface SandboxRunResponse {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  timedOut: boolean;
+}
+
+function imaSearchTool(): AgentTool {
+  return defineTool({
+    name: "ima_search",
+    label: "Search IMA 文章资产",
+    description:
+      "Search the user's IMA 文章资产 knowledge base (containing 蜜粉 and 飞鸟 folders). " +
+      "Returns article titles, a content excerpt (for WeChat articles), and source citations. " +
+      "Use this when the user asks about topics likely covered in their collected or written articles.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      query: Type.String({ description: "The search query in Chinese or English." }),
+    }),
+    execute: async (_id, params) => {
+      const cfg = getImaKbConfig();
+      if (!cfg.kbId) {
+        return textResult("IMA 知识库未配置（kbId 为空）。请先在文章编辑器右侧面板完成配置。");
+      }
+
+      // 1. Get skills dir and build ima-skill path
+      let skillsDir: string;
+      try {
+        skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
+      } catch (e) {
+        return textResult(`无法获取技能目录: ${String(e)}`);
+      }
+      const sep = skillsDir.includes("/") ? "/" : "\\";
+      const imaSkillDir = `${skillsDir}${sep}ima-skill`;
+
+      // Helper: call ima_api.cjs via sandboxed node.
+      // Tauri's sandbox clears env vars (env_clear), so we read credentials
+      // from .env.local at the project root and pass as explicit options
+      // (ima_api.cjs priority 1) instead of relying on env var inheritance.
+      const imaOptions = await (async () => {
+        try {
+          const rootDir = normalizeTauriPath(
+            await invoke<string>("get_niuma_root_dir")
+          );
+          if (!rootDir) return "{}";
+          const s = rootDir.includes("/") ? "/" : "\\";
+          const raw = await invoke<string>("read_text_file", {
+            path: `${rootDir}${s}.env.local`,
+          }).catch(() => "");
+          if (!raw) return "{}";
+          const env: Record<string, string> = {};
+          for (const line of raw.split(/\r?\n/)) {
+            const m = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+            if (!m) continue;
+            env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
+          }
+          const clientId = env.IMA_CLIENT_ID ?? env.IMA_OPENAPI_CLIENTID ?? "";
+          const apiKey = env.IMA_API_KEY ?? env.IMA_OPENAPI_APIKEY ?? "";
+          if (clientId && apiKey) return JSON.stringify({ clientId, apiKey });
+        } catch { /* ignore */ }
+        return "{}"; // fall back to ima_api.cjs internal .env.local traversal
+      })();
+
+      const imaCall = async (apiPath: string, body: Record<string, unknown>): Promise<Record<string, unknown>> => {
+        const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
+          req: {
+            command: "node",
+            args: ["ima_api.cjs", apiPath, JSON.stringify(body), imaOptions],
+            cwd: imaSkillDir,
+            sandboxMode: "read-only",
+            timeoutMs: 20000,
+          },
+        });
+        if (result.timedOut) throw new Error("IMA 请求超时");
+        if (result.exitCode !== 0) {
+          const msg = (() => { try { return (JSON.parse(result.stderr) as { msg?: string }).msg ?? ""; } catch { return ""; } })();
+          throw new Error(msg || result.stderr.trim() || "IMA 请求失败");
+        }
+        const parsed = JSON.parse(result.stdout || "{}") as Record<string, unknown>;
+        if (typeof parsed.code === "number" && parsed.code !== 0) throw new Error(String(parsed.msg || "IMA 返回错误"));
+        return (parsed.data ?? parsed) as Record<string, unknown>;
+      };
+
+      // 2. Search knowledge base
+      let searchItems: Array<Record<string, unknown>>;
+      try {
+        const searchData = await imaCall("openapi/wiki/v1/search_knowledge", {
+          query: params.query,
+          cursor: "",
+          knowledge_base_id: cfg.kbId,
+        });
+        searchItems = (searchData.info_list ?? []) as Array<Record<string, unknown>>;
+      } catch (e) {
+        return textResult(`IMA 搜索失败: ${String(e)}`);
+      }
+
+      if (searchItems.length === 0) {
+        return textResult(`在 IMA 文章资产中未找到与「${params.query}」相关的内容。`);
+      }
+
+      // 3. Enrich top 3 results with URL + content
+      const lines: string[] = [`[IMA 文章资产搜索结果 · 「${params.query}」]\n`];
+
+      for (const item of searchItems.slice(0, 3)) {
+        const title = String(item.title ?? "未命名");
+        const mediaId = String(item.media_id ?? "");
+        const mediaType = Number(item.media_type ?? 0);
+        lines.push(`《${title}》`);
+
+        if (mediaId) {
+          try {
+            const info = await imaCall("openapi/wiki/v1/get_media_info", { media_id: mediaId });
+            const url = String((info.url_info as { url?: string } | undefined)?.url ?? "");
+
+            if (url && mediaType === 6) {
+              // WeChat article — fetch content
+              try {
+                const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+                const resp = await tauriFetch(url, {
+                  method: "GET",
+                  headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                    "Accept-Language": "zh-CN,zh;q=0.9",
+                  },
+                });
+                if (resp.ok) {
+                  const html = await resp.text();
+                  const text = html
+                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+                    .replace(/<[^>]+>/g, " ")
+                    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+                    .replace(/\s+/g, " ").trim().slice(0, 1500);
+                  if (text) lines.push(`内容摘要: ${text}`);
+                }
+              } catch {
+                lines.push(`来源: ${url}`);
+              }
+            } else if (url) {
+              lines.push(mediaType === 1 ? `（PDF 文件，请在 IMA 中打开）来源: ${url}` : `来源: ${url}`);
+            }
+          } catch {
+            // skip enrichment on error
+          }
+        }
+        lines.push(`[标注: IMA 文章资产 · 《${title}》]\n`);
+      }
+
+      return textResult(lines.join("\n"));
+    },
+  });
+}
+
 const BUILDERS: Record<InternalToolId, (deps: InternalToolDeps) => AgentTool> = {
   checkpoint: checkpointTool,
   bash: bashTool,
@@ -474,6 +629,7 @@ const BUILDERS: Record<InternalToolId, (deps: InternalToolDeps) => AgentTool> = 
   grep: grepTool,
   file_search: fileSearchTool,
   web_search: webSearchTool,
+  ima_search: imaSearchTool,
 };
 
 /** Build the selected internal tools. */

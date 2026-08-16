@@ -12,7 +12,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAgentStore, useSkillStore, useMcpStore } from "@/store";
 import { createAgentRuntime, bridgeEnabledNiumaSkills } from "@/lib/agent";
-import { getActiveProvider } from "@/lib/providers/storage";
+import { getActiveApiProvider, getActiveProvider } from "@/lib/providers/storage";
+import { getProvider } from "@/lib/providers/registry";
 import type { AgentDefinition, TranscriptEntry } from "@/types";
 
 /** Milliseconds of transcript silence before agents react. */
@@ -93,11 +94,26 @@ export function useMeetingAgents({
 
     try {
       const bridgedSkillIds = await bridgeEnabledNiumaSkills().catch(() => []);
-      const activeProvider = getActiveProvider();
+      const activeProvider = getActiveApiProvider() ?? getActiveProvider();
+      const agentProviderId = agent.providerId || activeProvider?.providerId || "";
+      const agentModelId = agent.modelId || activeProvider?.model || "";
+
+      // Web (zero-token) providers cannot be used with the PI agent runtime.
+      const resolvedDef = getProvider(agentProviderId);
+      if (resolvedDef?.type === "web" || !agentProviderId) {
+        const errMsg = agentProviderId
+          ? `[错误] 网页零Token提供商「${resolvedDef?.name}」不支持会议智能体。请在「设置 → AI 提供商」切换到 API 提供商。`
+          : "[错误] 未配置 AI 提供商，请在「设置 → AI 提供商」中添加。";
+        setEntries((prev) =>
+          prev.map((n) => n.id === noteId ? { ...n, content: errMsg, isStreaming: false } as AgentNote : n)
+        );
+        return;
+      }
+
       const runtimeDef: AgentDefinition = {
         ...agent,
-        providerId: agent.providerId || activeProvider?.providerId || "",
-        modelId: agent.modelId || activeProvider?.model || "",
+        providerId: agentProviderId,
+        modelId: agentModelId,
         enabledSkillIds: Array.from(
           new Set([...(agent.enabledSkillIds ?? []), ...bridgedSkillIds])
         ),

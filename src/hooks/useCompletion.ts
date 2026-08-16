@@ -25,6 +25,8 @@ import {
 import { getActiveProvider } from "@/lib/providers/storage";
 import { getProvider } from "@/lib/providers/registry";
 import { sendZeroTokenPrompt } from "@/lib/providers/adapters/zeroTokenService";
+import { getCachedEnvStatus, checkEnv, envStatusToPromptHint } from "@/lib/utils/env-check";
+import { getImaKbConfig } from "@/lib/storage/ima.storage";
 import {
   createAgentRuntime,
   ProviderUnavailableError,
@@ -691,16 +693,29 @@ export const useCompletion = () => {
                 .filter((s) => s.enabled !== false)
                 .map((s) => s.id);
 
+              // Append runtime env status to the system prompt so the agent
+              // knows which binaries are available before calling skill scripts.
+              const envStatus = getCachedEnvStatus() ?? await checkEnv().catch(() => null);
+              const envHint = envStatus ? `\n\n${envStatusToPromptHint(envStatus)}` : "";
+
+              // Enable ima_search when KB is configured
+              const imaEnabled = Boolean(getImaKbConfig().kbId);
+              const internalTools: AgentDefinition["enabledInternalTools"] = [
+                "file_search",
+                "web_search",
+                ...(imaEnabled ? ["ima_search" as const] : []),
+              ];
+
               const def: AgentDefinition = {
                 id: `chat-${conversationId}`,
                 name: "Chat",
                 description: "",
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-                systemPrompt: systemPrompt || "You are a helpful assistant.",
+                systemPrompt: (systemPrompt || "You are a helpful assistant.") + envHint,
                 providerId: connection.providerId,
                 modelId: connection.model,
-                enabledInternalTools: ["file_search", "web_search"],
+                enabledInternalTools: internalTools,
                 enabledSkillIds,
                 enabledMcpServerIds: [],
                 sandboxMode: "read-only",

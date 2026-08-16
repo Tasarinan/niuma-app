@@ -56,6 +56,9 @@ export const STORAGE_KEYS = {
   AGENT_SKILLS: "agent_skills",
   AGENT_MCP_SERVERS: "agent_mcp_servers",
   SELECTED_AGENT_ID: "selected_agent_id",
+
+  // IMA (腾讯IMA) knowledge-base integration
+  IMA_CONFIG: "ima_config",
 } as const;
 
 // Local-dev-only default ElevenLabs API key. Sourced from the gitignored

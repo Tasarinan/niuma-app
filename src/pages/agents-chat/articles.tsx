@@ -4,6 +4,7 @@ import i18n from "@/i18n";
 import type { Editor } from "@tiptap/core";
 import {
   Bold,
+  BookMarked,
   CheckSquare,
   Clipboard,
   Code2,
@@ -46,6 +47,8 @@ import { Markdown as MarkdownPreview } from "@/components/Markdown";
 import { ArticleEditor } from "@/components/article-editor/ArticleEditor";
 import { ArtifactTreeMenu } from "@/components/artifact-tree";
 import { useArticleArtifactTree } from "@/hooks/useArticleArtifactTree";
+import { importMarkdownToFeiniao, listFeiniaoArticles, type ImaKbItem } from "@/lib/functions/ima.api";
+import { getImaKbConfig, setImaKbConfig } from "@/lib/storage/ima.storage";
 import "@/components/article-editor/editor.css";
 
 type ArticleRecord = {
@@ -139,6 +142,12 @@ export default function ArticlesPage({
   const [mode, setMode] = useState<EditorMode>("write");
   const [markdownSource, setMarkdownSource] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishingToFeiniao, setIsPublishingToFeiniao] = useState(false);
+  const [feiniaoKbDialogOpen, setFeiniaoKbDialogOpen] = useState(false);
+  const [feiniaoKbInputValue, setFeiniaoKbInputValue] = useState("");
+  const [feiniaoFolderInputValue, setFeiniaoFolderInputValue] = useState("");
+  const [feiniaoArticles, setFeiniaoArticles] = useState<ImaKbItem[]>([]);
+  const [isLoadingFeiniao, setIsLoadingFeiniao] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeIdRef = useRef(activeId);
   const lastSavedSnapshotRef = useRef<Record<string, string>>({});
@@ -467,6 +476,49 @@ export default function ArticlesPage({
     }
   };
 
+  const handlePublishToFeiniao = async () => {
+    if (!activeArticle) return;
+    const cfg = getImaKbConfig();
+    if (!cfg.kbId) {
+      setFeiniaoKbInputValue("");
+      setFeiniaoFolderInputValue("");
+      setFeiniaoKbDialogOpen(true);
+      return;
+    }
+    setIsPublishingToFeiniao(true);
+    try {
+      const result = await importMarkdownToFeiniao(
+        activeArticle.title,
+        activeArticle.content,
+        cfg.kbId,
+        cfg.feiniaoFolderId || undefined,
+      );
+      if (result.success) {
+        toast.success("已存入飞鸟");
+        void loadFeiniaoArticles(cfg);
+      } else {
+        toast.error(`存入失败: ${result.error}`);
+      }
+    } catch (e) {
+      toast.error(`存入失败: ${String(e)}`);
+    } finally {
+      setIsPublishingToFeiniao(false);
+    }
+  };
+
+  const loadFeiniaoArticles = async (cfg = getImaKbConfig()) => {
+    if (!cfg.kbId) return;
+    setIsLoadingFeiniao(true);
+    try {
+      const items = await listFeiniaoArticles(cfg.kbId, cfg.feiniaoFolderId || undefined);
+      setFeiniaoArticles(items);
+    } catch {
+      setFeiniaoArticles([]);
+    } finally {
+      setIsLoadingFeiniao(false);
+    }
+  };
+
   if (!activeArticle) return null;
 
   // ── Icon-only toolbar button style ──────────────────────────────────────────
@@ -632,7 +684,72 @@ export default function ArticlesPage({
               }}
             />
           </label>
+
+          <span className="mx-1.5 h-5 w-px bg-slate-200" />
+
+          {/* Publish to 飞鸟 KB */}
+          <button
+            type="button"
+            title="发布到飞鸟知识库"
+            disabled={isPublishingToFeiniao}
+            className={cn(tb(), "disabled:opacity-60")}
+            onClick={() => void handlePublishToFeiniao()}
+          >
+            {isPublishingToFeiniao
+              ? <LoaderCircle className="size-4 animate-spin" />
+              : <BookMarked className="size-4" />}
+          </button>
         </div>
+
+        {/* 飞鸟 KB ID setup dialog — collect KB ID and folder ID */}
+          {feiniaoKbDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+            <div className="w-80 rounded-xl bg-white p-5 shadow-xl">
+              <p className="mb-1 text-sm font-semibold text-slate-800">连接「文章资产」知识库</p>
+              <p className="mb-3 text-xs text-slate-500">在 IMA 知识库设置中找到「文章资产」的 ID 及「飞鸟」文件夹的 ID</p>
+              <label className="mb-1 block text-xs font-medium text-slate-600">文章资产 知识库 ID</label>
+              <input
+                type="text"
+                value={feiniaoKbInputValue}
+                onChange={(e) => setFeiniaoKbInputValue(e.target.value)}
+                placeholder="知识库 ID"
+                className="mb-3 w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+                autoFocus
+              />
+              <label className="mb-1 block text-xs font-medium text-slate-600">飞鸟 文件夹 ID（选填）</label>
+              <input
+                type="text"
+                value={feiniaoFolderInputValue}
+                onChange={(e) => setFeiniaoFolderInputValue(e.target.value)}
+                placeholder="文件夹 ID（留空则保存到根目录）"
+                className="mb-3 w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-md bg-indigo-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-60"
+                  disabled={!feiniaoKbInputValue.trim()}
+                  onClick={() => {
+                    const cfg = getImaKbConfig();
+                    const next = { ...cfg, kbId: feiniaoKbInputValue.trim(), feiniaoFolderId: feiniaoFolderInputValue.trim() };
+                    setImaKbConfig(next);
+                    setFeiniaoKbDialogOpen(false);
+                    void handlePublishToFeiniao();
+                  }}
+                >
+                  保存并存入
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                  onClick={() => setFeiniaoKbDialogOpen(false)}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Editor / Preview area */}
         <div className={cn("min-h-0 flex-1 overflow-hidden", mode === "split" ? "grid grid-cols-2" : "grid grid-cols-1")}>
@@ -706,6 +823,48 @@ export default function ArticlesPage({
         {/* Meta panel – scrollable */}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-5 p-4">
+
+            {/* 飞鸟 article list */}
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-medium uppercase tracking-widest text-slate-400">飞鸟文档</span>
+                <button
+                  type="button"
+                  title="刷新飞鸟列表"
+                  disabled={isLoadingFeiniao}
+                  onClick={() => void loadFeiniaoArticles()}
+                  className="flex size-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                >
+                  {isLoadingFeiniao
+                    ? <LoaderCircle className="size-3 animate-spin" />
+                    : <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+                  }
+                </button>
+              </div>
+              {feiniaoArticles.length === 0 ? (
+                <div
+                  className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 py-4 text-xs text-slate-400 hover:border-indigo-200 hover:text-indigo-400"
+                  onClick={() => void loadFeiniaoArticles()}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && void loadFeiniaoArticles()}
+                >
+                  {isLoadingFeiniao ? "加载中…" : "点击加载飞鸟文档"}
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {feiniaoArticles.map((item) => (
+                    <li
+                      key={item.id}
+                      className="truncate rounded-lg px-2 py-1 text-xs text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+                      title={item.title}
+                    >
+                      {item.title}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <div className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">
                 {t("articles.meta.currentArticle")}

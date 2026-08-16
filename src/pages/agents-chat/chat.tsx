@@ -43,6 +43,8 @@ import { MeetingChannelView, type MeetingParticipant } from "./components/meetin
 import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
 import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
 import { loadHiredAgentFiles, loadDisabledSkillSlugs } from "@/lib/storage";
+import { getImaKbConfig } from "@/lib/storage/ima.storage";
+import { normalizeTauriPath } from "@/lib/agent/tools/shared";
 import {
   ensureWorkbenchDefaultTeams,
   getWorkbenchTeamPreset,
@@ -1095,7 +1097,7 @@ export default function ChatPage({
   };
 
   const runImaApi = async (apiPath: string, body: Record<string, unknown>) => {
-    const skillsDir = await invoke<string>("get_niuma_skills_dir");
+    const skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
     const separator = skillsDir.includes("/") ? "/" : "\\";
     const skillDir = `${skillsDir}${separator}ima-skill`;
     const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
@@ -1131,13 +1133,60 @@ export default function ChatPage({
 
   const formatKnowledgeResults = (items: Record<string, unknown>[]) =>
     items
-      .slice(0, 5)
+      .slice(0, 3)
       .map((item, index) => {
         const title = String(item.title ?? "未命名内容");
-        const content = String(item.highlight_content ?? item.highlightContent ?? "").replace(/\s+/g, " ").trim();
-        return `${index + 1}. ${title}${content ? `\n   ${content}` : ""}`;
+        const fetchedContent = String(item._fetched_content ?? "").trim();
+        const url = String(item._url ?? "");
+        const mediaType = Number(item.media_type ?? 0);
+        const lines = [
+          `${index + 1}. 《${title}》`,
+        ];
+        if (fetchedContent) {
+          lines.push(`   正文摘要：${fetchedContent.slice(0, 600)}`);
+        } else if (mediaType === 1) {
+          lines.push(`   （PDF 文件，建议在 IMA 内打开阅读）`);
+        } else {
+          lines.push(`   （内容无法获取）`);
+        }
+        if (url) lines.push(`   来源：${url}`);
+        lines.push(`   [标注: IMA 文章资产 · 《${title}》]`);
+        return lines.join("\n");
       })
-      .join("\n");
+      .join("\n\n");
+
+  /**
+   * Fetch the readable text content of an IMA media item.
+   * - WeChat articles (type=6): fetch HTML with browser UA, strip tags
+   * - Others: return empty (PDF needs special parsing)
+   */
+  const fetchArticleContent = async (mediaType: number, url: string, _headers?: Record<string, string>): Promise<string> => {
+    if (!url || mediaType !== 6) return "";
+    try {
+      const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+      const resp = await tauriFetch(url, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+          "Referer": "https://mp.weixin.qq.com/",
+        },
+      });
+      if (!resp.ok) return "";
+      const html = await resp.text();
+      return html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 2000);
+    } catch {
+      return "";
+    }
+  };
 
   const searchImaKnowledge = async (query: string, knowledgeBaseId: string) => {
     const searchData = await runImaApi("openapi/wiki/v1/search_knowledge", {
@@ -1145,11 +1194,33 @@ export default function ChatPage({
       cursor: "",
       knowledge_base_id: knowledgeBaseId,
     });
-    return firstArray(searchData, ["info_list", "infoList"]);
+    const items = firstArray(searchData, ["info_list", "infoList"]);
+
+    // Enrich top 3 results: get actual URL + fetch content
+    const enriched = await Promise.all(
+      items.slice(0, 3).map(async (item) => {
+        const mediaId = String(item.media_id ?? "");
+        if (!mediaId) return item;
+        try {
+          const infoData = await runImaApi("openapi/wiki/v1/get_media_info", { media_id: mediaId });
+          const urlInfo = asRecord(infoData.url_info ?? {});
+          const url = String(urlInfo.url ?? "");
+          const rawHeaders = urlInfo.headers;
+          const hdrs = rawHeaders && typeof rawHeaders === "object"
+            ? (rawHeaders as Record<string, string>)
+            : {};
+          const content = await fetchArticleContent(Number(item.media_type ?? 0), url, hdrs);
+          return { ...item, _url: url, _fetched_content: content };
+        } catch {
+          return item;
+        }
+      })
+    );
+    return enriched;
   };
 
   const searchWeb = async (query: string): Promise<string> => {
-    const skillsDir = await invoke<string>("get_niuma_skills_dir");
+    const skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
     const sep = skillsDir.includes("/") ? "/" : "\\";
     const skillDir = `${skillsDir}${sep}web-access`;
 
@@ -1215,6 +1286,15 @@ export default function ChatPage({
   };
 
   const gatherImaResults = async (query: string): Promise<string> => {
+    // Prefer the 文章资产 KB from config (covers both 蜜粉 + 飞鸟 folders).
+    const imaConfig = getImaKbConfig();
+    if (imaConfig.kbId) {
+      const results = await searchImaKnowledge(query, imaConfig.kbId);
+      if (results.length === 0) return "";
+      return `[文章资产 · 蜜粉+飞鸟]\n${formatKnowledgeResults(results)}`;
+    }
+
+    // Fallback: enumerate all accessible knowledge bases.
     const knowledgeBaseData = await runImaApi("openapi/wiki/v1/search_knowledge_base", {
       query: "",
       cursor: "",
@@ -1223,25 +1303,26 @@ export default function ChatPage({
     const knowledgeBases = firstArray(knowledgeBaseData, ["info_list", "infoList"]);
 
     let knowledgeBaseId = window.localStorage.getItem(IMA_DEFAULT_KB_ID_KEY) || "";
-    if (knowledgeBaseId && !knowledgeBases.some((item) => String(item.id ?? "") === knowledgeBaseId)) {
+    if (knowledgeBaseId && !knowledgeBases.some((item) => String(item.kb_id ?? item.id ?? "") === knowledgeBaseId)) {
       knowledgeBaseId = "";
       window.localStorage.removeItem(IMA_DEFAULT_KB_ID_KEY);
     }
     if (!knowledgeBaseId && knowledgeBases.length === 1) {
-      knowledgeBaseId = String(knowledgeBases[0].id ?? "");
+      knowledgeBaseId = String(knowledgeBases[0].kb_id ?? knowledgeBases[0].id ?? "");
       if (knowledgeBaseId) window.localStorage.setItem(IMA_DEFAULT_KB_ID_KEY, knowledgeBaseId);
     }
 
     const searchableBases = knowledgeBaseId
-      ? knowledgeBases.filter((item) => String(item.id ?? "") === knowledgeBaseId)
+      ? knowledgeBases.filter((item) => String(item.kb_id ?? item.id ?? "") === knowledgeBaseId)
       : knowledgeBases;
     const groups: string[] = [];
     for (const knowledgeBase of searchableBases.slice(0, 10)) {
-      const id = String(knowledgeBase.id ?? "");
+      const id = String(knowledgeBase.kb_id ?? knowledgeBase.id ?? "");
       if (!id) continue;
       const results = await searchImaKnowledge(query, id);
       if (results.length === 0) continue;
-      groups.push(`【${String(knowledgeBase.name ?? "Ima 知识库")}】\n${formatKnowledgeResults(results)}`);
+      const kbName = String(knowledgeBase.kb_name ?? knowledgeBase.name ?? "Ima 知识库");
+      groups.push(`[${kbName}]\n${formatKnowledgeResults(results)}`);
     }
     return groups.join("\n\n");
   };
@@ -1327,7 +1408,11 @@ export default function ChatPage({
         if (imaEnabled) {
           try {
             const imaResults = await gatherImaResults(text);
-            if (imaResults.trim()) parts.push(`[Ima 知识库结果]\n${imaResults}`);
+            if (imaResults.trim()) {
+              parts.push(
+                `[IMA 文章资产参考内容]\n请优先参考以下文章资料回答，并在回复中标注「《文章标题》 \u00b7 IMA文章资产」格式的来源：\n\n${imaResults}`
+              );
+            }
           } catch (e) {
             parts.push(`[Ima 搜索失败: ${compactImaError(e)}]`);
           }
