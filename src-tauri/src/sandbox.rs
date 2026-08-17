@@ -16,6 +16,7 @@ use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::thread;
 use std::time::{Duration, Instant};
 use wait_timeout::ChildExt;
@@ -183,6 +184,20 @@ fn preserve_platform_runtime_env(command: &mut Command) {
             "PROCESSOR_IDENTIFIER",
             "NUMBER_OF_PROCESSORS",
             "OS",
+            // Python / conda runtime vars
+            "PYTHONHOME",
+            "PYTHONPATH",
+            "CONDA_PREFIX",
+            "CONDA_DEFAULT_ENV",
+            "CONDA_EXE",
+            "VIRTUAL_ENV",
+            // Node.js
+            "NODE_PATH",
+            // PowerShell
+            "PSModulePath",
+            // User identity (some scripts need these)
+            "USERNAME",
+            "USERDOMAIN",
         ] {
             if let Ok(value) = std::env::var(key) {
                 command.env(key, value);
@@ -207,6 +222,132 @@ fn sandbox_backend(mode: &str) -> &'static str {
     }
 }
 
+// ── Windows runtime helpers ──────────────────────────────────────────────────
+
+/// Cached path of bash.exe on Windows (found once, reused).
+#[cfg(target_os = "windows")]
+static WINDOWS_BASH: OnceLock<Option<String>> = OnceLock::new();
+
+/// Search for bash.exe in known locations and PATH on Windows.
+/// Result is cached in a static so the filesystem walk only happens once.
+#[cfg(target_os = "windows")]
+fn find_bash_windows() -> Option<String> {
+    WINDOWS_BASH
+        .get_or_init(|| {
+            // Well-known installation paths (Git for Windows, WSL interop)
+            let fixed: &[&str] = &[
+                r"C:\Program Files\Git\bin\bash.exe",
+                r"C:\Program Files (x86)\Git\bin\bash.exe",
+                r"C:\Windows\System32\bash.exe",
+            ];
+            for path in fixed {
+                if std::path::Path::new(path).exists() {
+                    return Some(path.to_string());
+                }
+            }
+            // Walk PATH directories
+            if let Ok(path_var) = std::env::var("PATH") {
+                for dir in path_var.split(';') {
+                    let dir = dir.trim();
+                    if dir.is_empty() {
+                        continue;
+                    }
+                    let candidate = format!("{}\\bash.exe", dir);
+                    if std::path::Path::new(&candidate).exists() {
+                        return Some(candidate);
+                    }
+                }
+            }
+            None
+        })
+        .clone()
+}
+
+/// Return true if `name.exe` (or `name`) exists in any PATH directory on Windows.
+#[cfg(target_os = "windows")]
+fn command_on_path_windows(name: &str) -> bool {
+    if let Ok(path_var) = std::env::var("PATH") {
+        for dir in path_var.split(';') {
+            let dir = dir.trim();
+            if dir.is_empty() {
+                continue;
+            }
+            if std::path::Path::new(&format!("{}\\{}.exe", dir, name)).exists() {
+                return true;
+            }
+            if std::path::Path::new(&format!("{}\\{}", dir, name)).exists() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Build the platform Command for Windows with automatic runtime fallbacks:
+///
+/// - `bash`/`sh`  → Git Bash / WSL bash if on PATH, otherwise PowerShell 5/7.
+///   Args `["-lc", "<script>"]` are translated to `[-NonInteractive, -NoProfile, -Command, <script>]`.
+/// - `python3`    → `python3` if on PATH, otherwise `python`.
+/// - `pwsh`       → `pwsh` (PowerShell 7) if on PATH, otherwise `powershell.exe` (Windows PS 5).
+/// - anything else → passed through unchanged.
+#[cfg(target_os = "windows")]
+fn build_windows_command(req: &SandboxRunRequest) -> Result<Command, String> {
+    match req.command.as_str() {
+        "bash" | "sh" => {
+            if let Some(bash_path) = find_bash_windows() {
+                let mut cmd = Command::new(bash_path);
+                cmd.args(&req.args);
+                return Ok(cmd);
+            }
+            // No bash found – fall back to PowerShell.
+            // Translate bash flag args: skip leading flags (e.g. -l, -c, -lc, --) and
+            // treat the first non-flag argument as the script to run.
+            let mut cmd = Command::new("powershell.exe");
+            cmd.args(["-NonInteractive", "-NoProfile"]);
+            if let Some(script) = req
+                .args
+                .iter()
+                .skip_while(|a| a.starts_with('-'))
+                .next()
+            {
+                cmd.args(["-Command", script.as_str()]);
+            } else {
+                cmd.args(&req.args);
+            }
+            Ok(cmd)
+        }
+        "python3" => {
+            // Windows typically ships as 'python', not 'python3'.
+            if command_on_path_windows("python3") {
+                let mut cmd = Command::new("python3");
+                cmd.args(&req.args);
+                Ok(cmd)
+            } else {
+                let mut cmd = Command::new("python");
+                cmd.args(&req.args);
+                Ok(cmd)
+            }
+        }
+        "pwsh" => {
+            // Prefer PowerShell 7 (pwsh); fall back to Windows PowerShell 5 (powershell.exe).
+            if command_on_path_windows("pwsh") {
+                let mut cmd = Command::new("pwsh");
+                cmd.args(&req.args);
+                Ok(cmd)
+            } else {
+                let mut cmd = Command::new("powershell.exe");
+                cmd.args(&req.args);
+                Ok(cmd)
+            }
+        }
+        _ => {
+            let mut cmd = Command::new(&req.command);
+            cmd.args(&req.args);
+            Ok(cmd)
+        }
+    }
+}
+
 fn build_platform_command(
     req: &SandboxRunRequest,
     _cwd: &str,
@@ -224,9 +365,15 @@ fn build_platform_command(
         }
     }
 
-    let mut command = Command::new(&req.command);
-    command.args(&req.args);
-    Ok(command)
+    #[cfg(target_os = "windows")]
+    return build_windows_command(req);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut command = Command::new(&req.command);
+        command.args(&req.args);
+        Ok(command)
+    }
 }
 
 #[cfg(target_os = "macos")]

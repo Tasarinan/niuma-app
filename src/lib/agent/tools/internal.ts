@@ -156,8 +156,11 @@ function bashTool(deps: InternalToolDeps): AgentTool {
     name: "bash",
     label: "Bash",
     description:
-      "Run a shell command via bash inside the sandbox. Use for builds, git, " +
-      "and any task not covered by the dedicated file tools.",
+      "Run a shell command in the sandbox. " +
+      "On macOS/Linux this uses bash; on Windows it routes through PowerShell when bash (WSL/Git Bash) is unavailable. " +
+      "Supported runtimes: python/python3 (Python), node (Node.js), pwsh/powershell (PowerShell). " +
+      "On Windows prefer PowerShell syntax (semicolons instead of &&, $env:VAR for env vars). " +
+      "Use for builds, git, running scripts, and any task not covered by the dedicated file tools.",
     parameters: Type.Object({
       goal: goalParam(),
       command: Type.String({ description: "The shell command to execute." }),

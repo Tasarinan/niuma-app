@@ -22,6 +22,7 @@ export interface BinaryStatus {
 export interface EnvStatus {
   node: BinaryStatus;
   python: BinaryStatus;
+  powershell: BinaryStatus;
   checkedAt: number;
 }
 
@@ -74,15 +75,19 @@ export async function checkEnv(force = false): Promise<EnvStatus> {
     }
   }
 
-  const [node, python] = await Promise.all([
+  const [node, python, powershell] = await Promise.all([
     probeCommand("node", ["--version"]),
     // Try python3 first, fall back to python
     probeCommand("python3", ["--version"]).then((r) =>
       r.available ? r : probeCommand("python", ["--version"])
     ),
+    // Try PowerShell 7 (pwsh) first, fall back to Windows PowerShell 5
+    probeCommand("pwsh", ["--version"]).then((r) =>
+      r.available ? r : probeCommand("powershell", ["-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"])
+    ),
   ]);
 
-  const status: EnvStatus = { node, python, checkedAt: Date.now() };
+  const status: EnvStatus = { node, python, powershell, checkedAt: Date.now() };
 
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(status));
@@ -118,6 +123,11 @@ export function envStatusToPromptHint(status: EnvStatus): string {
     status.python.available
       ? `✅ Python: ${status.python.version}`
       : `❌ Python: 未找到（依赖 Python 的技能将无法运行）`,
+  );
+  lines.push(
+    status.powershell.available
+      ? `✅ PowerShell: ${status.powershell.version}`
+      : `❌ PowerShell: 未找到`,
   );
   return lines.join("\n");
 }
