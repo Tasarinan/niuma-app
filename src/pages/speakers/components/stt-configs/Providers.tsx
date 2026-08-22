@@ -42,7 +42,7 @@ async function readEnvLocal(): Promise<Record<string, string>> {
 }
 
 async function readSttKeyFromEnv(providerId: string): Promise<string> {
-  const envVars = await readEnvLocal().catch(() => ({}));
+  const envVars = await readEnvLocal().catch((): Record<string, string> => ({}));
   for (const envKey of STT_ENV_KEYS[providerId] ?? []) {
     if (envVars[envKey]) return envVars[envKey];
   }

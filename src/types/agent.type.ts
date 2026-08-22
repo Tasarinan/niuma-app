@@ -98,6 +98,20 @@ export interface McpServer extends BaseEntity {
   enabled: boolean;
 }
 
+/** A co-authored artifact produced by an agent and associated with a Studio project. */
+export interface Artifact extends BaseEntity {
+  /** The Studio project this artifact belongs to. */
+  projectId: string;
+  /** Human-readable artifact name. */
+  name: string;
+  /** Primary content: markdown, code, etc. */
+  content?: string;
+  /** MIME type or kind hint, e.g. "text/markdown", "code/typescript". */
+  kind?: string;
+  /** Optional free-form metadata. */
+  meta?: Record<string, unknown>;
+}
+
 /**
  * A reusable agent configuration. Combines a system prompt, a model reference,
  * the enabled tool set (internal + skills + MCP), and runtime parameters.

@@ -14,6 +14,7 @@ import {
   saveProviderConfig,
   getActiveApiProvider,
   setActiveApiProvider,
+  setActiveProvider,
   getProxyUrl,
   setProxyUrl,
 } from "@/lib/providers/storage";
@@ -109,7 +110,7 @@ export const ApiProvidersTab = () => {
     let fromEnv = false;
     // Auto-fill from .env.local when no key is stored yet
     if (!key && def.requiresKey) {
-      const envVars = await readEnvLocal().catch(() => ({}));
+      const envVars = await readEnvLocal().catch((): Record<string, string> => ({}));
       const envKeys = PROVIDER_ENV_KEYS[id] ?? [];
       for (const envKey of envKeys) {
         if (envVars[envKey]) { key = envVars[envKey]; fromEnv = true; break; }
@@ -129,7 +130,7 @@ export const ApiProvidersTab = () => {
 
   const handleLoadFromEnv = async () => {
     if (!currentDef) return;
-    const envVars = await readEnvLocal().catch(() => ({}));
+    const envVars = await readEnvLocal().catch((): Record<string, string> => ({}));
     const envKeys = PROVIDER_ENV_KEYS[selectedId] ?? [];
     for (const envKey of envKeys) {
       if (envVars[envKey]) {
