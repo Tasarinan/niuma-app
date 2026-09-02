@@ -1,65 +1,33 @@
-import { useCallback, useState } from "react";
-import { X } from "lucide-react";
-
-import { safeLocalStorage } from "@/lib/storage";
-
 import { Button, Card, CardContent, CardDescription, CardTitle } from "./ui";
-import { useApp } from "@/store";
 
-const STORAGE_KEY = "Niuma-promote-card-dismissed";
+const SUPPORT_EMAIL = "niuma8@888.com";
 
 const Promote = () => {
-  const { hasActiveLicense } = useApp();
-
-  const [isDismissed, setIsDismissed] = useState(
-    () => safeLocalStorage.getItem(STORAGE_KEY) === "true"
-  );
-
-  const handleDismiss = useCallback(() => {
-    safeLocalStorage.setItem(STORAGE_KEY, "true");
-    setIsDismissed(true);
-  }, []);
-
-  if (hasActiveLicense) return null;
-  if (isDismissed) return null;
-
   return (
-    <Card className="relative w-full">
+    <Card className="w-full">
       <CardContent className="flex flex-col gap-4 p-4 py-0 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2 md:max-w-[70%]">
           <CardTitle className="text-xs lg:text-sm">
-            Promote Niuma, Earn Rewards
+            推广 Niuma，或用微信赞助
           </CardTitle>
           <CardDescription className="text-[10px] lg:text-xs">
-            Share Niuma on social, hit 5K impressions, and we&apos;ll send you
-            a $5&ndash;$10 coupon for a monthly plan. Email your post link to{" "}
-            <a
-              className="text-primary underline underline-offset-4"
-              href="mailto:support@niuma.com"
-            >
-              support@niuma.com
-            </a>
-            .
+            喜欢 Niuma 可以把它转发给朋友、同事或社群。微信支付码赞助入口已预留，
+            后续放入二维码图片后即可展示。
           </CardDescription>
+          <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-[10px] text-muted-foreground lg:text-xs">
+            微信支付码赞助：二维码图片待补充
+          </div>
         </div>
         <Button asChild className="w-full md:w-auto text-[10px] lg:text-xs">
           <a
-            href="https://niuma.com/promote"
+            href={`mailto:${SUPPORT_EMAIL}?subject=Niuma%20promotion%20or%20sponsor`}
             rel="noopener noreferrer"
             target="_blank"
           >
-            niuma.com/promote
+            联系支持
           </a>
         </Button>
       </CardContent>
-      <button
-        aria-label="Dismiss promotion"
-        className="absolute -right-1 -top-2 rounded-full border border-transparent bg-primary/10 p-1 transition hover:border-primary/20 hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        onClick={handleDismiss}
-        type="button"
-      >
-        <X className="size-3 lg:size-4 text-primary" />
-      </button>
     </Card>
   );
 };

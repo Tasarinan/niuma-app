@@ -75,10 +75,12 @@ jobs:
 
       - name: Create dummy .env file
         run: |
-          echo "API_ACCESS_KEY=dummy" > src-tauri/.env
-          echo "PAYMENT_ENDPOINT=dummy" >> src-tauri/.env
-          echo "APP_ENDPOINT=dummy" >> src-tauri/.env
-          echo "POSTHOG_API_KEY=dummy" >> src-tauri/.env
+          echo "IMA_API_KEY=dummy" > src-tauri/.env
+          echo "IMA_CLIENT_ID=dummy" >> src-tauri/.env
+          echo "STT_API_KEY=dummy" >> src-tauri/.env
+          echo "AGNES_API_KEY=dummy" >> src-tauri/.env
+          echo "AGNES_API_KEY=dummy" >> src-tauri/.env
+          echo "AGNES_API_KEY=dummy" >> src-tauri/.env
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2

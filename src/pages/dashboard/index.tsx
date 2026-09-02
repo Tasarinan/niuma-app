@@ -1,11 +1,15 @@
-﻿import { useTranslation } from "react-i18next";
+﻿import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMenuItems } from "@/hooks";
 import { Button } from "@/components";
+import Contribute from "@/components/Contribute";
+import Promote from "@/components/Promote";
 
 const Dashboard = () => {
   const { t } = useTranslation("dashboard");
   const { footerLinks, footerItems } = useMenuItems();
+  const [showSupportCards, setShowSupportCards] = useState(false);
 
   return (
     <div className="flex h-full w-full flex-col items-center gap-8 overflow-y-auto px-8 py-10">
@@ -44,6 +48,10 @@ const Dashboard = () => {
         {footerItems.map((item, index) => {
           const handleClick = (e: React.MouseEvent) => {
             e.preventDefault();
+            if (item.id === "contact-support") {
+              setShowSupportCards((current) => !current);
+              return;
+            }
             if (item.action) {
               void item.action();
             } else if (item.href) {
@@ -62,6 +70,13 @@ const Dashboard = () => {
           );
         })}
       </div>
+
+      {showSupportCards ? (
+        <div className="grid w-full max-w-3xl gap-3">
+          <Contribute />
+          <Promote />
+        </div>
+      ) : null}
     </div>
   );
 };

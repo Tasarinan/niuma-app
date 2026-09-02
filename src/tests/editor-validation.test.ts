@@ -86,7 +86,7 @@ describe('Input limit enforcement logic', () => {
   });
 
   it('should not truncate strings within limits', () => {
-    const validName = 'Kevin Morgan';
+    const validName = 'Ada Nguyen';
     const validDescription = 'A software engineer working on Niuma';
 
     expect(validName.length).toBeLessThanOrEqual(INPUT_LIMITS.MAX_NAME_LENGTH);

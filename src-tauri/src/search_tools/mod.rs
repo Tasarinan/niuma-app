@@ -192,7 +192,7 @@ pub async fn web_search(req: WebSearchRequest) -> Result<WebSearchResponse, Stri
         .query(&[("q", query.as_str())])
         .header(
             "User-Agent",
-            "Mozilla/5.0 (compatible; niuma-app/1.0; +https://niuma.com)",
+            "Mozilla/5.0 (compatible; niuma-app/1.0; +https://niuma-app.com)",
         )
         .send()
         .await

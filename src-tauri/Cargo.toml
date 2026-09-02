@@ -2,11 +2,11 @@
 name = "niuma"
 version = "1.0.0"
 description = "Your invisible AI wingman for meetings and conversations. An open-source, privacy-first AI assistant that provides real-time support during meetings, interviews, and conversations - completely undetectable."
-authors = ["Kevin Morgan-Rothschild <kmorganr@gmail.com>"]
+authors = ["jben <jben@sohu.com>"]
 license = "GPL-3.0"
 repository = "https://github.com/Tasarinan/niuma-app"
-homepage = "https://niuma.com"
-documentation = "https://github.com/Tasarinan/niuma-app/wiki"
+homepage = "https://niuma-app.com"
+documentation = "https://github.com/Tasarinan/niuma-app#readme"
 readme = "../README.md"
 keywords = ["ai-assistant", "niuma", "meeting-wingman", "privacy-first", "meeting-assistant"]
 categories = ["gui", "multimedia", "accessibility", "science", "development-tools"]

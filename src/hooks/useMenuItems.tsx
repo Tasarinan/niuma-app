@@ -18,11 +18,9 @@ import {
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { useApp } from "@/store";
 import { GithubIcon } from "@/components";
 
 export const useMenuItems = () => {
-  const { hasActiveLicense } = useApp();
   const { t } = useTranslation("navigation");
 
   const menu: {
@@ -94,22 +92,19 @@ export const useMenuItems = () => {
   ];
 
   const footerItems = [
-    ...(hasActiveLicense
-      ? [
-          {
-            icon: MailIcon,
-            label: t("footer.contactSupport"),
-            action: async () => {
-              try {
-                await navigator.clipboard.writeText("support@niuma.com");
-                alert("Email copied to clipboard: support@niuma.com");
-              } catch (err) {
-                alert("Support email: support@niuma.com");
-              }
-            },
-          },
-        ]
-      : []),
+    {
+      id: "contact-support",
+      icon: MailIcon,
+      label: t("footer.contactSupport"),
+      action: async () => {
+        try {
+          await navigator.clipboard.writeText("niuma8@888.com");
+          alert("Email copied to clipboard: niuma8@888.com");
+        } catch (err) {
+          alert("Support email: niuma8@888.com");
+        }
+      },
+    },
     {
       icon: BugIcon,
       label: t("footer.reportBug"),
@@ -132,7 +127,7 @@ export const useMenuItems = () => {
     {
       title: t("footer.website"),
       icon: GlobeIcon,
-      link: "https://niuma.com",
+      link: "https://niuma-app.com",
     },
     {
       title: t("footer.github"),

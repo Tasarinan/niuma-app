@@ -274,7 +274,7 @@ export const Updater = () => {
             <p className="text-xs text-muted-foreground">
               Having trouble downloading?{" "}
               <a
-                href={"https://niuma.com/downloads?ref=niuma-app"}
+                href={"https://github.com/Tasarinan/niuma-app/releases/latest"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-700 underline inline-flex items-center gap-1"
