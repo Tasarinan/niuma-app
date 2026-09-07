@@ -10,10 +10,10 @@ mod mcp;
 mod sandbox;
 mod search_tools;
 mod shortcuts;
+mod speaker;
 mod unified;
 mod window;
 mod zero_token;
-mod speaker;
 
 use capture::CaptureState;
 use speaker::VadConfig;
@@ -106,11 +106,9 @@ fn resolve_existing_dir(candidates: Vec<std::path::PathBuf>) -> String {
 #[tauri::command]
 fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
     // If env points directly at .niuma, return its parent.
-    if let Some(configured) = runtime_or_build_env(&[
-        "NIUMA_CONTENT_DIR",
-        "NIUMA_HOME",
-        "NIUMA_ROOT_DIR",
-    ]) {
+    if let Some(configured) =
+        runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
+    {
         let configured_path = std::path::PathBuf::from(configured);
         let file_name = configured_path
             .file_name()
@@ -150,13 +148,21 @@ fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
 
     if let Ok(cwd) = std::env::current_dir() {
         if cwd.join(".niuma").exists() {
-            return cwd.canonicalize().unwrap_or(cwd).to_string_lossy().to_string();
+            return cwd
+                .canonicalize()
+                .unwrap_or(cwd)
+                .to_string_lossy()
+                .to_string();
         }
     }
 
     if let Ok(res) = app.path().resource_dir() {
         if res.join(".niuma").exists() {
-            return res.canonicalize().unwrap_or(res).to_string_lossy().to_string();
+            return res
+                .canonicalize()
+                .unwrap_or(res)
+                .to_string_lossy()
+                .to_string();
         }
     }
 
@@ -170,7 +176,9 @@ fn get_niuma_commands_dir(app: tauri::AppHandle) -> String {
     if root.is_empty() {
         return String::new();
     }
-    let candidate = std::path::PathBuf::from(root).join(".niuma").join("commands");
+    let candidate = std::path::PathBuf::from(root)
+        .join(".niuma")
+        .join("commands");
     if candidate.exists() {
         return candidate
             .canonicalize()
@@ -184,11 +192,9 @@ fn get_niuma_commands_dir(app: tauri::AppHandle) -> String {
 /// Return the absolute path to `.niuma/agents`.
 #[tauri::command]
 fn get_niuma_agents_dir(app: tauri::AppHandle) -> String {
-    if let Some(configured) = runtime_or_build_env(&[
-        "NIUMA_CONTENT_DIR",
-        "NIUMA_HOME",
-        "NIUMA_ROOT_DIR",
-    ]) {
+    if let Some(configured) =
+        runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
+    {
         let configured_path = std::path::PathBuf::from(configured);
         let candidates = vec![
             configured_path.join(".niuma").join("agents"),
@@ -238,11 +244,9 @@ fn get_niuma_agents_dir(app: tauri::AppHandle) -> String {
 /// Return the absolute path to `.niuma/skills`.
 #[tauri::command]
 fn get_niuma_skills_dir(app: tauri::AppHandle) -> String {
-    if let Some(configured) = runtime_or_build_env(&[
-        "NIUMA_CONTENT_DIR",
-        "NIUMA_HOME",
-        "NIUMA_ROOT_DIR",
-    ]) {
+    if let Some(configured) =
+        runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
+    {
         let configured_path = std::path::PathBuf::from(configured);
         let candidates = vec![
             configured_path.join(".niuma").join("skills"),
@@ -369,7 +373,6 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
 fn get_articles_dirs(app: tauri::AppHandle) -> Vec<String> {
     get_artifact_dirs(app)
 }
-
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

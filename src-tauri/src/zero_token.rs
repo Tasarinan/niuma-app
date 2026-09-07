@@ -76,11 +76,7 @@ pub async fn zt_ensure_window(
         return Ok(());
     }
 
-    let url = WebviewUrl::External(
-        cfg.url
-            .parse()
-            .map_err(|e| format!("Bad URL: {}", e))?,
-    );
+    let url = WebviewUrl::External(cfg.url.parse().map_err(|e| format!("Bad URL: {}", e))?);
 
     WebviewWindowBuilder::new(&app, label.clone(), url)
         .title(cfg.title)
@@ -105,8 +101,8 @@ pub async fn zt_open_auth_window(
     let label = window_label(&platform);
 
     if app.get_webview_window(&label).is_none() {
-        let cfg = platform_config(&platform)
-            .ok_or_else(|| format!("Unknown platform: {}", platform))?;
+        let cfg =
+            platform_config(&platform).ok_or_else(|| format!("Unknown platform: {}", platform))?;
         let nav_url = url.as_deref().unwrap_or(cfg.url);
         let webview_url =
             WebviewUrl::External(nav_url.parse().map_err(|e| format!("Bad URL: {}", e))?);
@@ -186,9 +182,9 @@ pub async fn zt_report_result(
         result: serde_json::Value,
     }
 
-    let result: serde_json::Value = serde_json::from_str(&result_json).unwrap_or_else(|_| {
-        serde_json::json!({ "ok": false, "error": "Browser window returned invalid JSON" })
-    });
+    let result: serde_json::Value = serde_json::from_str(&result_json).unwrap_or_else(
+        |_| serde_json::json!({ "ok": false, "error": "Browser window returned invalid JSON" }),
+    );
 
     app.emit("zero-token-result", Payload { request_id, result })
         .map_err(|e| format!("Failed to broadcast zero-token-result: {}", e))?;

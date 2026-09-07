@@ -11,6 +11,8 @@ export default tseslint.config(
       'dist-ssr/**',
       'node_modules/**',
       'src-tauri/**',
+      '.niuma/**',
+      'scripts/**',
       '*.config.js',
       '*.config.ts',
       '*.cjs',

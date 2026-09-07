@@ -73,12 +73,7 @@ pub async fn http_request(args: HttpRequestArgs) -> Result<HttpResponse, String>
         "DELETE" => client.delete(&args.url),
         "PATCH" => client.patch(&args.url),
         "HEAD" => client.head(&args.url),
-        other => client.request(
-            other
-                .parse()
-                .unwrap_or(reqwest::Method::GET),
-            &args.url,
-        ),
+        other => client.request(other.parse().unwrap_or(reqwest::Method::GET), &args.url),
     };
 
     for (key, value) in &args.headers {

@@ -1,0 +1,39 @@
+# Adapted from huasheng_editor (MIT) by 花生 (alchaincyf)
+# https://github.com/alchaincyf/huasheng_editor
+name: "Hische·编辑部"
+description: "花生公众号排版器 · Hische·编辑部"
+source: huasheng_editor
+
+variables:
+  primary-color: "#c9302c"
+  text-color: "#2c2c2c"
+  link-color: "#c9302c"
+  font-size: "17px"
+  font-family: "\"Crimson Text\", Garamond, serif"
+  line-height: "1.75"
+
+styles:
+  container: "max-width: 700px; margin: 0 auto; padding: 20px 20px 50px 20px; font-family: \"Crimson Text\", Garamond, serif; font-size: 17px; line-height: 1.75 !important; color: #2c2c2c !important; background-color: #fffef9 !important; word-wrap: break-word;"
+  h1: "font-size: 32px; font-weight: 400; color: #c9302c !important; line-height: 1.2 !important; margin: 36px 0 18px; letter-spacing: -0.02em; font-family: \"Bodoni MT\", \"Didot\", serif; text-align: center;"
+  h2: "font-size: 26px; font-weight: 400; color: #2c2c2c !important; line-height: 1.25 !important; margin: 32px 0 16px; letter-spacing: -0.015em; font-family: \"Bodoni MT\", \"Didot\", serif; border-top: 1px solid #c9302c; border-bottom: 1px solid #c9302c; padding: 10px 0; text-align: center;"
+  h3: "font-size: 21px; font-weight: 400; color: #2c2c2c !important; line-height: 1.3 !important; margin: 28px 0 14px; font-family: \"Bodoni MT\", \"Didot\", serif;"
+  h4: "font-size: 17px; font-weight: 600; color: #2c2c2c !important; line-height: 1.35 !important; margin: 24px 0 12px; text-transform: uppercase; letter-spacing: 0.05em;"
+  h5: "font-size: 16px; font-weight: 400; color: #2c2c2c !important; line-height: 1.4 !important; margin: 20px 0 10px; font-style: italic;"
+  h6: "font-size: 15px; font-weight: 400; color: #666 !important; line-height: 1.45 !important; margin: 18px 0 9px;"
+  p: "margin: 20px 0 !important; line-height: 1.8 !important; color: #2c2c2c !important; text-align: justify;"
+  strong: "font-weight: 700; color: #c9302c !important; letter-spacing: 0.02em;"
+  em: "font-style: italic; color: #2c2c2c !important;"
+  a: "color: #c9302c !important; text-decoration: none; border-bottom: 1px solid #c9302c;"
+  ul: "margin: 20px 0; padding-left: 25px; list-style: disc;"
+  ol: "margin: 20px 0; padding-left: 25px;"
+  li: "margin: 10px 0; line-height: 1.75 !important; color: #2c2c2c !important;"
+  blockquote: "margin: 20px 0; padding: 0 24px; background-color: transparent !important; border-left: none; color: #2c2c2c !important; font-size: 17px; line-height: 1.55 !important; font-style: italic; text-align: center; font-family: \"Bodoni MT\", \"Didot\", serif;"
+  code: "font-family: \"Courier Prime\", monospace; font-size: 15px; padding: 2px 6px; background-color: #f9f9f9 !important; color: #c9302c !important; border: 1px solid #e0e0e0;"
+  pre: "margin: 24px 0; padding: 20px; background-color: #f9f9f9 !important; border-left: 4px solid #c9302c; overflow-x: auto; line-height: 1.6 !important;"
+  hr: "margin: 36px auto; border: none; height: 1px; background-color: #c9302c !important; max-width: 100px;"
+  img: "max-width: 100%; max-height: 500px !important; height: auto; display: block; margin: 24px auto; border: 1px solid #e0e0e0;"
+  table: "width: 100%; margin: 24px 0; border-collapse: collapse; font-size: 16px;"
+  th: "background-color: #f9f9f9 !important; padding: 10px 12px; text-align: left; border-top: 2px solid #c9302c; border-bottom: 2px solid #c9302c; font-weight: 700; color: #2c2c2c !important; text-transform: uppercase; letter-spacing: 0.05em; font-size: 14px;"
+  td: "padding: 10px 12px; border-bottom: 1px solid #e0e0e0; color: #2c2c2c !important;"
+  tr: "border-bottom: 1px solid #e0e0e0;"
+  strong-color: "#c9302c"

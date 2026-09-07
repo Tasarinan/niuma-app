@@ -1,0 +1,39 @@
+# Adapted from huasheng_editor (MIT) by 花生 (alchaincyf)
+# https://github.com/alchaincyf/huasheng_editor
+name: "安藤·清水"
+description: "花生公众号排版器 · 安藤·清水"
+source: huasheng_editor
+
+variables:
+  primary-color: "#1a1a1a"
+  text-color: "#4a4a4a"
+  link-color: "#4a4a4a"
+  font-size: "16px"
+  font-family: "\"Helvetica Neue\", Arial, sans-serif"
+  line-height: "1.85"
+
+styles:
+  container: "max-width: 600px; margin: 0 auto; padding: 20px 24px 50px 24px; font-family: \"Helvetica Neue\", Arial, sans-serif; font-size: 16px; line-height: 1.85 !important; color: #4a4a4a !important; background-color: #fff !important; word-wrap: break-word;"
+  h1: "font-size: 24px; font-weight: 300; color: #1a1a1a !important; line-height: 1.35 !important; margin: 36px 0 20px; padding-bottom: 16px; border-bottom: 1px solid #d0d0d0; letter-spacing: 0.15em; text-transform: uppercase;"
+  h2: "font-size: 18px; font-weight: 400; color: #2a2a2a !important; line-height: 1.45 !important; margin: 32px 0 16px; padding: 12px 0; border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; letter-spacing: 0.1em; background-color: #fafafa !important;"
+  h3: "font-size: 16px; font-weight: 400; color: #3a3a3a !important; line-height: 1.5 !important; margin: 28px 0 14px; letter-spacing: 0.08em;"
+  h4: "font-size: 15px; font-weight: 500; color: #4a4a4a !important; line-height: 1.55 !important; margin: 24px 0 12px; letter-spacing: 0.05em;"
+  h5: "font-size: 14px; font-weight: 500; color: #5a5a5a !important; line-height: 1.55 !important; margin: 20px 0 10px;"
+  h6: "font-size: 13px; font-weight: 500; color: #6a6a6a !important; line-height: 1.55 !important; margin: 18px 0 9px;"
+  p: "margin: 20px 0 !important; line-height: 1.85 !important; color: #4a4a4a !important; text-align: justify;"
+  strong: "font-weight: 600; color: #1a1a1a !important; letter-spacing: 0.05em;"
+  em: "font-style: normal; color: #6a6a6a !important; letter-spacing: 0.05em; font-weight: 300;"
+  a: "color: #4a4a4a !important; text-decoration: none; border-bottom: 1px solid #b0b0b0; padding-bottom: 1px;"
+  ul: "margin: 20px 0; padding-left: 28px; list-style-type: circle;"
+  ol: "margin: 20px 0; padding-left: 28px; list-style-type: decimal;"
+  li: "margin: 10px 0; line-height: 1.85 !important; color: #4a4a4a !important; padding-left: 20px; position: relative;"
+  blockquote: "margin: 20px 0; padding: 14px 20px; background-color: #ffffff !important; border: 1px solid #d0d0d0; color: #3a3a3a !important; font-size: 15px; line-height: 1.7 !important; letter-spacing: 0.03em; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);"
+  code: "font-family: \"Courier New\", Courier, monospace; font-size: 14px; padding: 2px 6px; background-color: #f0f0f0 !important; color: #4a4a4a !important; border: 1px solid #d0d0d0;"
+  pre: "margin: 24px 0; padding: 20px; background-color: #2a2a2a !important; color: #f0f0f0 !important; border: none; overflow-x: auto; line-height: 1.6 !important; box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);"
+  hr: "margin: 36px auto; border: none; width: 60px; height: 1px; background-color: #c0c0c0 !important;"
+  img: "max-width: 100%; max-height: 450px !important; height: auto; display: block; margin: 24px auto; filter: grayscale(20%); opacity: 0.95;"
+  table: "width: 100%; margin: 24px 0; border-collapse: collapse; font-size: 14px; border: 1px solid #d0d0d0;"
+  th: "background-color: #f8f8f8 !important; padding: 12px; text-align: left; border: 1px solid #d0d0d0; font-weight: 400; color: #2a2a2a !important; letter-spacing: 0.08em; text-transform: uppercase;"
+  td: "padding: 12px; border: 1px solid #e0e0e0; color: #4a4a4a !important; background-color: #fff !important;"
+  tr: "border: 1px solid #e0e0e0;"
+  strong-color: "#1a1a1a"

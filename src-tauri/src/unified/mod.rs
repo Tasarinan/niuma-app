@@ -238,9 +238,7 @@ pub fn unified_api_stop(state: State<'_, UnifiedManager>) -> Result<UnifiedStatu
 }
 
 #[tauri::command]
-pub fn unified_api_get_status(
-    state: State<'_, UnifiedManager>,
-) -> Result<UnifiedStatus, String> {
+pub fn unified_api_get_status(state: State<'_, UnifiedManager>) -> Result<UnifiedStatus, String> {
     let inner = lock(&state)?;
     Ok(inner.status())
 }
@@ -290,9 +288,7 @@ pub fn unified_api_clear_logs(state: State<'_, UnifiedManager>) -> Result<(), St
 }
 
 #[tauri::command]
-pub fn unified_api_get_stats(
-    state: State<'_, UnifiedManager>,
-) -> Result<UnifiedStats, String> {
+pub fn unified_api_get_stats(state: State<'_, UnifiedManager>) -> Result<UnifiedStats, String> {
     let inner = lock(&state)?;
     let total = inner.logs.len() as u64;
     let mut success = 0u64;
@@ -314,13 +310,15 @@ pub fn unified_api_get_stats(
         completion_tokens += rec.completion_tokens.unwrap_or(0);
         total_tokens += rec.total_tokens.unwrap_or(0);
 
-        let entry = by_model.entry(rec.exposed_model.clone()).or_insert(ModelStat {
-            model: rec.exposed_model.clone(),
-            count: 0,
-            errors: 0,
-            total_tokens: 0,
-            avg_duration_ms: 0,
-        });
+        let entry = by_model
+            .entry(rec.exposed_model.clone())
+            .or_insert(ModelStat {
+                model: rec.exposed_model.clone(),
+                count: 0,
+                errors: 0,
+                total_tokens: 0,
+                avg_duration_ms: 0,
+            });
         entry.count += 1;
         if rec.error.is_some() || rec.status >= 400 {
             entry.errors += 1;

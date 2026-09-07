@@ -631,9 +631,9 @@ fn handle_move_window<R: Runtime>(app: &AppHandle<R>, direction: &str) {
         };
         let step = 12;
         let (new_x, new_y) = match direction {
-            "up"    => (current_pos.x, current_pos.y - step),
-            "down"  => (current_pos.x, current_pos.y + step),
-            "left"  => (current_pos.x - step, current_pos.y),
+            "up" => (current_pos.x, current_pos.y - step),
+            "down" => (current_pos.x, current_pos.y + step),
+            "left" => (current_pos.x - step, current_pos.y),
             "right" => (current_pos.x + step, current_pos.y),
             _ => return,
         };

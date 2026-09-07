@@ -213,11 +213,10 @@ pub async fn web_search(req: WebSearchRequest) -> Result<WebSearchResponse, Stri
 }
 
 fn parse_duckduckgo_html(html: &str, limit: usize) -> Vec<WebSearchResultItem> {
-    let link_re =
-        Regex::new(r#"(?s)<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>"#)
-            .expect("valid regex");
-    let snippet_re = Regex::new(r#"(?s)<a[^>]*class="result__snippet"[^>]*>(.*?)</a>"#)
+    let link_re = Regex::new(r#"(?s)<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>"#)
         .expect("valid regex");
+    let snippet_re =
+        Regex::new(r#"(?s)<a[^>]*class="result__snippet"[^>]*>(.*?)</a>"#).expect("valid regex");
 
     let links: Vec<(String, String)> = link_re
         .captures_iter(html)
@@ -234,7 +233,11 @@ fn parse_duckduckgo_html(html: &str, limit: usize) -> Vec<WebSearchResultItem> {
         .into_iter()
         .zip(snippets)
         .take(limit)
-        .map(|((url, title), snippet)| WebSearchResultItem { title, url, snippet })
+        .map(|((url, title), snippet)| WebSearchResultItem {
+            title,
+            url,
+            snippet,
+        })
         .collect()
 }
 

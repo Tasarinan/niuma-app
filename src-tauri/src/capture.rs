@@ -14,7 +14,9 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use xcap::Monitor;
 
 fn resolve_artifact_root_dir(app: &tauri::AppHandle) -> PathBuf {
-    if let Some(configured) = option_env!("NIUMA_ARTIFACT_DIR").or(option_env!("NIUMA_ARTICLES_DIR")) {
+    if let Some(configured) =
+        option_env!("NIUMA_ARTIFACT_DIR").or(option_env!("NIUMA_ARTICLES_DIR"))
+    {
         return PathBuf::from(configured);
     }
 
@@ -90,7 +92,13 @@ pub fn save_transcript_file(
     // Sanitise the filename – keep only safe chars.
     let safe_name: String = filename
         .chars()
-        .map(|c| if c.is_alphanumeric() || matches!(c, '-' | '_' | '.') { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let file_name = if safe_name.is_empty() {
         let ts = SystemTime::now()

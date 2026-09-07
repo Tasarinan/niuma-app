@@ -304,12 +304,7 @@ fn build_windows_command(req: &SandboxRunRequest) -> Result<Command, String> {
             // treat the first non-flag argument as the script to run.
             let mut cmd = Command::new("powershell.exe");
             cmd.args(["-NonInteractive", "-NoProfile"]);
-            if let Some(script) = req
-                .args
-                .iter()
-                .skip_while(|a| a.starts_with('-'))
-                .next()
-            {
+            if let Some(script) = req.args.iter().find(|a| !a.starts_with('-')) {
                 cmd.args(["-Command", script.as_str()]);
             } else {
                 cmd.args(&req.args);

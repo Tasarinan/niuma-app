@@ -1,0 +1,55 @@
+# 乾坤AI容我懒 · 文案模板目录
+# 以后编辑器按本文件列出可插入模板；用户复制一份改 id / file 即可定制。
+# 占位符：{{title}} {{one_liner}} {{minutes}} {{tool}} {{quote}} {{next}} {{body}}
+
+schemaVersion: v1
+account: 乾坤AI容我懒
+byline: 乾坤AI容我懒
+tagline: 把工具讲清楚，让你懒得其所。
+
+templates:
+  - id: lushu
+    name: 乾坤AI路书
+    series: lushu
+    slot: kit
+    file: lushu.md
+    description: 工具介绍全文骨架（开场、路标、开箱、工具卡、金句、收束）
+  - id: fde
+    name: FDE日记
+    series: fde
+    slot: kit
+    file: fde.md
+    description: 医问安工程笔记骨架（开场、现场、决定卡、金句、收束）
+  - id: foreign
+    name: AI外网
+    series: foreign
+    slot: kit
+    file: foreign.md
+    description: 外网快讯骨架（开场、条数、来源卡、判断、收束）
+  - id: manifesto
+    name: 容我懒宣言
+    series: shared
+    slot: manifesto
+    file: manifesto.md
+    description: 账号级深底宣言，三栏都可用
+  - id: follow
+    name: 关注引导
+    series: shared
+    slot: follow
+    file: follow.md
+    description: 合规关注引导，不诱导转发
+  - id: divider-lushu
+    name: 分割·开箱
+    series: lushu
+    slot: divider
+    file: divider-lushu.md
+  - id: divider-fde
+    name: 分割·现场
+    series: fde
+    slot: divider
+    file: divider-fde.md
+  - id: divider-foreign
+    name: 分割·讯
+    series: foreign
+    slot: divider
+    file: divider-foreign.md

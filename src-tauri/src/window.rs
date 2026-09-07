@@ -189,8 +189,11 @@ pub fn create_agent_chat_window<R: Runtime>(
     app: &AppHandle<R>,
     visible: bool,
 ) -> Result<WebviewWindow<R>, tauri::Error> {
-    let base_builder =
-        WebviewWindowBuilder::new(app, "agent-chat", tauri::WebviewUrl::App("/agent-chat".into()));
+    let base_builder = WebviewWindowBuilder::new(
+        app,
+        "agent-chat",
+        tauri::WebviewUrl::App("/agent-chat".into()),
+    );
 
     #[cfg(target_os = "macos")]
     let base_builder = base_builder
@@ -229,10 +232,7 @@ pub fn create_agent_chat_window<R: Runtime>(
 /// Tauri command: enable or disable screen-capture protection on the agent-chat window at runtime.
 /// When `protected` is true the window contents are excluded from screenshots and screen recording.
 #[tauri::command]
-pub fn set_content_protected<R: Runtime>(
-    app: AppHandle<R>,
-    protected: bool,
-) -> Result<(), String> {
+pub fn set_content_protected<R: Runtime>(app: AppHandle<R>, protected: bool) -> Result<(), String> {
     // Apply to agent-chat window if open; fall back gracefully if it hasn't been created yet.
     if let Some(window) = app.get_webview_window("agent-chat") {
         window

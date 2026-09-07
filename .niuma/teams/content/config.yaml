@@ -1,0 +1,98 @@
+# 内容创作团队唯一配置。
+# 替代 TEAM.md 与旧的 .aws-article/config.yaml。
+# 不含模型密钥：写稿/配图走应用「设置 → API 提供商」。
+# 本篇元数据、审稿、配图仍写在 .artifacts/drafts/<YYYYMMDD-主题>/ 同目录。
+
+schemaVersion: v1
+id: content
+name: 内容创作
+description: 编辑部。主理人开流程；圆桌多方贡献；确认选题后建目录并定位文稿，用户点「编辑」共创。
+eyebrow: 公众号 · 小红书 · 博客
+avatar: "✍️"
+accent: amber
+kind: chat
+commandDir: teams/content/commands
+defaultCommand: wechat
+defaultAgent: producer
+dataDomain: contentbook
+surface: default
+
+agentFiles:
+  - producer.md
+  - wechat-director.md
+  - wechat-researcher.md
+  - gzh-expert.md
+  - brand-advisor.md
+  - marketing.md
+  - video-director.md
+  - wechat-writer.md
+  - wechat-formatter.md
+  - wechat-reviewer.md
+  - wechat-publisher.md
+
+# 技能/命令一人一摊（与 src/lib/content/role-ownership.ts 一致）。
+# 主理人 /wechat /xhs /blog → wechat-article-main, xhs-main, blog-main
+# 小蜜蜂 → wechat-article-topics
+# 写手 → wechat-article-writing
+# 配图师 → wechat-article-images
+# 小主编 → wechat-article-review
+# 小助理 /publish /ready /layout → formatting, publish, assets
+# 圆桌顾问无技能无命令：灵感大师、公众号高手、品牌顾问、营销策划、视频编导
+skillSlugs:
+  - wechat-article-main
+  - xhs-main
+  - blog-main
+  - wechat-article-topics
+  - wechat-article-writing
+  - wechat-article-review
+  - wechat-article-formatting
+  - wechat-article-images
+  - wechat-article-publish
+  - wechat-article-assets
+
+# ── 账号与文风（原 .aws-article/config.yaml 顶层，不含 writing_model / image_model）──
+article_category: AI / 技术 / 中医诊所 / 教育
+target_reader: 大众读者（也能看懂的 AI 应用与场景科普）
+tone: 轻松、口语化
+update_frequency: 按篇
+default_author: 乾坤AI容我懒
+topic_direction: 三栏——乾坤AI路书（工具怎么用、何时不用）、FDE日记（医问安做成这样的取舍）、AI外网（外网刚发生的事和读者有什么关系）。不空谈赋能闭环。
+title_style: 按篇选一（干货 / 数字 / 悬念 / 情感 / 对比 / 故事 / 反问）
+title_max_length: 25
+summary_length: "80-128"
+forbidden_title_phrases: []
+writing_style: 口语化
+paragraph_preference: 长短交替
+heading_density: 按需加小标题，不堆砌
+target_word_count: "1800-2500"
+closing_block: ""
+forbidden_words: []
+original_attribution: 原创
+image_source: generated
+cover_aspect: "2.35:1"
+cover_style: 按篇选一
+image_density: 按需配图，不凑数
+caption_style: 有图注
+review_required:
+  - 敏感词
+  - 错别字
+  - AI腔
+  - 标题摘要
+custom_sensitive_words: []
+review_output_format: 分块详细
+
+# 审稿、配图、article.yaml 落盘规则
+drafts_root: .artifacts/drafts
+review_filename: review.md
+forbid_legacy_roots:
+  - .aws-article
+  - .niuma-article
+
+starterPrompts:
+  - "/wechat 今天想做一篇什么公众号"
+  - "/wechat 开一篇乾坤AI路书（讲一个工具）"
+  - "/wechat 开一篇 FDE日记（医问安这一周）"
+  - "/wechat 开一篇 AI外网（外网这 48 小时）"
+  - "/wechat 继续未推送的稿"
+  - "/xhs 开一条小红书（尚未接通）"
+

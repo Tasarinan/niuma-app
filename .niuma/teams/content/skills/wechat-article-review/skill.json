@@ -1,0 +1,14 @@
+{
+  "name": "wechat-article-review",
+  "version": "0.4.0",
+  "author": "niuma.skills",
+  "description": "审核公众号文章，检查敏感词、错别字、合规性和写作规范，输出修改清单。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["wechat", "公众号", "review", "compliance"],
+  "permissions": ["filesystem"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  }
+}

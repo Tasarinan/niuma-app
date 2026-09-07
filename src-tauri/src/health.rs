@@ -91,8 +91,7 @@ pub async fn health_save_attachment(
                 .join(&now.1)
         }
     };
-    fs::create_dir_all(&target_dir)
-        .map_err(|e| format!("create_dir_all error: {e}"))?;
+    fs::create_dir_all(&target_dir).map_err(|e| format!("create_dir_all error: {e}"))?;
 
     // Generate unique filename
     let id = Uuid::new_v4().to_string();
@@ -153,5 +152,5 @@ fn chrono_lite_yyyymm() -> (String, String) {
 }
 
 fn is_leap(year: u32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
