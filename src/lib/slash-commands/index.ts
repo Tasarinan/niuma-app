@@ -244,8 +244,14 @@ function rawToDefinition(name: string, path: string, raw: string): SlashCommandD
     argumentHint: meta["argument-hint"] ?? undefined,
     arguments: parseCommandArguments(raw),
     content: raw,
-    agent: meta.agent?.trim() || undefined,
+    agent: parseSlashCommandAgent(raw),
   };
+}
+
+/** Agent name from command frontmatter (`agent: 小助理`). */
+export function parseSlashCommandAgent(raw: string): string | undefined {
+  const agent = parseFrontmatter(raw).agent?.trim();
+  return agent || undefined;
 }
 
 function normalizeCommandName(name: string): string {

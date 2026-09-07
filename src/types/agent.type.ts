@@ -27,7 +27,11 @@ export type AgentInternalToolId =
   | "grep"
   | "file_search"
   | "web_search"
-  | "ima_search";
+  | "ima_search"
+  | "open_article"
+  | "generate_image"
+  | "search_images"
+  | "save_web_image";
 
 /** Every internal tool id, in display order. */
 export const AGENT_INTERNAL_TOOL_IDS: AgentInternalToolId[] = [
@@ -41,6 +45,10 @@ export const AGENT_INTERNAL_TOOL_IDS: AgentInternalToolId[] = [
   "file_search",
   "web_search",
   "ima_search",
+  "open_article",
+  "generate_image",
+  "search_images",
+  "save_web_image",
 ];
 
 /** Wire format used to talk to a model provider. */

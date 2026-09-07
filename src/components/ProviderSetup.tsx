@@ -19,7 +19,7 @@ import {
 } from "@/components/ui";
 import { useProvider } from "@/hooks/useProvider";
 import type { ProviderDef } from "@/lib/providers/registry";
-import { getProxyUrl, setProxyUrl } from "@/lib/providers/storage";
+import { getProxyUrl, setProxyUrl, saveProviderConfig } from "@/lib/providers/storage";
 import { invoke } from "@tauri-apps/api/core";
 
 function ProviderTypeBadge({ type }: { type: ProviderDef["type"] }) {
@@ -46,7 +46,6 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
     providers,
     active,
     selectProvider,
-    saveCredential,
     getCredential,
     resolveError,
   } = useProvider();
@@ -60,6 +59,18 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
   );
   const [model, setModel] = useState(active?.model ?? "");
   const [modelInput, setModelInput] = useState(active?.model ?? "");
+  const [imageModel, setImageModel] = useState(() => {
+    if (!active) return "";
+    const stored = getCredential(active.providerId);
+    if (stored?.imageModel) return stored.imageModel;
+    return providers.find((p) => p.id === active.providerId)?.suggestedImageModels?.[0] ?? "";
+  });
+  const [videoModel, setVideoModel] = useState(() => {
+    if (!active) return "";
+    const stored = getCredential(active.providerId);
+    if (stored?.videoModel) return stored.videoModel;
+    return providers.find((p) => p.id === active.providerId)?.suggestedVideoModels?.[0] ?? "";
+  });
   const [saved, setSaved] = useState(false);
   const [proxyUrl, setProxyUrlState] = useState(() => getProxyUrl());
   const { t } = useTranslation("pages");
@@ -76,12 +87,18 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
     const m = stored?.model || def?.suggestedModels[0] || "";
     setModel(m);
     setModelInput(m);
+    setImageModel(stored?.imageModel || def?.suggestedImageModels?.[0] || "");
+    setVideoModel(stored?.videoModel || def?.suggestedVideoModels?.[0] || "");
   };
 
   const handleSave = () => {
     if (!selectedId) return;
-    saveCredential(selectedId, {
+    saveProviderConfig({
+      providerId: selectedId,
       apiKey,
+      model: modelInput.trim() || model,
+      imageModel: imageModel || undefined,
+      videoModel: videoModel || undefined,
       baseUrlOverride: baseUrlOverride || undefined,
     });
     selectProvider(selectedId, modelInput.trim() || model);
@@ -168,9 +185,9 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
             />
           </div>
 
-          {/* Model selector */}
+          {/* Text model */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Model</Label>
+            <Label className="text-xs">{t("aiConfigs.textModel")}</Label>
             {selectedDef.suggestedModels.length > 0 ? (
               <div className="space-y-1.5">
                 <Select
@@ -210,6 +227,56 @@ export function ProviderSetup({ onClose }: ProviderSetupProps) {
                 placeholder={t("providerSetup.modelPlaceholder")}
                 value={modelInput}
                 onChange={(e) => setModelInput(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">{t("aiConfigs.imageModel")}</Label>
+            {(selectedDef.suggestedImageModels?.length ?? 0) > 0 ? (
+              <Select value={imageModel} onValueChange={setImageModel}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder={t("providerSetup.selectModel")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedDef.suggestedImageModels?.map((m) => (
+                    <SelectItem key={m} value={m} className="text-xs font-mono">
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                className="h-8 text-xs font-mono"
+                placeholder="image-model-id"
+                value={imageModel}
+                onChange={(e) => setImageModel(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">{t("aiConfigs.videoModel")}</Label>
+            {(selectedDef.suggestedVideoModels?.length ?? 0) > 0 ? (
+              <Select value={videoModel} onValueChange={setVideoModel}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder={t("providerSetup.selectModel")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedDef.suggestedVideoModels?.map((m) => (
+                    <SelectItem key={m} value={m} className="text-xs font-mono">
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                className="h-8 text-xs font-mono"
+                placeholder="video-model-id"
+                value={videoModel}
+                onChange={(e) => setVideoModel(e.target.value)}
               />
             )}
           </div>

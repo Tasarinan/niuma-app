@@ -482,6 +482,32 @@ pub fn write_text_file(path: String, content: String) -> Result<(), String> {
     fs::write(p, content.as_bytes()).map_err(|e| format!("write_text_file error: {e}"))
 }
 
+/// Write base64-encoded bytes to an absolute path, creating parent directories.
+#[tauri::command]
+pub fn write_binary_file(path: String, base64: String) -> Result<(), String> {
+    use base64::{engine::general_purpose, Engine as _};
+    let payload = base64
+        .split_once(',')
+        .map(|(_, v)| v)
+        .unwrap_or(base64.as_str());
+    let bytes = general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|e| format!("write_binary_file decode error: {e}"))?;
+    let p = std::path::Path::new(&path);
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("write_binary_file mkdir error: {e}"))?;
+    }
+    fs::write(p, bytes).map_err(|e| format!("write_binary_file error: {e}"))
+}
+
+/// Read a file as standard base64 (no data-URL prefix).
+#[tauri::command]
+pub fn read_binary_file(path: String) -> Result<String, String> {
+    use base64::{engine::general_purpose, Engine as _};
+    let bytes = fs::read(&path).map_err(|e| format!("read_binary_file error: {e}"))?;
+    Ok(general_purpose::STANDARD.encode(bytes))
+}
+
 /// List files and directories at an absolute path.
 #[tauri::command]
 pub fn list_directory(path: String) -> Result<Vec<SimpleDirEntry>, String> {

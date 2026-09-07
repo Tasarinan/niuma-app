@@ -182,3 +182,156 @@
     color: rgb(148 163 184);
   }
 }
+
+.nm-structure-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.nm-structure-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(148 163 184);
+}
+
+.nm-structure-select,
+.nm-structure-input,
+.nm-structure-title {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.nm-structure-select {
+  width: auto;
+  font-size: 11px;
+  color: rgb(100 116 139);
+}
+
+.nm-structure-selected {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.nm-callout,
+.wechat-theme-preview .nm-callout {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border-left: 4px solid;
+}
+
+.nm-callout-mark {
+  flex: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.15rem;
+}
+
+.nm-callout-title,
+.nm-structure-title {
+  font-weight: 650;
+  margin-bottom: 0.2rem;
+}
+
+.nm-callout-info { background: #eef4ff; border-left-color: #2c6bed; color: #1f3a6e; }
+.nm-callout-success { background: #edf7f2; border-left-color: #1d9e75; color: #14543f; }
+.nm-callout-warning { background: #fff7e6; border-left-color: #e8a33d; color: #7a4e10; }
+.nm-callout-danger { background: #fdeded; border-left-color: #d64545; color: #8e1b1b; }
+.nm-callout-tip { background: #f4f0ff; border-left-color: #7c5cff; color: #3d2e8c; }
+.nm-callout-info .nm-callout-mark { background: #2c6bed; }
+.nm-callout-success .nm-callout-mark { background: #1d9e75; }
+.nm-callout-warning .nm-callout-mark { background: #e8a33d; }
+.nm-callout-danger .nm-callout-mark { background: #d64545; }
+.nm-callout-tip .nm-callout-mark { background: #7c5cff; }
+
+.nm-hero,
+.wechat-theme-preview .nm-hero {
+  margin: 1.5rem 0;
+  padding: 1.4rem 1.1rem;
+  border-radius: 1rem;
+  text-align: center;
+  background: #eef4ff;
+}
+
+.nm-hero-title { font-size: 1.45rem; font-weight: 700; margin: 0; }
+.nm-hero-sub { margin: 0.4rem 0 0; color: rgb(100 116 139); font-size: 0.95rem; }
+
+.nm-quote-card,
+.wechat-theme-preview .nm-quote-card {
+  margin: 1.25rem 0;
+  padding: 0.9rem 1rem 0.9rem 1.1rem;
+  border-left: 4px solid #2c6bed;
+  background: #f8fafc;
+  border-radius: 0 0.85rem 0.85rem 0;
+}
+
+.nm-quote-text { margin: 0; font-size: 1.05rem; line-height: 1.7; }
+.nm-quote-cite { margin: 0.45rem 0 0; font-size: 0.8rem; color: rgb(100 116 139); }
+
+.nm-steps,
+.wechat-theme-preview .nm-steps { margin: 1.25rem 0; }
+
+.nm-step-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.65rem; }
+
+.nm-step { display: flex; gap: 0.7rem; align-items: flex-start; }
+
+.nm-step-index {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #2c6bed;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nm-step-fields { flex: 1; min-width: 0; }
+.nm-step-title { font-weight: 650; margin: 0; }
+.nm-step-body { margin: 0.15rem 0 0; color: rgb(100 116 139); font-size: 0.9rem; }
+
+.nm-card,
+.wechat-theme-preview .nm-card {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  border: 1px solid #eee;
+}
+
+.nm-card-accent { background: #eef4ff; border-color: #2c6bed; }
+.nm-card-outline { background: transparent; border: 1px solid #2c6bed; }
+.nm-card-shadow { box-shadow: 0 4px 12px rgba(0,0,0,.1); border: none; }
+.nm-card-title { font-weight: 700; margin: 0 0 0.4rem; }
+.nm-card-footer { margin: 0.6rem 0 0; font-size: 0.8rem; color: rgb(100 116 139); }
+
+.nm-structure-add,
+.nm-structure-remove {
+  border: none;
+  background: transparent;
+  color: rgb(148 163 184);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.nm-structure-add { margin-top: 0.45rem; }
+.nm-structure-remove { font-size: 16px; line-height: 1; padding: 0 0.2rem; }

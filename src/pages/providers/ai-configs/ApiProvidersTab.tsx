@@ -10,6 +10,11 @@ import {
   type ProviderDef,
 } from "@/lib/providers/registry";
 import {
+  ensureSelectedModel,
+  partitionModels,
+  uniqueModelIds,
+} from "@/lib/providers/model-kind";
+import {
   getProviderConfig,
   saveProviderConfig,
   getActiveApiProvider,
@@ -75,8 +80,57 @@ function envKeyForProvider(providerId: string): string | undefined {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function defaultModel(def: ProviderDef): string {
+function defaultTextModel(def: ProviderDef): string {
   return def.suggestedModels[0] ?? "";
+}
+
+function defaultImageModel(def: ProviderDef): string {
+  return def.suggestedImageModels?.[0] ?? "";
+}
+
+function defaultVideoModel(def: ProviderDef): string {
+  return def.suggestedVideoModels?.[0] ?? "";
+}
+
+function ModelKindSelect({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const list = ensureSelectedModel(options, value);
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      {list.length > 0 ? (
+        <select
+          className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {!value && <option value="">{placeholder}</option>}
+          {list.map((id) => (
+            <option key={id} value={id}>{id}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type="text"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -89,7 +143,11 @@ export const ApiProvidersTab = () => {
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
-  const [modelList, setModelList] = useState<string[]>([]);
+  const [imageModel, setImageModel] = useState("");
+  const [videoModel, setVideoModel] = useState("");
+  const [textModelList, setTextModelList] = useState<string[]>([]);
+  const [imageModelList, setImageModelList] = useState<string[]>([]);
+  const [videoModelList, setVideoModelList] = useState<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -119,8 +177,12 @@ export const ApiProvidersTab = () => {
     setApiKey(key);
     setEnvFromFile(fromEnv);
     setBaseUrl(stored?.baseUrlOverride ?? "");
-    setModel(stored?.model || defaultModel(def));
-    setModelList(def.suggestedModels);
+    setModel(stored?.model || defaultTextModel(def));
+    setImageModel(stored?.imageModel || defaultImageModel(def));
+    setVideoModel(stored?.videoModel || defaultVideoModel(def));
+    setTextModelList(def.suggestedModels);
+    setImageModelList(def.suggestedImageModels ?? []);
+    setVideoModelList(def.suggestedVideoModels ?? []);
     setResult(null);
   }, []);
 
@@ -146,16 +208,32 @@ export const ApiProvidersTab = () => {
   const handleRefreshModels = async () => {
     if (!currentDef) return;
     setIsFetchingModels(true);
-    const fetched = await fetchModels(selectedId, apiKey, baseUrl || undefined);
-    if (fetched.length > 0) {
-      setModelList(fetched);
-      if (!fetched.includes(model)) setModel(fetched[0]);
+    try {
+      const fetched = await fetchModels(selectedId, apiKey, baseUrl || undefined);
+      const parts = partitionModels(fetched);
+      const nextText = uniqueModelIds(currentDef.suggestedModels, parts.text);
+      const nextImage = uniqueModelIds(currentDef.suggestedImageModels, parts.image);
+      const nextVideo = uniqueModelIds(currentDef.suggestedVideoModels, parts.video);
+      setTextModelList(nextText);
+      setImageModelList(nextImage);
+      setVideoModelList(nextVideo);
+      if (nextText.length > 0 && !nextText.includes(model)) setModel(nextText[0]);
+      if (nextImage.length > 0 && imageModel && !nextImage.includes(imageModel)) setImageModel(nextImage[0]);
+      if (nextVideo.length > 0 && videoModel && !nextVideo.includes(videoModel)) setVideoModel(nextVideo[0]);
+    } finally {
+      setIsFetchingModels(false);
     }
-    setIsFetchingModels(false);
   };
 
   const handleSave = () => {
-    saveProviderConfig({ providerId: selectedId, apiKey, model, baseUrlOverride: baseUrl || undefined });
+    saveProviderConfig({
+      providerId: selectedId,
+      apiKey,
+      model,
+      imageModel: imageModel || undefined,
+      videoModel: videoModel || undefined,
+      baseUrlOverride: baseUrl || undefined,
+    });
     setActiveApiProvider({ providerId: selectedId, model });
     setActiveProvider({ providerId: selectedId, model }); // keep legacy key in sync for useGroupChat
     setProxyUrl(proxyUrl);
@@ -344,10 +422,10 @@ export const ApiProvidersTab = () => {
             />
           </div>
 
-          {/* Model */}
-          <div className="space-y-1.5">
+          {/* Models: text / image / video */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">{t("aiConfigs.model")}</label>
+              <p className="text-xs font-medium text-muted-foreground">{t("aiConfigs.modelsTitle")}</p>
               <button
                 type="button"
                 onClick={() => void handleRefreshModels()}
@@ -358,23 +436,28 @@ export const ApiProvidersTab = () => {
                 {t("aiConfigs.refreshModels")}
               </button>
             </div>
-            {modelList.length > 0 ? (
-              <select
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                {modelList.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            ) : (
-              <input
-                type="text"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder={defaultModel(currentDef) || "model-id"}
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              />
-            )}
+            <p className="text-[10px] text-muted-foreground/70">{t("aiConfigs.modelsHint")}</p>
+            <ModelKindSelect
+              label={t("aiConfigs.textModel")}
+              value={model}
+              options={textModelList}
+              placeholder={defaultTextModel(currentDef) || "chat-model-id"}
+              onChange={setModel}
+            />
+            <ModelKindSelect
+              label={t("aiConfigs.imageModel")}
+              value={imageModel}
+              options={imageModelList}
+              placeholder={defaultImageModel(currentDef) || "image-model-id"}
+              onChange={setImageModel}
+            />
+            <ModelKindSelect
+              label={t("aiConfigs.videoModel")}
+              value={videoModel}
+              options={videoModelList}
+              placeholder={defaultVideoModel(currentDef) || "video-model-id"}
+              onChange={setVideoModel}
+            />
           </div>
 
           {/* Actions */}

@@ -33,4 +33,14 @@ export interface GroupMessage {
   images?: { mimeType: string; data: string }[];
   /** ISO timestamp. */
   timestamp: string;
+  /** Live tool/skill progress for the current turn. Not persisted. */
+  toolProgress?: GroupToolProgress[];
+}
+
+export interface GroupToolProgress {
+  toolCallId: string;
+  toolName: string;
+  label: string;
+  done: boolean;
+  isError?: boolean;
 }

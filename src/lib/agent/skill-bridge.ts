@@ -5,12 +5,14 @@
  * Without this bridge the two skill systems are disconnected: toggling a skill
  * on the Skills page only affects its own catalog view, not what an agent can
  * actually load/run in chat. Call `bridgeEnabledNiumaSkills()` right before
- * sending a message and merge the returned ids into the responding agent's
- * `enabledSkillIds` for that turn.
+ * sending a message so `load_skill` can resolve SKILL.md. Do **not** merge the
+ * returned ids onto every agent — each role keeps its own `enabledSkillIds`
+ * so 主理人 can ROUTE to 写手 / 配图师 / 小主编 / 小助理.
  */
 import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
 import { loadDisabledSkillSlugs } from "@/lib/storage";
 import { useSkillStore } from "@/store";
+import { canonicalNiumaSkillSlug, expandNiumaSkillSlug } from "./skill-slugs";
 
 /**
  * Finds-or-creates a `Skill` record for every .niuma skill that's currently
@@ -46,20 +48,28 @@ export async function bridgeEnabledNiumaSkills(): Promise<string[]> {
 
 async function findOrCreateBridgedSkill(cs: NiumaSkill): Promise<string> {
   const store = useSkillStore.getState();
+  const canonicalSlug = canonicalNiumaSkillSlug(cs.slug);
+  const canonicalName = canonicalNiumaSkillSlug(cs.name || cs.slug);
+  const aliases = new Set(expandNiumaSkillSlug(canonicalSlug));
   const existing = store.items.find(
-    (s) => s.sourceType === "niuma" && s.source === cs.slug
+    (s) =>
+      s.sourceType === "niuma" &&
+      s.source &&
+      (aliases.has(s.source) || aliases.has(canonicalNiumaSkillSlug(s.name || ""))),
   );
 
   if (existing) {
     if (
       existing.content !== cs.raw ||
       existing.description !== cs.description ||
-      existing.name !== cs.name
+      existing.name !== canonicalName ||
+      existing.source !== canonicalSlug
     ) {
       const updated = await store.edit(existing.id, {
-        name: cs.name,
+        name: canonicalName,
         description: cs.description,
         content: cs.raw,
+        source: canonicalSlug,
       });
       return (updated ?? existing).id;
     }
@@ -67,13 +77,13 @@ async function findOrCreateBridgedSkill(cs: NiumaSkill): Promise<string> {
   }
 
   const created = await store.add({
-    name: cs.name,
+    name: canonicalName,
     description: cs.description,
     enabled: true,
     tags: cs.category ? [cs.category] : [],
     content: cs.raw,
     sourceType: "niuma",
-    source: cs.slug,
+    source: canonicalSlug,
   });
   return created.id;
 }

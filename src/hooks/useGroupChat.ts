@@ -18,6 +18,15 @@ import {
   appendMessage,
   clearMessages,
 } from "@/lib/storage/group-chat.storage";
+import { missingCommandAgentMessage, selectAgentsForCommand, shouldSmartDispatch } from "@/lib/agent/command-target";
+import { mergeRuntimeInternalTools } from "@/lib/agent/runtime-internal-tools";
+import { describeAgentToolProgress } from "@/lib/agent/tool-progress";
+import {
+  formatContentDispatchInstruction,
+  isContentProducer,
+  resolveContentRouteTarget,
+} from "@/lib/content/role-ownership";
+import { stripHiddenDraftContext } from "@/lib/artifact/draft-workspace";
 
 // ─── Helper: build LLM history for one agent ─────────────────────────────────
 
@@ -27,7 +36,7 @@ function buildHistory(
 ): Message[] {
   return msgs.map((m): Message => {
     if (m.role === "user") {
-      return { role: "user", content: m.content };
+      return { role: "user", content: stripHiddenDraftContext(m.content) };
     }
     // Other agents' messages → user turn prefixed with their name
     if (m.agentId !== agentId) {
@@ -145,40 +154,66 @@ export function useGroupChat() {
       const signal = abortRef.current.signal;
 
       // Determine which agents to respond (all members, or @mentioned)
+      const mentionSource = (displayContent ?? content);
       const mentionRegex = /@(\S+)/g;
       const mentions: string[] = [];
       let m: RegExpExecArray | null;
-      while ((m = mentionRegex.exec(content)) !== null) mentions.push(m[1].toLowerCase());
+      while ((m = mentionRegex.exec(mentionSource)) !== null) mentions.push(m[1].toLowerCase());
 
       const allChannelAgents = channel.agentIds
         .map((id) => agents.find((a) => a.id === id))
         .filter(Boolean) as AgentDefinition[];
 
-      const noExplicitTarget = (!targetAgentNames || targetAgentNames.length === 0) && mentions.length === 0;
-      // Smart dispatch: no explicit target + multiple agents → first agent coordinates
-      const useSmartDispatch = noExplicitTarget && allChannelAgents.length > 1;
+      const isContentTeam = channel.teamId === "content";
+      const channelAgents = isContentTeam
+        ? (() => {
+            const producer = allChannelAgents.find((a) => isContentProducer(a.name));
+            return producer
+              ? [producer, ...allChannelAgents.filter((a) => a.id !== producer.id)]
+              : allChannelAgents;
+          })()
+        : allChannelAgents;
+      const MAX_CONTENT_AGENT_RUNS = 4;
+
+      const useSmartDispatch = shouldSmartDispatch({
+        channelAgents: channelAgents,
+        targetAgentNames,
+        mentionCount: mentions.length,
+      });
 
       const initialAgents: AgentDefinition[] = useSmartDispatch
-        ? [allChannelAgents[0]]
-        : allChannelAgents.filter((agent) => {
+        ? [channelAgents[0]]
+        : channelAgents.filter((agent) => {
             if (targetAgentNames && targetAgentNames.length > 0) {
-              return targetAgentNames.some((n) =>
-                agent.name.trim().toLowerCase() === n.trim().toLowerCase() ||
-                agent.name.trim().toLowerCase().includes(n.trim().toLowerCase())
-              );
+              return selectAgentsForCommand([agent], targetAgentNames).length > 0;
             }
             if (mentions.length === 0) return true;
             return mentions.some((mn) => agent.name.toLowerCase().includes(mn));
           });
 
-      // Bridge the Skills page's enabled .niuma skills (file-based) into the
-      // DB-backed Skill store so `resolveAgent`'s load_skill/run_skill tools
-      // actually pick them up for this turn — without persisting the change
-      // to any agent's stored `enabledSkillIds`.
-      const bridgedSkillIds =
-        initialAgents.length > 0
-          ? await bridgeEnabledNiumaSkills().catch(() => [])
-          : [];
+      if (targetAgentNames && targetAgentNames.length > 0 && initialAgents.length === 0) {
+        const miss: GroupMessage = {
+          id: crypto.randomUUID(),
+          channelId: targetId,
+          role: "agent",
+          agentName: targetAgentNames[0],
+          content: missingCommandAgentMessage(targetAgentNames),
+          timestamp: new Date().toISOString(),
+        };
+        const withMiss = [...msgsAfterUser, miss];
+        appendMessage(miss);
+        setMessages(withMiss);
+        saveMessages(targetId, withMiss);
+        setIsSending(false);
+        return;
+      }
+
+      // Register file-based .niuma skills in the Skill store so load_skill
+      // can resolve them. Keep each agent's own enabledSkillIds — dumping the
+      // whole catalog onto every member would let 写手跑配图、配图师写稿.
+      if (initialAgents.length > 0) {
+        await bridgeEnabledNiumaSkills().catch(() => []);
+      }
 
       // Call agents sequentially; smart-dispatch may add routed agent after dispatcher runs
       const agentsToRun: AgentDefinition[] = [...initialAgents];
@@ -231,7 +266,7 @@ export function useGroupChat() {
         }
 
         // Group context appended to agent's own system prompt
-        const otherMembers = allChannelAgents
+        const otherMembers = channelAgents
           .filter((a) => a.id !== agent.id)
           .map((a) => `${a.name} (${a.role ?? "AI"})`)
           .join(", ");
@@ -239,16 +274,19 @@ export function useGroupChat() {
           ? `\n\nYou are in a group chat channel named "${channel.name}". Other participants: ${otherMembers}. Respond as ${agent.name} (${agent.role ?? "AI assistant"}). Be concise and in-character.`
           : `\n\nYou are in a channel named "${channel.name}". Respond as ${agent.name}.`;
 
-        // Smart-dispatch instruction: coordinator picks the best team member to answer
-        const dispatchInstruction = isDispatcherTurn
-          ? (() => {
-              const roster = allChannelAgents
-                .filter((a) => a.id !== agent.id)
-                .map((a) => `- ${a.name}：${a.role || 'AI助手'}`)
-                .join('\n');
-              return `\n\n[团队协调] 团队其他成员：\n${roster}\n\n请先用1-2句话表达对问题的初步理解，然后另起一行写：\nROUTE: @成员名称\n从上面列表中选择最适合深入回答此问题的成员。如果你自己最合适，写你自己的名字（${agent.name}）。`;
-            })()
-          : "";
+        // Smart-dispatch: content team — only 主理人 routes out; others escalate to 主理人
+        const dispatchInstruction =
+          useSmartDispatch && isContentTeam
+            ? formatContentDispatchInstruction(agent.name)
+            : isDispatcherTurn
+              ? (() => {
+                  const roster = channelAgents
+                    .filter((a) => a.id !== agent.id)
+                    .map((a) => `- ${a.name}：${a.role || "AI助手"}`)
+                    .join("\n");
+                  return `\n\n[团队协调] 职责表：\n${roster}\n\n请先用1-2句话接住问题，然后另起一行写：\nROUTE: @成员名称\n只 ROUTE 给职责表里拥有该技能或命令的角色。不要 load_skill 别人的技能，不要 bash 跑别人的脚本。你自己最合适时写 ROUTE: @${agent.name}。`;
+                })()
+              : "";
 
         const transcript = history
           .map((h) => (h.role === "assistant" ? `${agent.name}: ${h.content}` : h.content))
@@ -263,15 +301,14 @@ export function useGroupChat() {
           // has no explicit maxTokens set in its definition.
           maxTokens: agent.maxTokens ?? getResponseSettings().maxTokens,
           systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock + dispatchInstruction,
-          enabledSkillIds: Array.from(
-            new Set([...(agent.enabledSkillIds ?? []), ...bridgedSkillIds])
-          ),
-          // Auto-enable bash when the agent has skills — skills like ima-skill use
-          // `node ima_api.cjs` via bash. Without bash the AI falls back to a direct
-          // WebView fetch which is blocked by CORS ("Connection error.").
-          enabledInternalTools: bridgedSkillIds.length > 0
-            ? Array.from(new Set([...(agent.enabledInternalTools ?? []), "bash" as const]))
-            : (agent.enabledInternalTools ?? []),
+          enabledSkillIds: agent.enabledSkillIds ?? [],
+          // 配图师 gets generate_image / search_images so hired agents pick up the system
+          // Provider image API without waiting for a catalog resync.
+          enabledInternalTools: mergeRuntimeInternalTools(agent.enabledInternalTools ?? [], {
+            bridgedSkillCount: (agent.enabledSkillIds ?? []).length,
+            agentName: agent.name,
+            agentRole: agent.role,
+          }),
         };
 
         let fullContent = "";
@@ -296,6 +333,51 @@ export function useGroupChat() {
               },
               onAssistantEnd: (text) => {
                 fullContent = text;
+              },
+              onToolStart: (info) => {
+                if (signal.aborted) return;
+                const label = describeAgentToolProgress(info.toolName, info.args);
+                if (!label) return;
+                const step = {
+                  toolCallId: info.toolCallId,
+                  toolName: info.toolName,
+                  label,
+                  done: false,
+                };
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== placeholderId) return msg;
+                    const steps = msg.toolProgress ?? [];
+                    const last = steps[steps.length - 1];
+                    if (last?.label === label) {
+                      return {
+                        ...msg,
+                        toolProgress: [
+                          ...steps.slice(0, -1),
+                          { ...last, toolCallId: info.toolCallId, done: false, isError: false },
+                        ],
+                      };
+                    }
+                    return { ...msg, toolProgress: [...steps, step] };
+                  })
+                );
+              },
+              onToolEnd: (info) => {
+                if (signal.aborted) return;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === placeholderId
+                      ? {
+                          ...msg,
+                          toolProgress: (msg.toolProgress ?? []).map((step) =>
+                            step.toolCallId === info.toolCallId
+                              ? { ...step, done: true, isError: info.isError }
+                              : step
+                          ),
+                        }
+                      : msg
+                  )
+                );
               },
               onError: (message) => {
                 runtimeError = message;
@@ -328,7 +410,11 @@ export function useGroupChat() {
           );
         }
 
-        // Persist final message
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === placeholderId ? { ...msg, content: fullContent } : msg
+          )
+        );
         const finalMsg: GroupMessage = { ...placeholder, content: fullContent };
         appendMessage(finalMsg);
         currentMsgs = currentMsgs.map((msg) =>
@@ -340,18 +426,29 @@ export function useGroupChat() {
           return next;
         });
 
-        // Smart dispatch: parse ROUTE from dispatcher's response and queue routed agent
-        if (isDispatcherTurn && !signal.aborted) {
+        // Smart dispatch: parse first ROUTE line and queue one follow-up agent
+        if (useSmartDispatch && !signal.aborted && agentsToRun.length < MAX_CONTENT_AGENT_RUNS) {
           const routeMatch = fullContent.match(/ROUTE:\s*@([^\s\n]+)/i);
           if (routeMatch) {
-            const routedName = routeMatch[1].toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, '');
-            const routedAgent = allChannelAgents
-              .filter((a) => a.id !== agent.id)
-              .find((a) => {
-                const n = a.name.toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, '');
-                return n.includes(routedName) || routedName.includes(n);
-              });
-            if (routedAgent) agentsToRun.push(routedAgent);
+            let routedAgent: AgentDefinition | undefined;
+            if (isContentTeam) {
+              routedAgent = resolveContentRouteTarget(agent.name, routeMatch[1], channelAgents);
+            } else if (isDispatcherTurn) {
+              const routedName = routeMatch[1].toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, "");
+              routedAgent = channelAgents
+                .filter((a) => a.id !== agent.id)
+                .find((a) => {
+                  const n = a.name.toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, "");
+                  return n.includes(routedName) || routedName.includes(n);
+                });
+            }
+            if (
+              routedAgent &&
+              routedAgent.id !== agent.id &&
+              !agentsToRun.some((queued) => queued.id === routedAgent.id)
+            ) {
+              agentsToRun.push(routedAgent);
+            }
           }
         }
       }

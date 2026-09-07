@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { documentDir, join } from "@tauri-apps/api/path";
+import { normalizeFsPath } from "./workspace-path";
 
 const ROOT_DIR = "niuma";
 const ARTIFACT_DIR = "artifact";
@@ -10,6 +11,14 @@ export async function getArtifactRootDir(): Promise<string> {
 }
 
 export async function getArtifactDir(): Promise<string> {
+  const dirs = await getArtifactDirs();
+  const drafts = dirs.find((dir) => {
+    const normalized = dir.replace(/\\/g, "/").replace(/\/$/, "");
+    return normalized.endsWith("/.artifacts/drafts") || normalized.endsWith(".artifacts/drafts");
+  });
+  if (drafts) return drafts;
+  if (dirs[0]) return dirs[0];
+
   const root = await getArtifactRootDir();
   return join(root, ARTIFACT_DIR);
 }
@@ -47,9 +56,9 @@ export function getParentPath(path: string): string {
 }
 
 export function toRelativePath(rootPath: string, fullPath: string): string {
-  const root = rootPath.replace(/\\/g, "/").replace(/\/$/, "");
-  const full = fullPath.replace(/\\/g, "/");
-  if (!full.startsWith(root)) return full;
+  const root = normalizeFsPath(rootPath).replace(/\/$/, "");
+  const full = normalizeFsPath(fullPath);
+  if (!full.toLowerCase().startsWith(root.toLowerCase())) return full;
   return full.slice(root.length).replace(/^\//, "");
 }
 

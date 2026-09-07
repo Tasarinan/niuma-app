@@ -156,7 +156,7 @@ When adding a page, update:
 
 ## Built-In Teams
 
-Teams are defined under `.niuma/teams/<team>/TEAM.md` with frontmatter plus agents, commands, and skills. Runtime defaults are mirrored in `src/lib/agent/workbench-defaults.ts`.
+Teams are defined under `.niuma/teams/<team>/config.yaml` with roster fields plus agents, commands, and skills. Runtime defaults are mirrored in `src/lib/agent/workbench-defaults.ts`.
 
 | Team | Kind | Default Agent | Default Command | Purpose |
 | --- | --- | --- | --- | --- |
@@ -167,7 +167,7 @@ Teams are defined under `.niuma/teams/<team>/TEAM.md` with frontmatter plus agen
 
 Team folders normally contain:
 
-- `TEAM.md` for metadata and docs
+- `config.yaml` for roster and team metadata
 - `agents/*.md` for agent definitions
 - `commands/*.md` for slash commands
 - `skills/*/SKILL.md` for team-specific skills
@@ -272,7 +272,7 @@ Existing tests include `src/tests/editor-validation.test.ts` and `src/lib/slash-
 
 ### Add A New Team
 
-1. Create `.niuma/teams/<id>/TEAM.md`.
+1. Create `.niuma/teams/<id>/config.yaml`.
 2. Add agent files under `.niuma/teams/<id>/agents/`.
 3. Add commands under `.niuma/teams/<id>/commands/` if needed.
 4. Add team skills under `.niuma/teams/<id>/skills/` or reference existing skill slugs.
@@ -314,5 +314,5 @@ Existing tests include `src/tests/editor-validation.test.ts` and `src/lib/slash-
 - STT failures: check selected provider, API key, language, and audio permissions.
 - Audio capture issues: check OS permissions and selected input/output devices.
 - Shortcut issues: check `src-tauri/src/shortcuts.rs` and the saved shortcut config.
-- Team missing in workbench: check `.niuma/teams/<id>/TEAM.md`, `WORKBENCH_TEAM_PRESETS`, and bundle resources in `tauri.conf.json`.
+- Team missing in workbench: check `.niuma/teams/<id>/config.yaml`, `WORKBENCH_TEAM_PRESETS`, and bundle resources in `tauri.conf.json`.
 - Build issues: run `npm run type-check` first, then `npm run build`; Tauri builds also need a working Rust toolchain.

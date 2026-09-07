@@ -12,11 +12,11 @@
  * messages using the existing provider/model config.
  *
  * Layout:
- *   Left   (280px)  – Conversation list with 3D cartoon icon avatars
- *   Center (flex-1) – Message stream
- *   Right  (220px, optional) – Members panel
+ *   Left   (180px)  – Channel list
+ *   Center – Window toolbar (对话/编辑 stays here). 对话 = messages; 编辑 = manuscript.
+ *   Right  – Members (对话) or 稿件信息 + 配图 (编辑)
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -40,6 +40,7 @@ import { Markdown } from "@/components";
 import { useAgents, useGroupChat } from "@/hooks";
 import type { AgentInput } from "@/hooks";
 import { MeetingChannelView, type MeetingParticipant } from "./components/meeting";
+import { AgentTurnProgress } from "./components/AgentTurnProgress";
 import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
 import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
 import { loadHiredAgentFiles, loadDisabledSkillSlugs } from "@/lib/storage";
@@ -65,6 +66,15 @@ import {
   resolveSlashInvocation,
   type SlashCommandDefinition,
 } from "@/lib/slash-commands";
+import { formatDigestFeedContext, loadCentralFeeds } from "@/lib/digest/central-feeds";
+import { formatReadyWechatContext, loadWechatReadyPack } from "@/lib/wechat/accounts";
+import { formatImaTopicContext, loadImaTopicPack } from "@/lib/ima/openapi";
+import { isAssistantPublishRequest, isPublishWorkflowCommand, isWechatWorkflowCommand } from "@/lib/content/workflow-command";
+import { formatUnpublishedDraftsContext, loadUnpublishedDrafts } from "@/lib/artifact/unpublished-drafts";
+import { injectOpenDraftContext } from "@/lib/artifact/draft-workspace";
+import { formatContentTeamConfigContext, loadContentTeamConfigRaw } from "@/lib/artifact/content-team-config";
+import { readLastOpenDraftPath } from "@/lib/artifact/article-storage";
+import { runImaApi } from "@/lib/functions/ima.api";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, SandboxMode } from "@/types";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { MAX_FILES } from "@/config";
@@ -720,13 +730,17 @@ function fileToBase64(file: File): Promise<string> {
 
 export default function ChatPage({
   activeView = "chat",
+  openFilePath,
   onViewChange,
   onExternalActivate,
   onOpenEditor,
   onToggleMaximize,
   onClose,
+  children,
 }: {
   activeView?: WorkbenchView;
+  /** Disk path of the manuscript open in the editor; injected into agent input, not the bubble. */
+  openFilePath?: string;
   onViewChange?: (view: WorkbenchView) => void;
   /** Called when an external source (e.g. the main toolbar) routes a message
    *  into this page, so the parent can bring the "chat" section into view. */
@@ -735,6 +749,8 @@ export default function ChatPage({
   onOpenEditor?: () => void;
   onToggleMaximize?: () => void;
   onClose?: () => void;
+  /** Editor pane rendered in place of the conversation body when 编辑 is selected. */
+  children?: ReactNode;
 } = {}) {
   const { agents, create: createAgent, update: updateAgent, refresh: refreshAgents } = useAgents();
   const {
@@ -748,6 +764,7 @@ export default function ChatPage({
     clearChannelMessages,
     sendMessage,
     isSending,
+    streamingIds,
     stopGeneration,
   } = useGroupChat();
 
@@ -771,6 +788,7 @@ export default function ChatPage({
   const activeTeamSyncingKeyRef = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation("pages");
+  const sidecar = activeView === "editor";
 
   const activeChannel = channels.find((c) => c.id === selectedId) ?? null;
   const activeMessages: GroupMessage[] = messages;
@@ -1096,41 +1114,6 @@ export default function ChatPage({
     });
   };
 
-  const runImaApi = async (apiPath: string, body: Record<string, unknown>) => {
-    const skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
-    const separator = skillsDir.includes("/") ? "/" : "\\";
-    const skillDir = `${skillsDir}${separator}ima-skill`;
-    const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
-      req: {
-        command: "node",
-        args: ["ima_api.cjs", apiPath, JSON.stringify(body)],
-        cwd: skillDir,
-        sandboxMode: "read-only",
-        timeoutMs: 30000,
-      },
-    });
-
-    if (result.timedOut) throw new Error("Ima 请求超时");
-    if (result.exitCode !== 0) {
-      const stderr = result.stderr.trim();
-      let parsedMessage = "";
-      try {
-        const parsed = JSON.parse(stderr) as { msg?: string };
-        parsedMessage = parsed.msg ?? "";
-      } catch {
-        parsedMessage = "";
-      }
-      throw new Error(parsedMessage || stderr || result.stdout.trim() || "Ima 请求失败");
-    }
-
-    const parsed = JSON.parse(result.stdout || "{}");
-    const response = asRecord(parsed);
-    if (typeof response.code === "number" && response.code !== 0) {
-      throw new Error(String(response.msg || "Ima 返回错误"));
-    }
-    return asRecord(response.data ?? response);
-  };
-
   const formatKnowledgeResults = (items: Record<string, unknown>[]) =>
     items
       .slice(0, 3)
@@ -1339,22 +1322,89 @@ export default function ChatPage({
     setSlashMenuDismissed(true);
 
     let agentInput = resolution?.kind === "prompt" ? resolution.text : text;
-    // When a slash command expands to a prompt, show the original "/command"
-    // in the chat bubble instead of the full expanded template.
-    const displayText = resolution?.kind === "prompt" ? text : undefined;
+    // Visible bubble stays as the user's typed text. Hidden draft/wechat
+    // context is only attached to agentInput so it does not inflate history.
 
     // Allow image-only send by supplying a minimal fallback prompt.
     if (!agentInput.trim() && images && images.length > 0) {
       agentInput = "请分析我上传的图片。";
     }
 
-    // Resolve command-level agent routing (command frontmatter agent: field)
     const _slashForRouting = parseSlashInvocation(text);
+    const publishRequested = isAssistantPublishRequest(text);
     const commandAgentNames: string[] | undefined = (() => {
-      if (!_slashForRouting) return undefined;
-      const cmd = slashCommands.find((c) => c.name === _slashForRouting.command);
-      return cmd?.agent ? [cmd.agent] : undefined;
+      if (_slashForRouting) {
+        const cmd = slashCommands.find((c) => c.name === _slashForRouting.command);
+        if (cmd?.agent) return [cmd.agent];
+      }
+      if (publishRequested) return ["小助理"];
+      return undefined;
     })();
+
+    // /wechat: inject feeds + IMA + drafts for 主理人. 公众号槽位只在发布时给小助理。
+    if (_slashForRouting && isWechatWorkflowCommand(_slashForRouting.command)) {
+      setIsAugmenting(true);
+      try {
+        try {
+          const pack = await loadCentralFeeds();
+          agentInput = `${agentInput}\n\n${formatDigestFeedContext(pack)}`;
+        } catch (err) {
+          agentInput = `${agentInput}\n\n${formatDigestFeedContext({
+            status: "error",
+            x: [],
+            podcasts: [],
+            blogs: [],
+            errors: [err instanceof Error ? err.message : String(err)],
+          })}`;
+        }
+        try {
+          const pack = await loadImaTopicPack({ query: _slashForRouting.args || "选题" });
+          agentInput = `${agentInput}\n\n${formatImaTopicContext(pack)}`;
+        } catch (err) {
+          agentInput = `${agentInput}\n\n${formatImaTopicContext({
+            status: "error",
+            query: _slashForRouting.args || "选题",
+            items: [],
+            errors: [err instanceof Error ? err.message : String(err)],
+          })}`;
+        }
+        try {
+          const drafts = await loadUnpublishedDrafts();
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, _slashForRouting.args)}`;
+        } catch (err) {
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], _slashForRouting.args)}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
+        }
+        try {
+          const configRaw = await loadContentTeamConfigRaw();
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext(configRaw)}`;
+        } catch (err) {
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext("")}\n- 读取团队配置失败：${err instanceof Error ? err.message : String(err)}`;
+        }
+      } finally {
+        setIsAugmenting(false);
+      }
+    }
+
+    if (publishRequested) {
+      setIsAugmenting(true);
+      try {
+        const pack = await loadWechatReadyPack({
+          args: _slashForRouting && isPublishWorkflowCommand(_slashForRouting.command)
+            ? _slashForRouting.args
+            : "",
+        });
+        agentInput = `${agentInput}\n\n${formatReadyWechatContext(pack)}`;
+      } catch (err) {
+        agentInput = `${agentInput}\n\n${formatReadyWechatContext({
+          status: "error",
+          slots: [],
+          sources: [],
+          errors: [err instanceof Error ? err.message : String(err)],
+        })}`;
+      } finally {
+        setIsAugmenting(false);
+      }
+    }
 
     // In health channel, keep UI minimal: run local DB integration for key commands
     // and append structured context so skills/agents can continue with analysis.
@@ -1405,7 +1455,7 @@ export default function ChatPage({
             parts.push(`[Web 搜索失败: ${compactImaError(e)}]`);
           }
         }
-        if (imaEnabled) {
+        if (imaEnabled && !(_slashForRouting && isWechatWorkflowCommand(_slashForRouting.command))) {
           try {
             const imaResults = await gatherImaResults(text);
             if (imaResults.trim()) {
@@ -1425,7 +1475,10 @@ export default function ChatPage({
       }
     }
 
-    await sendMessage(agentInput, images, undefined, commandAgentNames, displayText);
+    const lastOpenPath = readLastOpenDraftPath();
+    agentInput = injectOpenDraftContext(agentInput, { openFilePath, lastOpenPath });
+
+    await sendMessage(agentInput, images, undefined, commandAgentNames, text.trim() ? text : undefined);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1611,8 +1664,8 @@ export default function ChatPage({
               <button
                 type="button"
                 onClick={() => onViewChange?.("chat")}
-                title="CHAT"
-                aria-label="CHAT"
+                title="对话"
+                aria-label="对话"
                 className={cn(
                   "flex size-7 items-center justify-center rounded-md transition-colors",
                   activeView === "chat"
@@ -1625,8 +1678,8 @@ export default function ChatPage({
               <button
                 type="button"
                 onClick={activateEditor}
-                title="EDIT"
-                aria-label="EDIT"
+                title="编辑"
+                aria-label="编辑"
                 className={cn(
                   "flex size-7 items-center justify-center rounded-md transition-colors",
                   activeView === "editor"
@@ -1658,7 +1711,7 @@ export default function ChatPage({
             >
               <Hash className="size-3.5" />
             </button>
-            {activeChannel && (
+            {!sidecar && activeChannel && (
               <>
                 <button
                   type="button"
@@ -1753,6 +1806,16 @@ export default function ChatPage({
           </div>
         </div>
 
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div className={cn("min-h-0 min-w-0 flex-1", sidecar ? "flex" : "hidden")}>
+            {children}
+          </div>
+          <div
+            className={cn(
+              "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+              sidecar && "hidden",
+            )}
+          >
         {!activeChannel ? (
           <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
             {t("chatPage.selectChannel")}
@@ -1770,7 +1833,10 @@ export default function ChatPage({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div
                   ref={scrollRef}
-                  className="flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-6 py-6"
+                  className={cn(
+                    "flex-1 space-y-6 overflow-x-hidden overflow-y-auto py-6",
+                    sidecar ? "px-3" : "px-6",
+                  )}
                 >
                   {activeMessages.length === 0 ? (
                 <div className="mx-auto flex min-h-full max-w-xl items-center text-sm text-slate-400">
@@ -1780,6 +1846,7 @@ export default function ChatPage({
                     activeMessages.map((msg) => {
                       const agent = msg.agentId ? agentMap[msg.agentId] : undefined;
                       const isUser = msg.role === "user";
+                      const streaming = streamingIds.has(msg.id);
                       return (
                         <div
                           key={msg.id}
@@ -1826,6 +1893,12 @@ export default function ChatPage({
                                   ))}
                                 </div>
                               )}
+                              {!isUser && (
+                                <AgentTurnProgress
+                                  steps={msg.toolProgress}
+                                  streaming={streaming && !msg.content}
+                                />
+                              )}
                               {msg.content && <Markdown>{msg.content}</Markdown>}
                             </div>
                             <span className="text-xs text-slate-400">
@@ -1838,7 +1911,7 @@ export default function ChatPage({
                   )}
                 </div>
 
-            <div className="flex-shrink-0 bg-transparent px-6 pb-4">
+            <div className={cn("flex-shrink-0 bg-transparent pb-4", sidecar ? "px-3" : "px-6")}>
                   {attachedImages.length > 0 && (
                 <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
                       {attachedImages.map((img) => (
@@ -2182,9 +2255,11 @@ export default function ChatPage({
             </div>
           </div>
         )}
+          </div>
+        </div>
       </main>
 
-      {showMembers && (
+      {showMembers && !sidecar && (
       <aside className="flex w-[180px] flex-shrink-0 flex-col border-l border-[#e7e9f0] bg-white">
         <div className="flex h-14 items-center justify-between px-5">
           <p className="text-[11px] font-bold text-slate-950">成员 · {activeAgents.length}</p>

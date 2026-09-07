@@ -26,8 +26,12 @@ export interface ProviderDef {
   baseUrl: string;
   /** Whether an API key is required (false for local providers like Ollama). */
   requiresKey: boolean;
-  /** Suggested model IDs shown in the selector. */
+  /** Suggested chat / vision (text) model IDs. */
   suggestedModels: string[];
+  /** Suggested image-generation model IDs. */
+  suggestedImageModels?: string[];
+  /** Suggested video-generation model IDs. */
+  suggestedVideoModels?: string[];
   /** Whether models from this provider typically accept image input. */
   supportsVision: boolean;
   /** Provider type: api = needs key, web = zero-token browser session. */
@@ -133,6 +137,8 @@ const BUILTIN_PROVIDERS: ProviderDef[] = [
     suggestedModels: [
       "agnes-2.5-flash",
     ],
+    suggestedImageModels: ["agnes-image-2.5-flash"],
+    suggestedVideoModels: ["agnes-video-v2.0"],
     supportsVision: true,
     type: "api",
   },
@@ -197,8 +203,12 @@ export function getProvider(id: string): ProviderDef | undefined {
 export interface ProviderCredential {
   /** API key. Empty string for local/zero-token providers. */
   apiKey: string;
-  /** Model identifier. */
+  /** Chat / vision model identifier. */
   model: string;
+  /** Image-generation model identifier. */
+  imageModel?: string;
+  /** Video-generation model identifier. */
+  videoModel?: string;
   /**
    * Override the provider's built-in baseUrl.
    * Useful for self-hosted deployments or proxy endpoints.

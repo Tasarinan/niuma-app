@@ -183,7 +183,10 @@ function markdownToAgent(entry: DirEntry, raw: string, context: AgentScanContext
     maxTokens: Number.isFinite(maxTokens) ? maxTokens : undefined,
     sandboxMode: frontmatter.sandboxMode?.trim() || undefined,
     enabledInternalTools: parseListField(frontmatter.enabledInternalTools),
-    enabledSkillIds: parseListField(frontmatter.enabledSkillIds),
+    enabledSkillIds:
+      "enabledSkillIds" in frontmatter
+        ? parseListField(frontmatter.enabledSkillIds)
+        : undefined,
     enabledMcpServerIds: parseListField(frontmatter.enabledMcpServerIds),
     workspacePath: frontmatter.workspacePath?.trim() || "",
     systemPrompt: content,

@@ -1,9 +1,10 @@
 import type { SimpleDirEntry } from "./fs.type";
 import { listDirectory } from "./list";
 import { invoke } from "@tauri-apps/api/core";
+import { normalizeFsPath } from "../workspace-path";
 
 export async function readText(path: string): Promise<string> {
-  return invoke<string>("read_text_file", { path });
+  return invoke<string>("read_text_file", { path: normalizeFsPath(path) });
 }
 
 export async function readDirRecursive(path: string): Promise<SimpleDirEntry[]> {

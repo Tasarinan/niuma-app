@@ -42,6 +42,7 @@ import moment from "moment";
 import { useGroupChat } from "@/hooks/useGroupChat";
 import type { GroupChannel, GroupMessage, AgentDefinition } from "@/types";
 import { cn } from "@/lib/utils";
+import { AgentTurnProgress } from "@/pages/agents-chat/components/AgentTurnProgress";
 
 // ─── Panel pixel height (excludes the toolbar strip) ─────────────────────────
 export const GROUP_CHAT_PANEL_HEIGHT = 480;
@@ -207,15 +208,10 @@ function MessageRow({
             isStreaming && !msg.content ? "text-muted-foreground" : ""
           )}
         >
-          {msg.content ? (
-            <Markdown>{msg.content}</Markdown>
-          ) : isStreaming ? (
-            <span className="inline-flex items-center gap-0.5">
-              <span className="size-1 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
-              <span className="size-1 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
-              <span className="size-1 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
-            </span>
-          ) : null}
+          {!isUser && (
+            <AgentTurnProgress steps={msg.toolProgress} streaming={isStreaming && !msg.content} />
+          )}
+          {msg.content ? <Markdown>{msg.content}</Markdown> : null}
         </div>
       </div>
     </div>

@@ -15,8 +15,36 @@ import { Type } from "@earendil-works/pi-ai";
 import type { Static, TSchema } from "@earendil-works/pi-ai";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { AgentInternalToolId, SandboxMode } from "@/types";
-import { invoke, textResult, normalizeTauriPath } from "./shared";
+import { invoke, textResult } from "./shared";
 import { getImaKbConfig } from "@/lib/storage/ima.storage";
+import { runImaOpenApi } from "@/lib/ima/openapi";
+import { requireOpenableDraftMarkdown } from "@/lib/artifact/drafts";
+import { notifyDraftFileChanged, requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-article";
+import { isOpenableDraftMarkdown } from "@/lib/artifact/drafts";
+import { writeBinary, readBinaryBase64, writeText } from "@/lib/artifact/fs";
+import {
+  convertDraftImageToPngImgs,
+  ensurePngBytes,
+  isRasterImagePath,
+  pngBytesToDataUrl,
+  toDraftImgsAbsPath,
+  toPngPath,
+} from "@/lib/artifact/png-images";
+import {
+  isPathInsideWorkspace,
+  resolveWorkspacePath,
+} from "@/lib/artifact/workspace-path";
+import { generateProviderImage } from "@/lib/providers/media";
+import {
+  draftImageStem,
+  formatDraftImagePromptMarkdown,
+  promptMarkdownAbsPath,
+} from "@/lib/artifact/draft-workspace";
+import {
+  downloadWebImageBytes,
+  formatWebImageHits,
+  searchWebImages,
+} from "@/lib/artifact/web-image";
 
 export type InternalToolId = AgentInternalToolId;
 
@@ -56,6 +84,10 @@ export const INTERNAL_TOOL_IDS: InternalToolId[] = [
   "file_search",
   "web_search",
   "ima_search",
+  "open_article",
+  "generate_image",
+  "search_images",
+  "save_web_image",
 ];
 
 export interface InternalToolDeps {
@@ -201,7 +233,7 @@ function readTool(deps: InternalToolDeps): AgentTool {
     name: "read",
     label: "Read file",
     description:
-      "Read a UTF-8 text file. Optionally start at a 1-based line offset.",
+      "Read a UTF-8 text file. For raster images (png/jpg/jfif/webp/gif), convert to PNG under the draft imgs/ folder and return that path — WeChat only accepts PNG.",
     parameters: Type.Object({
       goal: goalParam(),
       path: Type.String({
@@ -213,6 +245,24 @@ function readTool(deps: InternalToolDeps): AgentTool {
       ),
     }),
     execute: async (_id, params) => {
+      if (isRasterImagePath(params.path) && deps.workspaceRoot.trim()) {
+        const abs = resolveWorkspacePath(deps.workspaceRoot, params.path);
+        const converted = await convertDraftImageToPngImgs({
+          absPath: abs,
+          readBase64: readBinaryBase64,
+          writeBytes: writeBinary,
+          write: deps.sandboxMode !== "read-only",
+        });
+        if (converted) {
+          const note = converted.converted
+            ? `已将图片转为 PNG 并保存到 ${converted.dest}`
+            : `图片已是 PNG：${converted.dest}`;
+          return textResult(
+            `${note}\n正文引用请用 ${converted.relativeSrc}\n微信公众号只接受 PNG。不要用 read 读取像素内容。`,
+            { path: converted.dest, relativeSrc: converted.relativeSrc, converted: converted.converted },
+          );
+        }
+      }
       const res = await invoke<FsReadResponse>("fs_read", {
         req: {
           workspaceRoot: deps.workspaceRoot.trim(),
@@ -256,6 +306,9 @@ function writeTool(deps: InternalToolDeps): AgentTool {
           sandboxMode: deps.sandboxMode,
         },
       });
+      if (isOpenableDraftMarkdown(res.path)) {
+        notifyDraftFileChanged(res.path);
+      }
       return textResult(`已写入 ${res.path} (${res.bytesWritten} 字节)`, res);
     },
   });
@@ -295,6 +348,9 @@ function editTool(deps: InternalToolDeps): AgentTool {
           sandboxMode: deps.sandboxMode,
         },
       });
+      if (isOpenableDraftMarkdown(res.path)) {
+        notifyDraftFileChanged(res.path);
+      }
       return textResult(`已更新 ${res.path}（替换 ${res.replaced} 处）`, res);
     },
   });
@@ -469,13 +525,6 @@ function webSearchTool(): AgentTool {
   });
 }
 
-interface SandboxRunResponse {
-  stdout: string;
-  stderr: string;
-  exitCode: number | null;
-  timedOut: boolean;
-}
-
 function imaSearchTool(): AgentTool {
   return defineTool({
     name: "ima_search",
@@ -494,63 +543,7 @@ function imaSearchTool(): AgentTool {
         return textResult("IMA 知识库未配置（kbId 为空）。请先在文章编辑器右侧面板完成配置。");
       }
 
-      // 1. Get skills dir and build ima-skill path
-      let skillsDir: string;
-      try {
-        skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
-      } catch (e) {
-        return textResult(`无法获取技能目录: ${String(e)}`);
-      }
-      const sep = skillsDir.includes("/") ? "/" : "\\";
-      const imaSkillDir = `${skillsDir}${sep}ima-skill`;
-
-      // Helper: call ima_api.cjs via sandboxed node.
-      // Tauri's sandbox clears env vars (env_clear), so we read credentials
-      // from .env.local at the project root and pass as explicit options
-      // (ima_api.cjs priority 1) instead of relying on env var inheritance.
-      const imaOptions = await (async () => {
-        try {
-          const rootDir = normalizeTauriPath(
-            await invoke<string>("get_niuma_root_dir")
-          );
-          if (!rootDir) return "{}";
-          const s = rootDir.includes("/") ? "/" : "\\";
-          const raw = await invoke<string>("read_text_file", {
-            path: `${rootDir}${s}.env.local`,
-          }).catch(() => "");
-          if (!raw) return "{}";
-          const env: Record<string, string> = {};
-          for (const line of raw.split(/\r?\n/)) {
-            const m = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-            if (!m) continue;
-            env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
-          }
-          const clientId = env.IMA_CLIENT_ID ?? env.IMA_OPENAPI_CLIENTID ?? "";
-          const apiKey = env.IMA_API_KEY ?? env.IMA_OPENAPI_APIKEY ?? "";
-          if (clientId && apiKey) return JSON.stringify({ clientId, apiKey });
-        } catch { /* ignore */ }
-        return "{}"; // fall back to ima_api.cjs internal .env.local traversal
-      })();
-
-      const imaCall = async (apiPath: string, body: Record<string, unknown>): Promise<Record<string, unknown>> => {
-        const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
-          req: {
-            command: "node",
-            args: ["ima_api.cjs", apiPath, JSON.stringify(body), imaOptions],
-            cwd: imaSkillDir,
-            sandboxMode: "read-only",
-            timeoutMs: 20000,
-          },
-        });
-        if (result.timedOut) throw new Error("IMA 请求超时");
-        if (result.exitCode !== 0) {
-          const msg = (() => { try { return (JSON.parse(result.stderr) as { msg?: string }).msg ?? ""; } catch { return ""; } })();
-          throw new Error(msg || result.stderr.trim() || "IMA 请求失败");
-        }
-        const parsed = JSON.parse(result.stdout || "{}") as Record<string, unknown>;
-        if (typeof parsed.code === "number" && parsed.code !== 0) throw new Error(String(parsed.msg || "IMA 返回错误"));
-        return (parsed.data ?? parsed) as Record<string, unknown>;
-      };
+      const imaCall = (apiPath: string, body: Record<string, unknown>) => runImaOpenApi(apiPath, body);
 
       // 2. Search knowledge base
       let searchItems: Array<Record<string, unknown>>;
@@ -622,6 +615,192 @@ function imaSearchTool(): AgentTool {
   });
 }
 
+function resolveAuthorizedMediaPath(deps: InternalToolDeps, path: string): string {
+  const abs = resolveWorkspacePath(deps.workspaceRoot, path);
+  if (deps.sandboxMode === "danger-full-access") return abs;
+  const root = deps.workspaceRoot.trim();
+  if (!root) {
+    throw new Error("没有工作区根路径，无法保存生成的图片");
+  }
+  if (!isPathInsideWorkspace(root, abs)) {
+    throw new Error(`路径必须在工作区内: ${path}`);
+  }
+  return abs;
+}
+
+function generateImageTool(deps: InternalToolDeps): AgentTool {
+  return defineTool({
+    name: "generate_image",
+    label: "Generate image",
+    description:
+      "Generate a PNG with the in-app API provider (Settings → API 提供商 image model) " +
+      "and write it under the draft imgs/ folder. " +
+      "Do not use IMAGE_MODEL_API_KEY, image_create.py, Pollinations, or bash for this.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      prompt: Type.String({
+        description: "Image generation prompt (Chinese or English).",
+      }),
+      path: Type.String({
+        description:
+          "Output PNG path under imgs/. Use cover.png only for the article cover; screenshots and inline images use 01.png, 02.png, or {theme}-01.png (never cover for screenshots).",
+      }),
+      image: Type.Optional(
+        Type.String({
+          description: "Optional reference image path for img2img.",
+        }),
+      ),
+    }),
+    execute: async (_id, params) => {
+      if (deps.sandboxMode === "read-only") {
+        throw new Error("当前沙箱为只读，不能生图写文件");
+      }
+      const outPath = toDraftImgsAbsPath(toPngPath(resolveAuthorizedMediaPath(deps, params.path)));
+      let referenceDataUrl: string | undefined;
+      if (params.image?.trim()) {
+        const refPath = resolveAuthorizedMediaPath(deps, params.image);
+        const converted = await convertDraftImageToPngImgs({
+          absPath: refPath,
+          readBase64: readBinaryBase64,
+          writeBytes: writeBinary,
+          write: true,
+        });
+        if (converted) {
+          referenceDataUrl = pngBytesToDataUrl(converted.png);
+        } else {
+          const b64 = await readBinaryBase64(refPath);
+          const png = await ensurePngBytes(
+            Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)),
+          );
+          referenceDataUrl = pngBytesToDataUrl(png);
+        }
+      }
+      const bytes = await generateProviderImage({
+        prompt: params.prompt,
+        referenceDataUrl,
+      });
+      const png = await ensurePngBytes(bytes);
+      await writeBinary(outPath, png);
+      const imageName = outPath.replace(/^.*[\\/]/, "");
+      await writeText(
+        promptMarkdownAbsPath(outPath),
+        formatDraftImagePromptMarkdown({
+          title: draftImageStem(imageName),
+          filename: imageName,
+          prompt: String(params.prompt ?? ""),
+        }),
+      );
+      return textResult(`已生成 PNG ${outPath} (${png.byteLength} 字节)`, {
+        path: outPath,
+        bytes: png.byteLength,
+      });
+    },
+  });
+}
+
+function searchImagesTool(): AgentTool {
+  return defineTool({
+    name: "search_images",
+    label: "Search similar images",
+    description:
+      "Search Unsplash first for similar photos, then Wikimedia Commons and DuckDuckGo. " +
+      "Returns image URLs and source pages. Then call save_web_image to store a PNG under imgs/. " +
+      "Use this instead of generate_image when a real photo, product shot, UI screenshot, or existing picture fits better.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      query: Type.String({ description: "What the picture should look like (Chinese or English)." }),
+      maxResults: Type.Optional(
+        Type.Number({ description: "Cap on results (default 8, max 12)." }),
+      ),
+    }),
+    execute: async (_id, params) => {
+      const hits = await searchWebImages(String(params.query ?? ""), Number(params.maxResults ?? 8));
+      return textResult(formatWebImageHits(hits), { results: hits });
+    },
+  });
+}
+
+function saveWebImageTool(deps: InternalToolDeps): AgentTool {
+  return defineTool({
+    name: "save_web_image",
+    label: "Save web image",
+    description:
+      "Download a public image URL, convert it to PNG, and write it under the draft imgs/ folder. " +
+      "Call after search_images. Records the source URL in imgs/prompts/<name>.md.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      url: Type.String({ description: "Direct image URL from search_images (the image: line)." }),
+      path: Type.String({
+        description:
+          "Output PNG path under imgs/. Use cover.png only for the article cover; screenshots and inline images use 01.png, 02.png, or {theme}-01.png (never cover for screenshots).",
+      }),
+      prompt: Type.Optional(
+        Type.String({ description: "Why this picture was chosen / search query." }),
+      ),
+      sourceUrl: Type.Optional(
+        Type.String({ description: "Source page URL from search_images (the page: line)." }),
+      ),
+    }),
+    execute: async (_id, params) => {
+      if (deps.sandboxMode === "read-only") {
+        throw new Error("当前沙箱为只读，不能保存网上的图");
+      }
+      const outPath = toDraftImgsAbsPath(toPngPath(resolveAuthorizedMediaPath(deps, params.path)));
+      const bytes = await downloadWebImageBytes(String(params.url ?? ""));
+      const png = await ensurePngBytes(bytes);
+      await writeBinary(outPath, png);
+      const imageName = outPath.replace(/^.*[\\/]/, "");
+      await writeText(
+        promptMarkdownAbsPath(outPath),
+        formatDraftImagePromptMarkdown({
+          title: draftImageStem(imageName),
+          filename: imageName,
+          prompt: String(params.prompt ?? params.url ?? ""),
+          sourceUrl: String(params.sourceUrl ?? params.url ?? ""),
+        }),
+      );
+      return textResult(`已保存网上的 PNG ${outPath} (${png.byteLength} 字节)`, {
+        path: outPath,
+        bytes: png.byteLength,
+        source: String(params.sourceUrl ?? params.url ?? ""),
+      });
+    },
+  });
+}
+
+function openArticleTool(): AgentTool {
+  return defineTool({
+    name: "open_article",
+    label: "定位当前文稿",
+    description:
+      "Locate a confirmed draft Markdown file as the current manuscript. " +
+      "Does not switch the workbench to 编辑 — the human clicks 编辑 to see it. " +
+      "Use after the 主理人 has created topic.md. Do not call during roundtable discussion " +
+      "before the topic folder exists.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      path: Type.String({
+        description: "Absolute or workspace-relative path to article.md, topic.md, or review.md.",
+      }),
+      focus: Type.Optional(
+        Type.String({
+          description: "editor (default), images, or review — only used if the human is already in 编辑",
+        }),
+      ),
+    }),
+    execute: async (_id, params) => {
+      const filePath = requireOpenableDraftMarkdown(params.path);
+      const focusRaw = String(params.focus ?? "editor").trim().toLowerCase();
+      const focus =
+        focusRaw === "images" || focusRaw === "review" ? focusRaw : "editor";
+      requestOpenWorkbenchArticle({ filePath, focus });
+      return textResult(
+        `已定位当前文稿：${filePath}。请用户点「编辑」查看，不要自动打开编辑栏。`,
+      );
+    },
+  });
+}
+
 const BUILDERS: Record<InternalToolId, (deps: InternalToolDeps) => AgentTool> = {
   checkpoint: checkpointTool,
   bash: bashTool,
@@ -633,6 +812,10 @@ const BUILDERS: Record<InternalToolId, (deps: InternalToolDeps) => AgentTool> = 
   file_search: fileSearchTool,
   web_search: webSearchTool,
   ima_search: imaSearchTool,
+  open_article: openArticleTool,
+  generate_image: generateImageTool,
+  search_images: searchImagesTool,
+  save_web_image: saveWebImageTool,
 };
 
 /** Build the selected internal tools. */

@@ -1,6 +1,7 @@
 import {
   ChartLine,
   Code,
+  CreditCard,
   FlaskConical,
   Heading1,
   Heading2,
@@ -8,10 +9,14 @@ import {
   Heading4,
   Heading5,
   Heading6,
+  Info,
   List,
+  ListChecks,
   ListOrdered,
   ListTodo,
+  MessageSquareQuote,
   Minus,
+  PanelTop,
   Quote,
   Sigma,
   Table,
@@ -160,7 +165,52 @@ export const suggestionItems: CommandItem[] = [
     tags: ["table", "grid"],
     icon: Table,
     command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertTable({ rows: 2, cols: 1, withHeaderRow: true }).run();
+      editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    },
+  },
+  {
+    title: "Card",
+    description: "卡片",
+    tags: ["card", "卡片"],
+    icon: CreditCard,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertCard().run();
+    },
+  },
+  {
+    title: "Callout",
+    description: "提示框 / 注意 / 警告",
+    tags: ["callout", "提示", "注意", "warning", "tip"],
+    icon: Info,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertCallout().run();
+    },
+  },
+  {
+    title: "Hero",
+    description: "开篇主副标题",
+    tags: ["hero", "开篇", "封面"],
+    icon: PanelTop,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertHero().run();
+    },
+  },
+  {
+    title: "Quote card",
+    description: "引用卡",
+    tags: ["quote", "引用", "card"],
+    icon: MessageSquareQuote,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertQuoteCard().run();
+    },
+  },
+  {
+    title: "Steps",
+    description: "步骤列表",
+    tags: ["steps", "步骤", "list"],
+    icon: ListChecks,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertSteps().run();
     },
   },
 ];

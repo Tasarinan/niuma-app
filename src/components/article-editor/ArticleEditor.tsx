@@ -2,18 +2,29 @@ import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+import { TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Selection, Focus } from "@tiptap/extensions";
 import { FileHandler } from "@tiptap/extension-file-handler";
 import { Markdown } from "@tiptap/markdown";
-import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";
 import { useEffect, useMemo } from "react";
 import i18n from "@/i18n";
 import { MathExtension } from "./math";
+import { StructureBlocks } from "./structure-block";
+import { BlockStyle } from "./block-style";
+import {
+  StyledBlockquote,
+  StyledBulletList,
+  StyledCodeBlockLowlight,
+  StyledHeading,
+  StyledHorizontalRule,
+  StyledImage,
+  StyledOrderedList,
+  StyledParagraph,
+  StyledTable,
+} from "./styled-markdown";
 import { SlashCommands } from "./slash-commands";
 import { suggestionItems } from "./suggestion-items";
 
@@ -58,7 +69,22 @@ export const ArticleEditor = ({
       },
     },
     extensions: [
-      StarterKit.configure({ codeBlock: false, link: false }),
+      StarterKit.configure({
+        codeBlock: false,
+        link: false,
+        paragraph: false,
+        heading: false,
+        blockquote: false,
+        horizontalRule: false,
+        bulletList: false,
+        orderedList: false,
+      }),
+      StyledParagraph,
+      StyledHeading,
+      StyledBlockquote,
+      StyledHorizontalRule,
+      StyledBulletList,
+      StyledOrderedList,
       Selection,
       Focus.configure({ className: "has-focus", mode: "all" }),
       Placeholder.configure({
@@ -73,19 +99,24 @@ export const ArticleEditor = ({
         autolink: true,
         defaultProtocol: "https",
       }),
-      Image.configure({ inline: false, allowBase64: true }),
+      StyledImage.configure({ inline: false, allowBase64: true }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true, allowTableNodeSelection: true }),
+      StyledTable.configure({ resizable: true, allowTableNodeSelection: true }),
       TableRow,
       TableHeader,
       TableCell,
-      CodeBlockLowlight.configure({ lowlight }),
+      StyledCodeBlockLowlight.configure({ lowlight }),
       MathExtension,
+      StructureBlocks,
+      BlockStyle,
       FileHandler.configure({
         allowedMimeTypes: [
           "image/png",
           "image/jpeg",
+          "image/jpg",
+          "image/jfif",
+          "image/pjpeg",
           "image/gif",
           "image/webp",
           "image/svg+xml",

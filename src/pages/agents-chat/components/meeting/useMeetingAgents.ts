@@ -93,7 +93,7 @@ export function useMeetingAgents({
     setEntries((prev) => [...prev, agentNote]);
 
     try {
-      const bridgedSkillIds = await bridgeEnabledNiumaSkills().catch(() => []);
+      await bridgeEnabledNiumaSkills().catch(() => []);
       const activeProvider = getActiveApiProvider() ?? getActiveProvider();
       const agentProviderId = agent.providerId || activeProvider?.providerId || "";
       const agentModelId = agent.modelId || activeProvider?.model || "";
@@ -114,9 +114,7 @@ export function useMeetingAgents({
         ...agent,
         providerId: agentProviderId,
         modelId: agentModelId,
-        enabledSkillIds: Array.from(
-          new Set([...(agent.enabledSkillIds ?? []), ...bridgedSkillIds])
-        ),
+        enabledSkillIds: agent.enabledSkillIds ?? [],
       };
 
       let fullContent = "";

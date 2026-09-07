@@ -315,6 +315,16 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
         }
     };
 
+    // Content team co-edit root: <niuma_root>/.artifacts/drafts
+    let niuma_root = get_niuma_root_dir(app.clone());
+    if !niuma_root.is_empty() {
+        let drafts = std::path::PathBuf::from(&niuma_root)
+            .join(".artifacts")
+            .join("drafts");
+        let _ = std::fs::create_dir_all(&drafts);
+        push_unique(&mut results, normalize(drafts));
+    }
+
     if let Some(configured) = runtime_or_build_env(&["NIUMA_ARTIFACT_DIR", "NIUMA_ARTICLES_DIR"]) {
         let configured_path = std::path::PathBuf::from(configured);
         if configured_path.exists() {
@@ -322,28 +332,27 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
         }
     }
 
-    if results.is_empty() {
-        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        push_if_exists(&mut results, manifest_dir.join("..").join("artifact"));
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    push_if_exists(&mut results, manifest_dir.join("..").join("artifact"));
 
-        if let Ok(cwd) = std::env::current_dir() {
-            push_if_exists(&mut results, cwd.join("artifact"));
-        }
+    if let Ok(cwd) = std::env::current_dir() {
+        push_if_exists(&mut results, cwd.join("artifact"));
+    }
 
-        if let Ok(res) = app.path().resource_dir() {
-            push_if_exists(&mut results, res.join("artifact"));
-        }
+    if let Ok(res) = app.path().resource_dir() {
+        push_if_exists(&mut results, res.join("artifact"));
+    }
 
-        // Legacy fallback for existing installations still using `articles`.
-        if results.is_empty() {
-            push_if_exists(&mut results, manifest_dir.join("..").join("articles"));
-            if let Ok(cwd) = std::env::current_dir() {
-                push_if_exists(&mut results, cwd.join("articles"));
-            }
-            if let Ok(res) = app.path().resource_dir() {
-                push_if_exists(&mut results, res.join("articles"));
-            }
-        }
+    push_if_exists(&mut results, manifest_dir.join("..").join("articles"));
+    if let Ok(cwd) = std::env::current_dir() {
+        push_if_exists(&mut results, cwd.join("articles"));
+    }
+    if let Ok(res) = app.path().resource_dir() {
+        push_if_exists(&mut results, res.join("articles"));
+    }
+
+    if let Ok(doc) = app.path().document_dir() {
+        push_if_exists(&mut results, doc.join("niuma").join("artifact"));
     }
 
     if results.is_empty() {
@@ -469,6 +478,8 @@ pub fn run() {
             fs_tools::fs_grep,
             fs_tools::read_text_file,
             fs_tools::write_text_file,
+            fs_tools::write_binary_file,
+            fs_tools::read_binary_file,
             fs_tools::list_directory,
             search_tools::search_local_files,
             search_tools::web_search,

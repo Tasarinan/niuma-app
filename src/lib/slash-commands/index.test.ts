@@ -4,6 +4,7 @@ import {
   getSlashArgumentCompletion,
   inferArgumentChoices,
   parseCommandArguments,
+  parseSlashCommandAgent,
   parseSlashInvocation,
   parseSlashQuery,
   rankSlashCommands,
@@ -70,6 +71,30 @@ arguments:
 
   it("supports an explicitly empty arguments list", () => {
     expect(parseCommandArguments("---\narguments: []\n---\n# Command")).toEqual([]);
+  });
+
+  it("routes layout/publish-style commands to 小助理 from frontmatter", () => {
+    expect(
+      parseSlashCommandAgent(`---
+description: 排版
+agent: 小助理
+---
+# 排版`),
+    ).toBe("小助理");
+  });
+
+  it("routes /wechat to 主理人 even when argument specs are present", () => {
+    expect(
+      parseSlashCommandAgent(`---
+description: 开一条公众号生产线
+agent: 主理人
+arguments:
+  - name: topic
+    description: 想聊的方向
+    required: false
+---
+# wechat`),
+    ).toBe("主理人");
   });
 
   it("extracts selectable values and labels from argument descriptions", () => {

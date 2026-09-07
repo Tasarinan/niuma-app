@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 import { ErrorBoundary } from "react-error-boundary";
@@ -14,26 +14,63 @@ import AgentChat from "./pages/agents-chat";
 const currentWindow = getCurrentWindow();
 const windowLabel = currentWindow.label;
 
+function RootErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [resetKey, setResetKey] = useState(0);
+
+  useEffect(() => {
+    const hot = import.meta.hot;
+    if (!hot) return;
+    const onUpdate = () => setResetKey((key) => key + 1);
+    hot.on("vite:afterUpdate", onUpdate);
+    return () => {
+      hot.off("vite:afterUpdate", onUpdate);
+    };
+  }, []);
+
+  return (
+    <ErrorBoundary
+      resetKeys={[resetKey]}
+      fallbackRender={({ error, resetErrorBoundary }) => (
+        <div className="flex h-screen w-screen flex-col gap-3 overflow-auto bg-background p-4 text-foreground">
+          <p className="text-sm font-semibold text-destructive">
+            页面渲染出错 / Render error
+          </p>
+          <pre className="whitespace-pre-wrap break-words text-[11px] text-muted-foreground">
+            {String(error?.stack || error?.message || error)}
+          </pre>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="rounded-md bg-indigo-500 px-3 py-1.5 text-sm text-white hover:bg-indigo-600"
+              onClick={resetErrorBoundary}
+            >
+              重试
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              onClick={() => window.location.reload()}
+            >
+              刷新页面
+            </button>
+          </div>
+        </div>
+      )}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+}
+
 const renderWithProviders = (ui: React.ReactNode) =>
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <I18nextProvider i18n={i18n}>
         <ThemeProvider>
           <AppProvider>
-            <ErrorBoundary
-              fallbackRender={({ error }) => (
-                <div className="flex h-screen w-screen flex-col gap-2 overflow-auto bg-background p-4 text-foreground">
-                  <p className="text-sm font-semibold text-destructive">
-                    页面渲染出错 / Render error
-                  </p>
-                  <pre className="whitespace-pre-wrap break-words text-[11px] text-muted-foreground">
-                    {String(error?.stack || error?.message || error)}
-                  </pre>
-                </div>
-              )}
-            >
+            <RootErrorBoundary>
               {ui}
-            </ErrorBoundary>
+            </RootErrorBoundary>
             <Toaster />
           </AppProvider>
         </ThemeProvider>

@@ -88,6 +88,8 @@ export function useProvider(): UseProviderReturn {
         providerId,
         apiKey: cred.apiKey,
         model: existing?.model ?? "",
+        imageModel: existing?.imageModel,
+        videoModel: existing?.videoModel,
         baseUrlOverride: cred.baseUrlOverride,
       });
     },

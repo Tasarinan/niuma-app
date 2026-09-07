@@ -12,6 +12,7 @@ import type { Static, TSchema } from "@earendil-works/pi-ai";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Skill } from "@/types";
 import { invoke, text, normalizeTauriPath } from "./shared";
+import { canonicalNiumaSkillSlug, expandNiumaSkillSlug } from "../skill-slugs";
 
 /** Identity helper that preserves TypeBox param inference for `execute`. */
 function defineTool<P extends TSchema>(def: {
@@ -40,7 +41,7 @@ export function formatSkillsPrompt(skills: Skill[]): string {
   if (skills.length === 0) return "";
   const items = skills
     .map((s) => {
-      const name = escapeXml(s.name || s.id);
+      const name = escapeXml(canonicalNiumaSkillSlug(s.name || s.id));
       const desc = escapeXml(s.description || "");
       return `  <skill>\n    <name>${name}</name>\n    <description>${desc}</description>\n  </skill>`;
     })
@@ -54,7 +55,13 @@ export function formatSkillsPrompt(skills: Skill[]): string {
     '    args={"apiPath":"openapi/...","body":"{...}"}. Do NOT use the `bash` tool for skills —',
     "    script paths and working directories are managed automatically by `run_skill`.",
     "2c. Instruction-only skills: follow the loaded instructions yourself.",
+    "Writing uses the current chat Provider text model (Settings → API 提供商). " +
+      "Do not run write.py and do not use WRITING_MODEL_API_KEY.",
+    "Images: call `generate_image` for original illustrations, or `search_images` then `save_web_image` for similar photos found on the web. Always write PNG under the draft imgs/ folder. " +
+      "If a source image is not PNG, convert it to imgs/<name>.png first. WeChat 公众号 does not accept jfif/webp. " +
+      "Do not run image_create.py and do not use IMAGE_MODEL_API_KEY.",
     "IMPORTANT: Never call `bash` to run a skill's node/python script. Always use `run_skill`.",
+    "When speaking to the user, name the skill you are using (use wechat-article-* ids, never aws-wechat-*). Do not list files you read or wrote.",
     items,
     "</available_skills>",
   ].join("\n");
@@ -64,7 +71,17 @@ export function formatSkillsPrompt(skills: Skill[]): string {
 export function buildLoadSkillTool(skills: Skill[]): AgentTool {
   const byName = new Map<string, Skill>();
   for (const s of skills) {
-    byName.set(s.name || s.id, s);
+    const canonical = canonicalNiumaSkillSlug(s.name || s.id);
+    const skill = s.name === canonical ? s : { ...s, name: canonical };
+    const keys = new Set<string>();
+    for (const key of [s.id, s.name, s.source, canonical]) {
+      if (key) keys.add(key);
+    }
+    for (const alias of expandNiumaSkillSlug(canonical)) keys.add(alias);
+    if (s.source) {
+      for (const alias of expandNiumaSkillSlug(s.source)) keys.add(alias);
+    }
+    for (const key of keys) byName.set(key, skill);
   }
   return defineTool({
     name: "load_skill",
@@ -89,7 +106,7 @@ export function buildLoadSkillTool(skills: Skill[]): AgentTool {
       }
       return {
         content: [text(content)],
-        details: { skill: skill.name },
+        details: { skill: canonicalNiumaSkillSlug(skill.name) },
       };
     },
   });

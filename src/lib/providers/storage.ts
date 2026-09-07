@@ -2,7 +2,7 @@
  * Provider config storage — direct key/model/url registration, no cURL.
  *
  * Persists to localStorage under a single JSON key.
- * Each entry maps providerId → { apiKey, model, baseUrlOverride? }.
+ * Each entry maps providerId → { apiKey, model, imageModel?, videoModel?, baseUrlOverride? }.
  */
 
 import type { ProviderCredential } from "./registry";

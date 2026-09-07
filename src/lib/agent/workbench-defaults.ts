@@ -6,6 +6,10 @@ import { loadHiredAgentFiles, saveHiredAgentFiles } from "@/lib/storage";
 import { useSkillStore } from "@/store";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel } from "@/types";
 import { bridgeEnabledNiumaSkills } from "./skill-bridge";
+import { catalogAgentAliases } from "./command-target";
+import { expandNiumaSkillSlug } from "./skill-slugs";
+import { resolvePresetSkillIds } from "./preset-skill-ids";
+import { parseContentTeamManifest } from "@/lib/artifact/content-team-config";
 
 export type WorkbenchTeamId = string;
 export type WorkbenchTeamAccent = "rose" | "emerald" | "sky" | "violet" | "amber";
@@ -31,18 +35,42 @@ export const WORKBENCH_TEAM_PRESETS: WorkbenchTeamPreset[] = [
   {
     id: "content",
     name: "内容创作",
-    eyebrow: "策划 · 文案 · 视频 · 品牌",
-    description: "内容创作与文案写作全能团队。从选题策划、文案撰写、视频脚本到品牌叙事，覆盖完整内容生产链路，支持中英双语输出。",
+    eyebrow: "公众号 · 小红书 · 博客",
+    description: "编辑部。主理人开流程，圆桌多方贡献，确认选题后定位文稿；用户点「编辑」共创。",
     avatar: "✍️",
     accent: "amber",
     kind: "chat",
     commandDir: "teams/content/commands",
-    agentFiles: ["aria.md", "iris.md", "tina.md", "sam.md", "rose.md"],
-    skillSlugs: ["writing", "frontend-slides", "sum", "tr"],
+    agentFiles: [
+      "producer.md",
+      "wechat-director.md",
+      "wechat-researcher.md",
+      "gzh-expert.md",
+      "brand-advisor.md",
+      "marketing.md",
+      "video-director.md",
+      "wechat-writer.md",
+      "wechat-formatter.md",
+      "wechat-reviewer.md",
+      "wechat-publisher.md",
+    ],
+    legacyAgentFiles: ["aria.md", "iris.md", "tina.md", "sam.md", "rose.md"],
+    skillSlugs: [
+      "wechat-article-main",
+      "xhs-main",
+      "blog-main",
+      "wechat-article-topics",
+      "wechat-article-writing",
+      "wechat-article-review",
+      "wechat-article-formatting",
+      "wechat-article-images",
+      "wechat-article-publish",
+      "wechat-article-assets",
+    ],
     starterPrompts: [
-      "/draft 写一篇关于AI对内容创作影响的博客",
-      "/adapt 把这篇文章改成小红书和抖音版本",
-      "/brief 新品上市内容推广计划",
+      "/wechat 今天想做一篇什么公众号",
+      "/wechat 继续未推送的稿",
+      "/xhs 开一条小红书（尚未接通）",
     ],
   },
   {
@@ -163,7 +191,10 @@ export async function loadWorkbenchTeamPresets(): Promise<WorkbenchTeamPreset[]>
   const knownIds = new Set(WORKBENCH_TEAM_PRESETS.map((p) => p.id));
   const presets = await Promise.all(
     WORKBENCH_TEAM_PRESETS.map(async (preset) => {
+      const configPath = [root, ".niuma", "teams", preset.id, "config.yaml"].join(separator);
       const manifestPath = [root, ".niuma", "teams", preset.id, "TEAM.md"].join(separator);
+      const configRaw = await invoke<string>("read_text_file", { path: configPath }).catch(() => "");
+      if (configRaw) return applyTeamConfigYaml(preset, configRaw);
       const raw = await invoke<string>("read_text_file", { path: manifestPath }).catch(() => "");
       return raw ? applyTeamManifest(preset, raw) : preset;
     }),
@@ -177,10 +208,13 @@ export async function loadWorkbenchTeamPresets(): Promise<WorkbenchTeamPreset[]>
       if (!entry.is_directory) continue;
       const slug = entry.path.split(/[\\/]/).pop() ?? "";
       if (!slug || knownIds.has(slug)) continue;
+      const configPath = [entry.path, "config.yaml"].join(separator);
       const manifestPath = [entry.path, "TEAM.md"].join(separator);
-      const raw = await invoke<string>("read_text_file", { path: manifestPath }).catch(() => "");
+      const configRaw = await invoke<string>("read_text_file", { path: configPath }).catch(() => "");
+      const raw = configRaw || (await invoke<string>("read_text_file", { path: manifestPath }).catch(() => ""));
       if (!raw) continue;
-      const dynamic = applyTeamManifest(
+      const apply = configRaw ? applyTeamConfigYaml : applyTeamManifest;
+      const dynamic = apply(
         {
           id: slug,
           name: slug,
@@ -203,6 +237,25 @@ export async function loadWorkbenchTeamPresets(): Promise<WorkbenchTeamPreset[]>
   }
 
   return presets;
+}
+
+function applyTeamConfigYaml(preset: WorkbenchTeamPreset, raw: string): WorkbenchTeamPreset {
+  const parsed = parseContentTeamManifest(raw);
+  return {
+    ...preset,
+    name: parsed.name || preset.name,
+    legacyNames: parsed.legacyNames.length > 0 ? parsed.legacyNames : preset.legacyNames,
+    eyebrow: parsed.eyebrow || preset.eyebrow,
+    description: parsed.description || preset.description,
+    avatar: parsed.avatar || preset.avatar,
+    accent: isWorkbenchTeamAccent(parsed.accent) ? parsed.accent : preset.accent,
+    kind: parsed.kind === "meeting" ? "meeting" : parsed.kind === "chat" ? "chat" : preset.kind,
+    commandDir: parsed.commandDir || preset.commandDir,
+    agentFiles: parsed.agentFiles.length > 0 ? parsed.agentFiles.map(normalizeAgentFile) : preset.agentFiles,
+    legacyAgentFiles: parsed.legacyAgentFiles.length > 0 ? parsed.legacyAgentFiles.map(normalizeAgentFile) : preset.legacyAgentFiles,
+    skillSlugs: parsed.skillSlugs.length > 0 ? parsed.skillSlugs : preset.skillSlugs,
+    starterPrompts: parsed.starterPrompts.length > 0 ? parsed.starterPrompts : preset.starterPrompts,
+  };
 }
 
 function applyTeamManifest(preset: WorkbenchTeamPreset, raw: string): WorkbenchTeamPreset {
@@ -337,14 +390,14 @@ export async function syncWorkbenchTeamChannel(
 }
 
 function getNiumaSkillIdsBySlug() {
-  const pairs = useSkillStore
-    .getState()
-    .items.flatMap((skill) =>
-      skill.sourceType === "niuma" && skill.source ? ([[skill.source, skill.id]] as const) : [],
-    );
-  return new Map<string, string>(
-    pairs,
-  );
+  const map = new Map<string, string>();
+  for (const skill of useSkillStore.getState().items) {
+    if (skill.sourceType !== "niuma" || !skill.source) continue;
+    for (const slug of expandNiumaSkillSlug(skill.source)) {
+      map.set(slug, skill.id);
+    }
+  }
+  return map;
 }
 
 async function ensurePresetAgent(
@@ -363,9 +416,15 @@ async function ensurePresetAgent(
     ?? catalog.find((agent) => agent.file === file);
   if (!catalogAgent) return null;
 
-  const targetSkillIds = skillSlugs
-    .map((slug) => skillsBySlug.get(slug))
-    .filter((id): id is string => Boolean(id));
+  const targetSkillIds = resolvePresetSkillIds(
+    catalogAgent.enabledSkillIds,
+    skillSlugs,
+    skillsBySlug,
+  );
+  const workspacePath =
+    teamId === "content"
+      ? (await invoke<string>("get_niuma_root_dir").catch(() => "")) || catalogAgent.workspacePath || ""
+      : catalogAgent.workspacePath || "";
   const existing = findAgentByCatalog(repoAgents, catalogAgent);
 
   if (!existing) {
@@ -378,18 +437,16 @@ async function ensurePresetAgent(
       providerId: catalogAgent.providerId ?? "",
       modelId: catalogAgent.modelId ?? "",
       enabledInternalTools: (catalogAgent.enabledInternalTools ?? []) as AgentInternalToolId[],
-      enabledSkillIds: unique([...(catalogAgent.enabledSkillIds ?? []), ...targetSkillIds]),
+      enabledSkillIds: targetSkillIds,
       enabledMcpServerIds: catalogAgent.enabledMcpServerIds ?? [],
       sandboxMode: (catalogAgent.sandboxMode ?? "read-only") as AgentDefinition["sandboxMode"],
       temperature: catalogAgent.temperature ?? 0.7,
       maxTokens: catalogAgent.maxTokens ?? 2000,
-      workspacePath: catalogAgent.workspacePath ?? "",
+      workspacePath,
     });
     updateRepoAgent(created);
     return created;
   }
-
-  const nextSkillIds = unique([...(existing.enabledSkillIds ?? []), ...targetSkillIds]);
 
   // Sync avatar: if the catalog resolved a talent_icon image but the stored
   // agent still carries an emoji or blank avatar, update it.
@@ -400,8 +457,26 @@ async function ensurePresetAgent(
   const needsAvatarSync = catalogAgent.fromTeams && catalogIsImage && !existingIsImage;
 
   const patch: UpdateInput<AgentDefinition> = {};
-  if (!sameStringArray(existing.enabledSkillIds ?? [], nextSkillIds)) patch.enabledSkillIds = nextSkillIds;
+  if (!sameStringArray(existing.enabledSkillIds ?? [], targetSkillIds)) patch.enabledSkillIds = targetSkillIds;
   if (needsAvatarSync) patch.avatar = catalogAvatar;
+  if (existing.name !== catalogAgent.name) patch.name = catalogAgent.name;
+  if ((existing.role ?? "") !== (catalogAgent.role ?? "")) patch.role = catalogAgent.role ?? "";
+  if (existing.description !== (catalogAgent.description ?? "")) patch.description = catalogAgent.description ?? "";
+  if ((existing.systemPrompt ?? "") !== (catalogAgent.systemPrompt ?? "")) {
+    patch.systemPrompt = catalogAgent.systemPrompt ?? "";
+  }
+  if (workspacePath && existing.workspacePath !== workspacePath) patch.workspacePath = workspacePath;
+  if (
+    !sameStringArray(
+      existing.enabledInternalTools ?? [],
+      (catalogAgent.enabledInternalTools ?? []) as AgentInternalToolId[],
+    )
+  ) {
+    patch.enabledInternalTools = (catalogAgent.enabledInternalTools ?? []) as AgentInternalToolId[];
+  }
+  if (existing.sandboxMode !== (catalogAgent.sandboxMode ?? existing.sandboxMode)) {
+    patch.sandboxMode = (catalogAgent.sandboxMode ?? existing.sandboxMode) as AgentDefinition["sandboxMode"];
+  }
 
   if (Object.keys(patch).length > 0) {
     const updated = await updateAgent(existing.id, patch);
@@ -491,9 +566,14 @@ export async function ensureWorkbenchDefaultTeams(options: {
 }
 
 function findAgentByCatalog(agents: AgentDefinition[], catalogAgent: CatalogAgent) {
-  return agents.find(
-    (agent) => agent.name.trim().toLowerCase() === catalogAgent.name.trim().toLowerCase(),
+  const aliases = catalogAgentAliases(catalogAgent.file, catalogAgent.name, catalogAgent.role).map((value) =>
+    value.trim().toLowerCase(),
   );
+  return agents.find((agent) => {
+    const name = agent.name.trim().toLowerCase();
+    const role = (agent.role ?? "").trim().toLowerCase();
+    return aliases.includes(name) || (role !== "" && aliases.includes(role));
+  });
 }
 
 function unique(values: string[]) {

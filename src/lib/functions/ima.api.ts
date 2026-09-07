@@ -1,24 +1,16 @@
 /**
  * IMA (腾讯IMA) OpenAPI helpers for niuma-app.
  *
- * Uses the same `ima-skill/ima_api.cjs` script pattern as chat.tsx so that
- * credentials are managed entirely by the ima-skill (env vars or
- * ~/.config/ima/ files) — no separate credential storage needed here.
+ * Auth: `.env.local` IMA_CLIENT_ID / IMA_API_KEY, sent as official
+ * `ima-openapi-*` headers via plugin-http. Do not use sandboxed ima_api.cjs
+ * (env_clear strips KEY vars and causes 认证失败).
  *
  * "文章资产" knowledge base layout:
  *   ├── 蜜粉/   (mifenFolderId)    — collected articles / references
  *   └── 飞鸟/   (feiniaoFolderId) — written & published articles
  */
 
-import { invoke } from "@tauri-apps/api/core";
-import { normalizeTauriPath } from "@/lib/agent/tools/shared";
-
-interface SandboxRunResponse {
-  stdout: string;
-  stderr: string;
-  exitCode: number | null;
-  timedOut: boolean;
-}
+import { runImaOpenApi } from "@/lib/ima/openapi";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -40,68 +32,11 @@ function extractItemId(item: Record<string, unknown>): string {
   return String(item.media_id ?? item.id ?? item.folder_id ?? item.kb_id ?? "");
 }
 
-// ─── Core runner (mirrors chat.tsx's runImaApi) ─────────────────────────────
-
 export async function runImaApi(
   apiPath: string,
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
-  const sep = skillsDir.includes("/") ? "/" : "\\";
-  const skillDir = `${skillsDir}${sep}ima-skill`;
-
-  // Tauri sandbox clears env vars — read credentials from .env.local at the
-  // project root and pass them explicitly so ima_api.cjs uses priority 1.
-  const imaOptions = await (async () => {
-    try {
-      const rootDir = normalizeTauriPath(
-        await invoke<string>("get_niuma_root_dir")
-      );
-      if (!rootDir) return "{}";
-      const s = rootDir.includes("/") ? "/" : "\\";
-      const raw = await invoke<string>("read_text_file", {
-        path: `${rootDir}${s}.env.local`,
-      }).catch(() => "");
-      if (!raw) return "{}";
-      const env: Record<string, string> = {};
-      for (const line of raw.split(/\r?\n/)) {
-        const m = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-        if (!m) continue;
-        env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
-      }
-      const clientId = env.IMA_CLIENT_ID ?? env.IMA_OPENAPI_CLIENTID ?? "";
-      const apiKey = env.IMA_API_KEY ?? env.IMA_OPENAPI_APIKEY ?? "";
-      if (clientId && apiKey) {
-        return JSON.stringify({ clientId, apiKey });
-      }
-    } catch { /* ignore */ }
-    return "{}"; // fall back to ima_api.cjs internal .env.local traversal
-  })();
-
-  const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
-    req: {
-      command: "node",
-      args: ["ima_api.cjs", apiPath, JSON.stringify(body), imaOptions],
-      cwd: skillDir,
-      sandboxMode: "read-only",
-      timeoutMs: 30000,
-    },
-  });
-
-  if (result.timedOut) throw new Error("Ima 请求超时");
-  if (result.exitCode !== 0) {
-    const stderr = result.stderr.trim();
-    let msg = "";
-    try { msg = (JSON.parse(stderr) as { msg?: string }).msg ?? ""; } catch { msg = ""; }
-    throw new Error(msg || stderr || result.stdout.trim() || "Ima 请求失败");
-  }
-
-  const parsed = JSON.parse(result.stdout || "{}");
-  const response = asRecord(parsed);
-  if (typeof response.code === "number" && response.code !== 0) {
-    throw new Error(String(response.msg || "Ima 返回错误"));
-  }
-  return asRecord(response.data ?? response);
+  return runImaOpenApi(apiPath, body);
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
