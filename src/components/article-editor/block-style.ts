@@ -5,7 +5,7 @@ import {
   compactBlockStyle,
   escapeAttr,
   parseCssToBlockStyle,
-  type BlockStyle,
+  type BlockStyle as BlockStyleAttrs,
 } from "@/lib/wechat/block-style";
 
 export const BLOCK_STYLE_TYPES = [
@@ -27,7 +27,7 @@ export const BLOCK_STYLE_TYPES = [
 ];
 
 export function cssFromNodeAttrs(attrs: Record<string, unknown> | undefined): string {
-  return blockStyleToCss((attrs?.nmStyle as BlockStyle | null | undefined) ?? null);
+  return blockStyleToCss((attrs?.nmStyle as BlockStyleAttrs | null | undefined) ?? null);
 }
 
 export function wrapStyledHtml(tag: string, attrs: Record<string, unknown> | undefined, inner: string): string | null {
@@ -78,7 +78,7 @@ export const BlockStyle = Extension.create({
               const css = element.getAttribute("style") || "";
               return compactBlockStyle(parseCssToBlockStyle(css));
             },
-            renderHTML: (attributes: { nmStyle?: BlockStyle | null }) => {
+            renderHTML: (attributes: { nmStyle?: BlockStyleAttrs | null }) => {
               const css = blockStyleToCss(attributes.nmStyle);
               return css ? { style: css } : {};
             },
@@ -91,14 +91,14 @@ export const BlockStyle = Extension.create({
   addCommands() {
     return {
       setBlockStyle:
-        (patch: BlockStyle) =>
+        (patch: BlockStyleAttrs) =>
         ({ editor, commands }) => {
           const target = blockTypeAtSelection(editor);
           if (!target) return false;
           const current = compactBlockStyle(
-            (editor.getAttributes(target).nmStyle as BlockStyle | null) ?? null,
+            (editor.getAttributes(target).nmStyle as BlockStyleAttrs | null) ?? null,
           );
-          const merged: BlockStyle = { ...(current ?? {}), ...patch };
+          const merged: BlockStyleAttrs = { ...(current ?? {}), ...patch };
           for (const [key, value] of Object.entries(patch)) {
             if (value === undefined) delete (merged as Record<string, unknown>)[key];
           }
@@ -119,7 +119,7 @@ export const BlockStyle = Extension.create({
 declare module "@tiptap/react" {
   interface Commands<ReturnType> {
     blockStyle: {
-      setBlockStyle: (patch: BlockStyle) => ReturnType;
+      setBlockStyle: (patch: BlockStyleAttrs) => ReturnType;
       unsetBlockStyle: () => ReturnType;
     };
   }

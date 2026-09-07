@@ -515,6 +515,7 @@ export default function ArticlesPage({
             lastSavedSnapshotRef.current[item.filePath] = getArticleSnapshot({
               title: item.title,
               content: item.content,
+              summary: item.summary,
             });
             lastSavedContentRef.current[item.filePath] = item.content;
           }

@@ -432,7 +432,7 @@ export function useGroupChat() {
           if (routeMatch) {
             let routedAgent: AgentDefinition | undefined;
             if (isContentTeam) {
-              routedAgent = resolveContentRouteTarget(agent.name, routeMatch[1], channelAgents);
+              routedAgent = resolveContentRouteTarget(agent.name, routeMatch[1], channelAgents) ?? undefined;
             } else if (isDispatcherTurn) {
               const routedName = routeMatch[1].toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, "");
               routedAgent = channelAgents

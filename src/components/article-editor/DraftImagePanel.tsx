@@ -13,6 +13,7 @@ export function DraftImagePanel({
   items: DraftGalleryItem[];
   disabled?: boolean;
   generatingId?: string | null;
+  embedded?: boolean;
   onUpload: (file: File) => void;
   onGenerate: (item?: DraftGalleryItem) => void;
   onInsert?: (item: DraftGalleryItem) => void;

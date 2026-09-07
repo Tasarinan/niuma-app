@@ -9,9 +9,14 @@ import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
 import { cssFromNodeAttrs, tableNodeToHtml, wrapStyledHtml } from "./block-style";
 import { escapeAttr } from "@/lib/wechat/block-style";
 
+function parentMarkdown(self: unknown, ...args: unknown[]): string {
+  const parent = (self as { parent?: (...inner: unknown[]) => string }).parent;
+  return parent?.(...args) ?? "";
+}
+
 export const StyledParagraph = Paragraph.extend({
   renderMarkdown(node, helpers, ctx) {
-    const inner = this.parent?.(node, helpers, ctx) ?? "";
+    const inner = parentMarkdown(this, node, helpers, ctx);
     return wrapStyledHtml("p", node.attrs, inner) ?? inner;
   },
 });
@@ -46,14 +51,14 @@ export const StyledHorizontalRule = HorizontalRule.extend({
 
 export const StyledBulletList = BulletList.extend({
   renderMarkdown(node, helpers) {
-    const inner = this.parent?.(node, helpers) ?? "";
+    const inner = parentMarkdown(this, node, helpers);
     return wrapStyledHtml("ul", node.attrs, inner) ?? inner;
   },
 });
 
 export const StyledOrderedList = OrderedList.extend({
   renderMarkdown(node, helpers) {
-    const inner = this.parent?.(node, helpers) ?? "";
+    const inner = parentMarkdown(this, node, helpers);
     return wrapStyledHtml("ol", node.attrs, inner) ?? inner;
   },
 });
@@ -62,7 +67,7 @@ export const StyledTable = Table.extend({
   renderMarkdown(node, helpers) {
     const css = cssFromNodeAttrs(node.attrs);
     if (css) return tableNodeToHtml(node, css);
-    return this.parent?.(node, helpers) ?? "";
+    return parentMarkdown(this, node, helpers);
   },
 });
 
@@ -81,7 +86,7 @@ export const StyledImage = Image.extend({
 
 export const StyledCodeBlockLowlight = CodeBlockLowlight.extend({
   renderMarkdown(node, helpers) {
-    const inner = this.parent?.(node, helpers) ?? "";
+    const inner = parentMarkdown(this, node, helpers);
     return wrapStyledHtml("pre", node.attrs, inner) ?? inner;
   },
 });

@@ -70,7 +70,7 @@ export function resolveThemePlaceholders(template: string, variables: Record<str
   let result = template;
   for (let i = 0; i < 3; i++) {
     for (const [key, value] of Object.entries(variables)) {
-      result = result.replaceAll(`{${key}}`, value);
+      result = result.split(`{${key}}`).join(value);
     }
   }
   return result;
@@ -84,7 +84,7 @@ export function buildResolvedStyles(theme: ParsedFormatTheme): Record<string, st
   }
   const out: Record<string, string> = { ...resolvedVars };
   for (const [key, value] of Object.entries(theme.styles)) {
-    out[key] = resolveThemePlaceholders(value, out).replaceAll('"', "'");
+    out[key] = resolveThemePlaceholders(value, out).replace(/"/g, "'");
   }
   return out;
 }
