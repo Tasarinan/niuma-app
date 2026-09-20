@@ -114,12 +114,11 @@ describe("draft workspace", () => {
     expect(classifyDraftFile("HRSh1uMboAAPsIX.jfif")).toBe("image");
   });
 
-  it("tells the agent the open file is the only manuscript", () => {
+  it("tells the agent the open file is the bound co-creation manuscript", () => {
     const text = formatOpenDraftContext("/niuma/.artifacts/drafts/foo/article.md");
-    expect(text).toContain("[当前打开的文稿]");
+    expect(text).toContain("[当前共创目录]");
     expect(text).toContain("/niuma/.artifacts/drafts/foo/article.md");
-    expect(text).toContain("同一份磁盘文件");
-    expect(text).toContain("不要替用户切换编辑栏");
+    expect(text).toContain("open_article");
   });
 
   it("injects the open file into agent input, not the visible bubble", () => {
@@ -132,7 +131,7 @@ describe("draft workspace", () => {
       lastOpenPath: draft,
     });
     expect(injected.startsWith("改第二段")).toBe(true);
-    expect(injected).toContain("[当前打开的文稿]");
+    expect(injected).toContain("[当前共创目录]");
     expect(injected).toContain(draft);
     expect(injected).not.toContain("untitled-article.md");
     expect(stripHiddenDraftContext(injected)).toBe("改第二段");

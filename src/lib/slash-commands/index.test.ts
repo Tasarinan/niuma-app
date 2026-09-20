@@ -83,17 +83,27 @@ agent: 小助理
     ).toBe("小助理");
   });
 
-  it("routes /wechat to 主理人 even when argument specs are present", () => {
+  it("routes /publish to 小助理 even when argument specs are present", () => {
     expect(
       parseSlashCommandAgent(`---
-description: 开一条公众号生产线
-agent: 主理人
+description: 推送到平台草稿箱
+agent: 小助理
 arguments:
-  - name: topic
-    description: 想聊的方向
-    required: false
+  - name: platform
+    description: WECHAT(微信)/XHS(小红书)/ZHIHU(知乎)
+    required: true
 ---
-# wechat`),
+# publish`),
+    ).toBe("小助理");
+  });
+
+  it("routes /new to 主理人", () => {
+    expect(
+      parseSlashCommandAgent(`---
+description: 开一篇新公众号
+agent: 主理人
+---
+# new`),
     ).toBe("主理人");
   });
 
@@ -134,6 +144,14 @@ describe("slash command completion and execution", () => {
       "profile",
       "get-profile",
     ]);
+  });
+
+  it("omits hidden commands from the suggestion menu", () => {
+    const hidden = { ...command, name: "publish", hidden: true };
+    expect(rankSlashCommands([command, hidden], "").map((item) => item.name)).toEqual([
+      "profile",
+    ]);
+    expect(rankSlashCommands([command, hidden], "pub")).toEqual([]);
   });
 
   it("inlines command metadata, arguments and user input for the agent", () => {

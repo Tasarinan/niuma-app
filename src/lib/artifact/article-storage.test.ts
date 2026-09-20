@@ -7,6 +7,7 @@ import {
   persistStoredArticles,
   readLastOpenDraftPath,
   readStoredArticles,
+  writeLastOpenDraftPath,
 } from "./article-storage";
 
 const leftover = String.raw`C:\N-5CG2150YY9-Data\dvkx47\Documents\niuma\artifact\untitled-article.md`;
@@ -87,6 +88,13 @@ describe("article localStorage migration", () => {
     );
     expect(readLastOpenDraftPath()).toBe(
       "C:/niuma/.artifacts/drafts/20260902-claude-51-de-ai-wei/article.md",
+    );
+  });
+
+  it("persists the bound co-creation article.md path", () => {
+    writeLastOpenDraftPath("C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/topic.md");
+    expect(readLastOpenDraftPath()).toBe(
+      "C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/article.md",
     );
   });
 });

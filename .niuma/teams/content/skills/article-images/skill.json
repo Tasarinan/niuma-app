@@ -1,0 +1,15 @@
+{
+  "name": "article-images",
+  "version": "0.5.0",
+  "author": "niuma.skills",
+  "description": "为 Markdown 文章生成封面图和正文配图，根据文章内容自动匹配风格。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["images", "ai-generation", "image-search", "markdown"],
+  "permissions": ["filesystem", "network", "shell"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  },
+  "dependencies": []
+}

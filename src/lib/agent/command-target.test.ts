@@ -44,7 +44,7 @@ describe("command agent routing", () => {
 
   it("explains when the routed agent is not in the channel", () => {
     expect(missingCommandAgentMessage(["主理人"])).toContain("主理人");
-    expect(missingCommandAgentMessage(["主理人"])).toContain("/wechat");
+    expect(missingCommandAgentMessage(["主理人"])).toContain("/new");
   });
 
   it("routes /ready's 小助理 to a hired publisher still named 微信发布", () => {

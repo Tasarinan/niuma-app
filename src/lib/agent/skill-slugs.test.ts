@@ -2,27 +2,45 @@ import { describe, expect, it } from "vitest";
 import { canonicalNiumaSkillSlug, expandNiumaSkillSlug } from "./skill-slugs";
 
 describe("expandNiumaSkillSlug", () => {
-  it("maps aws-wechat-* and wechat-* to the same lookup keys", () => {
-    expect(expandNiumaSkillSlug("wechat-article-writing")).toEqual([
-      "wechat-article-writing",
-      "aws-wechat-article-writing",
-    ]);
-    expect(expandNiumaSkillSlug("aws-wechat-article-writing")).toEqual([
-      "aws-wechat-article-writing",
-      "wechat-article-writing",
-    ]);
+  it("maps legacy wechat-article-writing aliases to article-writing", () => {
+    expect(canonicalNiumaSkillSlug("wechat-article-writing")).toBe("article-writing");
+    expect(canonicalNiumaSkillSlug("aws-wechat-article-writing")).toBe("article-writing");
+    expect(expandNiumaSkillSlug("wechat-article-writing")).toEqual(
+      expect.arrayContaining([
+        "article-writing",
+        "wechat-article-writing",
+        "aws-wechat-article-writing",
+      ]),
+    );
+    expect(expandNiumaSkillSlug("article-writing")).toEqual(
+      expect.arrayContaining([
+        "article-writing",
+        "wechat-article-writing",
+        "aws-wechat-article-writing",
+      ]),
+    );
   });
 
   it("leaves unrelated slugs unchanged", () => {
     expect(expandNiumaSkillSlug("ima-skill")).toEqual(["ima-skill"]);
   });
 
-  it("strips aws- prefix for display and prompts", () => {
-    expect(canonicalNiumaSkillSlug("aws-wechat-article-publish")).toBe(
-      "wechat-article-publish",
-    );
+  it("renames assets, formatting, and platform publish slugs", () => {
+    expect(canonicalNiumaSkillSlug("wechat-article-assets")).toBe("article-assets");
     expect(canonicalNiumaSkillSlug("wechat-article-publish")).toBe(
-      "wechat-article-publish",
+      "article-publish-wechat",
+    );
+    expect(canonicalNiumaSkillSlug("wechat-article-formatting")).toBe(
+      "article-formatting-wechat",
+    );
+    expect(canonicalNiumaSkillSlug("wechat-article-main")).toBe("article-main");
+    expect(canonicalNiumaSkillSlug("wechat-article-images")).toBe("article-images");
+    expect(expandNiumaSkillSlug("article-formatting-wechat")).toEqual(
+      expect.arrayContaining([
+        "article-formatting-wechat",
+        "wechat-article-formatting",
+        "aws-wechat-article-formatting",
+      ]),
     );
   });
 });

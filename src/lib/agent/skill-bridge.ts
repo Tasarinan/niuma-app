@@ -7,7 +7,7 @@
  * actually load/run in chat. Call `bridgeEnabledNiumaSkills()` right before
  * sending a message so `load_skill` can resolve SKILL.md. Do **not** merge the
  * returned ids onto every agent — each role keeps its own `enabledSkillIds`
- * so 主理人 can ROUTE to 写手 / 配图师 / 小主编 / 小助理.
+ * so 主理人 can ROUTE to 采编 / 写手 / 配图师 / 主编 / 发行.
  */
 import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
 import { loadDisabledSkillSlugs } from "@/lib/storage";

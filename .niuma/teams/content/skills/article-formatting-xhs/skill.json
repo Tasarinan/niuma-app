@@ -1,0 +1,15 @@
+{
+  "name": "article-formatting-xhs",
+  "version": "0.1.0",
+  "author": "niuma.skills",
+  "description": "小红书排版（尚未接通）。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["xhs", "小红书", "formatting"],
+  "permissions": ["filesystem"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  },
+  "dependencies": []
+}

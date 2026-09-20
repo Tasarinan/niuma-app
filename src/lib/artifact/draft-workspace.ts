@@ -1,6 +1,7 @@
 /** One confirmed draft folder is the "project"; humans and agents edit the same files. */
 
 import { normalizeDraftPath, resolveOpenDraftPath } from "./drafts";
+import { formatCurrentDraftContext } from "./current-draft";
 import { nextWechatImageFilename, type DraftImageNameIntent } from "./draft-image-names";
 import { preferPngImageEntries, toDraftImgsAbsPath } from "./png-images";
 import { imageMimeFromPath, normalizeFsPath } from "./workspace-path";
@@ -77,18 +78,19 @@ export function pickOpenManuscriptContent(input: {
 }
 
 export function formatOpenDraftContext(filePath: string): string {
-  return `[当前打开的文稿] ${filePath}\n同一份磁盘文件：先 read 再 edit，不要 mkdir。用户点「编辑」即可看到这篇，不要替用户切换编辑栏。`;
+  return formatCurrentDraftContext(filePath);
 }
 
 /** Remove hidden manuscript context from a visible chat / history string. */
 export function stripHiddenDraftContext(text: string): string {
-  const markers = ["\n\n[当前打开的文稿]", "\n[当前打开的文稿]", "[当前打开的文稿]"];
+  const markers = ["[今天]", "[当前共创目录]", "[当前打开的文稿]"];
+  let cut = -1;
   for (const marker of markers) {
     const index = text.indexOf(marker);
-    if (index > 0) return text.slice(0, index).trimEnd();
-    if (index === 0) return "";
+    if (index >= 0 && (cut < 0 || index < cut)) cut = index;
   }
-  return text;
+  if (cut < 0) return text;
+  return text.slice(0, cut).replace(/\s+$/u, "").trimEnd();
 }
 
 /** Hidden agent context only — do not put this in the visible chat bubble. */

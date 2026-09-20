@@ -107,7 +107,7 @@ describe("format theme catalog", () => {
   it("has a YAML file for every catalog id", () => {
     const dir = path.resolve(
       process.cwd(),
-      ".niuma/teams/content/skills/wechat-article-formatting/references/presets/themes",
+      ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes",
     );
     const stems = new Set(
       readdirSync(dir)

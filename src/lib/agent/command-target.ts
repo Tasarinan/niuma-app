@@ -2,30 +2,37 @@
 
 export const CATALOG_FILE_ALIASES: Record<string, string[]> = {
   "producer.md": ["主理人", "主题人", "producer"],
-  "wechat-researcher.md": ["小蜜蜂", "微信选题员", "wechat-researcher"],
-  "wechat-director.md": ["灵感大师", "微信总监", "wechat-director"],
-  "gzh-expert.md": ["公众号高手", "gzh-expert"],
-  "brand-advisor.md": ["品牌顾问", "brand-advisor"],
-  "marketing.md": ["营销策划", "marketing"],
-  "video-director.md": ["视频编导", "video-director"],
-  "wechat-writer.md": ["写手", "微信写手", "wechat-writer"],
-  "wechat-formatter.md": ["配图师", "微信排版", "wechat-formatter"],
-  "wechat-reviewer.md": ["小主编", "微信审稿", "wechat-reviewer"],
-  "wechat-publisher.md": ["小助理", "微信发布", "wechat-publisher"],
+  "desk.md": ["采编", "小蜜蜂", "灵感大师", "微信选题员", "wechat-researcher", "wechat-director"],
+  "writer.md": ["写手", "微信写手", "wechat-writer"],
+  "illustrator.md": ["配图师", "微信排版", "wechat-formatter"],
+  "chief.md": ["主编", "小主编", "微信审稿", "wechat-reviewer"],
+  "publisher.md": ["发行", "小助理", "微信发布", "wechat-publisher"],
 };
 
 const ALIAS_GROUPS: string[][] = [
   ["主理人", "主题人", "producer"],
-  ["小蜜蜂", "微信选题员", "wechat-researcher", "信息采集"],
-  ["灵感大师", "微信总监", "wechat-director", "选题灵感"],
-  ["公众号高手", "gzh-expert", "公众号手艺"],
-  ["品牌顾问", "brand-advisor", "品牌建议"],
-  ["营销策划", "marketing", "营销方案"],
-  ["视频编导", "video-director", "视频内容"],
+  [
+    "采编",
+    "小蜜蜂",
+    "灵感大师",
+    "微信选题员",
+    "wechat-researcher",
+    "wechat-director",
+    "信息采集",
+    "选题灵感",
+    "公众号高手",
+    "gzh-expert",
+    "品牌顾问",
+    "brand-advisor",
+    "营销策划",
+    "marketing",
+    "视频编导",
+    "video-director",
+  ],
   ["写手", "微信写手", "wechat-writer"],
   ["配图师", "微信排版", "wechat-formatter"],
-  ["小主编", "微信审稿", "wechat-reviewer"],
-  ["小助理", "微信发布", "wechat-publisher"],
+  ["主编", "小主编", "微信审稿", "wechat-reviewer"],
+  ["发行", "小助理", "微信发布", "wechat-publisher", "排版与发布"],
 ];
 
 export interface CommandTargetAgent {
@@ -76,7 +83,7 @@ export function shouldSmartDispatch<T extends CommandTargetAgent>(options: {
 
 export function missingCommandAgentMessage(targets: string[]): string {
   const label = targets.filter(Boolean).join("、") || "指定角色";
-  return `频道里没有找到「${label}」，所以这次没有生成回复。请确认内容创作团队已入职该角色，并刷新工作台后再试 /wechat。`;
+  return `频道里没有找到「${label}」，所以这次没有生成回复。请确认内容创作团队已入职该角色，并刷新工作台后再试 /new。`;
 }
 
 export function catalogAgentAliases(file: string, name?: string, role?: string): string[] {

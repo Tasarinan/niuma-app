@@ -61,6 +61,8 @@ export interface SlashCommandDefinition {
   content: string;
   /** Agent name (Chinese or English) that should handle this command exclusively */
   agent?: string;
+  /** When true, omit from the slash suggestion menu; typed invocation still works. */
+  hidden?: boolean;
 }
 
 export interface SlashCommandExtension {
@@ -245,10 +247,11 @@ function rawToDefinition(name: string, path: string, raw: string): SlashCommandD
     arguments: parseCommandArguments(raw),
     content: raw,
     agent: parseSlashCommandAgent(raw),
+    hidden: meta.hidden?.toLowerCase() === "true",
   };
 }
 
-/** Agent name from command frontmatter (`agent: 小助理`). */
+/** Agent name from command frontmatter (`agent: 发行`). */
 export function parseSlashCommandAgent(raw: string): string | undefined {
   const agent = parseFrontmatter(raw).agent?.trim();
   return agent || undefined;
@@ -431,9 +434,10 @@ export function rankSlashCommands(
   commands: SlashCommandDefinition[],
   query: string
 ): SlashCommandDefinition[] {
-  if (!query) return commands;
-  const startsWith = commands.filter((c) => c.name.startsWith(query));
-  const includes = commands.filter(
+  const visible = commands.filter((c) => !c.hidden);
+  if (!query) return visible;
+  const startsWith = visible.filter((c) => c.name.startsWith(query));
+  const includes = visible.filter(
     (c) => !c.name.startsWith(query) && c.name.includes(query)
   );
   return [...startsWith, ...includes];

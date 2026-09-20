@@ -18,9 +18,8 @@ import type { AgentInternalToolId, SandboxMode } from "@/types";
 import { invoke, textResult } from "./shared";
 import { getImaKbConfig } from "@/lib/storage/ima.storage";
 import { runImaOpenApi } from "@/lib/ima/openapi";
-import { requireOpenableDraftMarkdown } from "@/lib/artifact/drafts";
 import { notifyDraftFileChanged, requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-article";
-import { isOpenableDraftMarkdown } from "@/lib/artifact/drafts";
+import { isOpenableDraftMarkdown, toDraftArticlePath } from "@/lib/artifact/drafts";
 import { writeBinary, readBinaryBase64, writeText } from "@/lib/artifact/fs";
 import {
   convertDraftImageToPngImgs,
@@ -34,6 +33,7 @@ import {
   isPathInsideWorkspace,
   resolveWorkspacePath,
 } from "@/lib/artifact/workspace-path";
+import { isBindableDraftMarkdown, locateDraftMarkdownPath } from "@/lib/artifact/current-draft";
 import { generateProviderImage } from "@/lib/providers/media";
 import {
   draftImageStem,
@@ -278,6 +278,15 @@ function readTool(deps: InternalToolDeps): AgentTool {
   });
 }
 
+function afterDraftWrite(path: string): void {
+  if (isOpenableDraftMarkdown(path)) {
+    notifyDraftFileChanged(path);
+  }
+  if (isBindableDraftMarkdown(path)) {
+    requestOpenWorkbenchArticle({ filePath: toDraftArticlePath(path) });
+  }
+}
+
 interface FsWriteResponse {
   path: string;
   bytesWritten: number;
@@ -306,9 +315,7 @@ function writeTool(deps: InternalToolDeps): AgentTool {
           sandboxMode: deps.sandboxMode,
         },
       });
-      if (isOpenableDraftMarkdown(res.path)) {
-        notifyDraftFileChanged(res.path);
-      }
+      afterDraftWrite(res.path);
       return textResult(`已写入 ${res.path} (${res.bytesWritten} 字节)`, res);
     },
   });
@@ -348,9 +355,7 @@ function editTool(deps: InternalToolDeps): AgentTool {
           sandboxMode: deps.sandboxMode,
         },
       });
-      if (isOpenableDraftMarkdown(res.path)) {
-        notifyDraftFileChanged(res.path);
-      }
+      afterDraftWrite(res.path);
       return textResult(`已更新 ${res.path}（替换 ${res.replaced} 处）`, res);
     },
   });
@@ -789,13 +794,13 @@ function openArticleTool(): AgentTool {
       ),
     }),
     execute: async (_id, params) => {
-      const filePath = requireOpenableDraftMarkdown(params.path);
+      const filePath = locateDraftMarkdownPath(deps.workspaceRoot, params.path);
       const focusRaw = String(params.focus ?? "editor").trim().toLowerCase();
       const focus =
         focusRaw === "images" || focusRaw === "review" ? focusRaw : "editor";
-      requestOpenWorkbenchArticle({ filePath, focus });
+      requestOpenWorkbenchArticle({ filePath: toDraftArticlePath(filePath), focus });
       return textResult(
-        `已定位当前文稿：${filePath}。请用户点「编辑」查看，不要自动打开编辑栏。`,
+        `已定位当前共创目录：${filePath}。请用户点「编辑」查看，不要自动打开编辑栏。`,
       );
     },
   });

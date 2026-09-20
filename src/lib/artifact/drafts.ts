@@ -12,6 +12,16 @@ export function toDraftDatePrefix(date: Date = new Date()): string {
   return `${year}${month}${day}`;
 }
 
+/** Hidden agent context: real local date, so models do not copy skill examples. */
+export function formatDraftTodayContext(date: Date = new Date()): string {
+  const yyyymmdd = toDraftDatePrefix(date);
+  return `[今天] ${yyyymmdd}\n新建草稿目录必须用这个日期前缀：.artifacts/drafts/${yyyymmdd}-主题/。禁止抄技能示例或其它日期。`;
+}
+
+export function injectDraftTodayContext(agentInput: string, date: Date = new Date()): string {
+  return `${agentInput}\n\n${formatDraftTodayContext(date)}`;
+}
+
 export function toTopicSlug(title: string): string {
   return (
     title
@@ -47,7 +57,7 @@ export function isDraftArticleFile(relativeOrAbsolutePath: string): boolean {
 /** Editor/app may only write into a folder that the 主理人 already created after topic confirm. */
 export function requireConfirmedDraftPath(existingPath?: string): string {
   if (!existingPath) {
-    throw new Error("选题尚未确认，不能创建草稿目录。请先在聊天里用 /wechat 让主理人正式定题。");
+    throw new Error("选题尚未确认，不能创建草稿目录。请先在聊天里用 /new 让主理人正式定题。");
   }
   return existingPath;
 }

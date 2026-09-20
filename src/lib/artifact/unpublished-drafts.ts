@@ -109,26 +109,47 @@ export function matchUnpublishedDrafts(query: string, drafts: UnpublishedDraft[]
   });
 }
 
+export type UnpublishedDraftsIntent = "resume" | "new";
+
 export function formatUnpublishedDraftsContext(
   drafts: UnpublishedDraft[],
   query = "",
+  intent: UnpublishedDraftsIntent = "resume",
 ): string {
   const matched = matchUnpublishedDrafts(query, drafts);
+  const resumeMatch =
+    intent === "resume" &&
+    (matched.length === 1 || (!query.trim() && drafts.length === 1));
+  const resumeTarget = resumeMatch ? (matched[0] ?? drafts[0]) : undefined;
   const lines = [
     "[未推送草稿]",
     `status: ${drafts.length > 0 ? "ok" : "empty"}`,
+    `intent: ${intent}`,
     "",
     "规则：",
-    "- 下列目录已经定过题，还没推送到公众号。用户要继续时，直接共创，不要再 mkdir，不要再开会定同一篇。",
-    "- 继续时用 `open_article` 把该篇 `article.md` 定位为当前文稿（没有就定位 `topic.md`），不要替用户切换到编辑栏。用户自己点「编辑」就会看到这篇。然后点名写手 / 配图师 / 小主编 / 小助理。",
+    intent === "new"
+      ? "- 本次是 /new 开新题。禁止续写下列旧稿，禁止 `open_article` 旧路径，禁止改旧 `article.md`。圆桌结束、用户确认后才 mkdir。"
+      : "- 本次是 /resume。下列目录已经定过题，还没推送到公众号。直接共创，不要再 mkdir，不要再开会定同一篇。",
+    intent === "resume"
+      ? "- 继续时用 `open_article` 把该篇 `article.md` 定位为当前文稿（没有就定位 `topic.md`），不要替用户切换到编辑栏。用户自己点「编辑」就会看到这篇。然后点名写手 / 配图师 / 主编 / 发行。"
+      : "- 用户要续旧稿时请改用 /resume，不要在 /new 里续写。",
     "- 审稿只写该目录 `review.md`，不要创建 `.niuma-article/` 或另一篇 drafts。",
-    "- 只有用户明确说开新题、换一篇时，才走圆桌。",
-    drafts.length === 0 ? "- 当前没有未推送草稿，按新选题开会。" : "",
-    matched.length === 1
-      ? `- 本次参数匹配到一篇，请直接继续：《${matched[0].title}》`
+    intent === "new"
+      ? "- 排版用 /format，推草稿箱用 /publish，不是本命令。手工编辑用 /edit。"
+      : "- 没有未推送草稿时，请用户改用 /new。排版用 /format，推草稿箱用 /publish，手工编辑用 /edit。",
+    drafts.length === 0
+      ? intent === "new"
+        ? "- 当前没有未推送草稿，按新选题开会。"
+        : "- 当前没有未推送草稿，不要 mkdir，请用户改用 /new。"
+      : "",
+    intent === "resume" && resumeTarget
+      ? `- 本次请直接继续：《${resumeTarget.title}》`
+      : "",
+    intent === "resume" && !query.trim() && drafts.length > 1
+      ? "- 有多篇未推送草稿，请用户点名一篇，不要默认改最新一篇以外的文件。"
       : "",
     "",
-    "## 可继续",
+    intent === "new" ? "## 对照（禁止续写）" : "## 可继续",
   ].filter(Boolean);
 
   if (drafts.length === 0) {

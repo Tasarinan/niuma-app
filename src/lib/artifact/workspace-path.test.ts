@@ -24,10 +24,10 @@ describe("workspace-path", () => {
     expect(
       resolveWorkspacePath(
         "\\\\?\\C:\\userdata\\niuma-app",
-        ".niuma/teams/content/skills/wechat-article-formatting/references/presets/themes/wechat-tech.yaml",
+        ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes/wechat-tech.yaml",
       ),
     ).toBe(
-      "C:/userdata/niuma-app/.niuma/teams/content/skills/wechat-article-formatting/references/presets/themes/wechat-tech.yaml",
+      "C:/userdata/niuma-app/.niuma/teams/content/skills/article-formatting-wechat/references/presets/themes/wechat-tech.yaml",
     );
   });
 

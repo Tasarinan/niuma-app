@@ -1,5 +1,6 @@
 name: CI
 
+# Lint and test. Shipping installers is .github/workflows/publish.yml (Release).
 on:
   push:
     branches:

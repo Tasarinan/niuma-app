@@ -1,0 +1,15 @@
+{
+  "name": "article-publish-xhs",
+  "version": "0.1.0",
+  "author": "niuma.skills",
+  "description": "发布到小红书（尚未接通）。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["xhs", "小红书", "publish"],
+  "permissions": ["filesystem"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  },
+  "dependencies": []
+}

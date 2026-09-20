@@ -61,7 +61,7 @@ export function formatSkillsPrompt(skills: Skill[]): string {
       "If a source image is not PNG, convert it to imgs/<name>.png first. WeChat 公众号 does not accept jfif/webp. " +
       "Do not run image_create.py and do not use IMAGE_MODEL_API_KEY.",
     "IMPORTANT: Never call `bash` to run a skill's node/python script. Always use `run_skill`.",
-    "When speaking to the user, name the skill you are using (use wechat-article-* ids, never aws-wechat-*). Do not list files you read or wrote.",
+    "When speaking to the user, name the skill you are using (canonical ids like article-main / article-writing / article-formatting-wechat; never aws-wechat-*). Do not list files you read or wrote.",
     items,
     "</available_skills>",
   ].join("\n");

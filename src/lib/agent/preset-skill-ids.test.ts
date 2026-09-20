@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { resolvePresetSkillIds } from "./preset-skill-ids";
 
 const skillsBySlug = new Map([
-  ["wechat-article-main", "id-main"],
-  ["wechat-article-writing", "id-writing"],
-  ["wechat-article-images", "id-images"],
+  ["article-main", "id-main"],
+  ["article-writing", "id-writing"],
+  ["article-images", "id-images"],
   ["ima-skill", "id-ima"],
 ]);
 
@@ -12,8 +12,8 @@ describe("resolvePresetSkillIds", () => {
   it("keeps only the agent's declared skills so 主理人 can hand off to specialists", () => {
     expect(
       resolvePresetSkillIds(
-        ["wechat-article-writing"],
-        ["wechat-article-main", "wechat-article-writing", "wechat-article-images"],
+        ["article-writing"],
+        ["article-main", "article-writing", "article-images"],
         skillsBySlug,
       ),
     ).toEqual(["id-writing"]);
@@ -23,7 +23,7 @@ describe("resolvePresetSkillIds", () => {
     expect(
       resolvePresetSkillIds(
         [],
-        ["wechat-article-main", "wechat-article-writing"],
+        ["article-main", "article-writing"],
         skillsBySlug,
       ),
     ).toEqual([]);
@@ -37,7 +37,7 @@ describe("resolvePresetSkillIds", () => {
 
   it("drops slugs that are not in the skill store", () => {
     expect(
-      resolvePresetSkillIds(["missing", "wechat-article-images"], [], skillsBySlug),
+      resolvePresetSkillIds(["missing", "article-images"], [], skillsBySlug),
     ).toEqual(["id-images"]);
   });
 });

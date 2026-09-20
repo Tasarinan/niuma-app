@@ -6,19 +6,26 @@
 schemaVersion: v1
 id: content
 name: 内容创作
-description: 编辑部。主理人开流程；圆桌多方贡献；确认选题后建目录并定位文稿，用户点「编辑」共创。
-eyebrow: 公众号 · 小红书 · 博客
+description: 编辑部。主理人 /new 开新题、/resume 续旧稿；采编选题；写手写 Markdown；主编审稿；配图师配图；发行 /format /publish。
+eyebrow: Markdown · 多平台
 avatar: "✍️"
 accent: amber
 kind: chat
 commandDir: teams/content/commands
-defaultCommand: wechat
+defaultCommand: new
 defaultAgent: producer
 dataDomain: contentbook
 surface: default
 
 agentFiles:
   - producer.md
+  - desk.md
+  - writer.md
+  - illustrator.md
+  - chief.md
+  - publisher.md
+
+legacyAgentFiles:
   - wechat-director.md
   - wechat-researcher.md
   - gzh-expert.md
@@ -29,26 +36,32 @@ agentFiles:
   - wechat-formatter.md
   - wechat-reviewer.md
   - wechat-publisher.md
+  - aria.md
+  - iris.md
+  - tina.md
+  - sam.md
+  - rose.md
 
 # 技能/命令一人一摊（与 src/lib/content/role-ownership.ts 一致）。
-# 主理人 /wechat /xhs /blog → wechat-article-main, xhs-main, blog-main
-# 小蜜蜂 → wechat-article-topics
-# 写手 → wechat-article-writing
-# 配图师 → wechat-article-images
-# 小主编 → wechat-article-review
-# 小助理 /publish /ready /layout → formatting, publish, assets
-# 圆桌顾问无技能无命令：灵感大师、公众号高手、品牌顾问、营销策划、视频编导
+# 主理人 /new /resume → article-main
+# 采编 → article-topics
+# 写手 → article-writing
+# 配图师 → article-images
+# 主编 → article-review
+# 发行 /format /publish → article-formatting-*、article-publish-*、article-assets
 skillSlugs:
-  - wechat-article-main
-  - xhs-main
-  - blog-main
-  - wechat-article-topics
-  - wechat-article-writing
-  - wechat-article-review
-  - wechat-article-formatting
-  - wechat-article-images
-  - wechat-article-publish
-  - wechat-article-assets
+  - article-main
+  - article-topics
+  - article-writing
+  - article-review
+  - article-formatting-wechat
+  - article-formatting-xhs
+  - article-formatting-zhihu
+  - article-images
+  - article-publish-wechat
+  - article-publish-xhs
+  - article-publish-zhihu
+  - article-assets
 
 # ── 账号与文风（原 .aws-article/config.yaml 顶层，不含 writing_model / image_model）──
 article_category: AI / 技术 / 中医诊所 / 教育
@@ -89,10 +102,10 @@ forbid_legacy_roots:
   - .niuma-article
 
 starterPrompts:
-  - "/wechat 今天想做一篇什么公众号"
-  - "/wechat 开一篇乾坤AI路书（讲一个工具）"
-  - "/wechat 开一篇 FDE日记（医问安这一周）"
-  - "/wechat 开一篇 AI外网（外网这 48 小时）"
-  - "/wechat 继续未推送的稿"
-  - "/xhs 开一条小红书（尚未接通）"
+  - "/new 今天想做一篇什么"
+  - "/new 开一篇乾坤AI路书（讲一个工具）"
+  - "/resume"
+  - "/format WECHAT"
+  - "/publish WECHAT"
+  - "/edit"
 

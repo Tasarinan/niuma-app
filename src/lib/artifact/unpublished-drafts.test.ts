@@ -43,14 +43,24 @@ describe("unpublished drafts", () => {
   it("tells the host to resume instead of opening a new topic", () => {
     const text = formatUnpublishedDraftsContext([wealth], "财富自由");
     expect(text).toContain("[未推送草稿]");
+    expect(text).toContain("intent: resume");
     expect(text).toContain("不要再 mkdir");
-    expect(text).toContain("本次参数匹配到一篇");
+    expect(text).toContain("本次请直接继续");
     expect(text).toContain("article.md");
     expect(text).toContain("不要替用户切换到编辑栏");
     expect(text).toContain("点「编辑」");
     expect(text).toContain("review.md");
     expect(text).toContain("不要创建 `.niuma-article/`");
     expect(text).not.toContain("打开该篇");
+  });
+
+  it("forbids resume when intent is a new topic even if the query matches", () => {
+    const text = formatUnpublishedDraftsContext([wealth], "财富自由", "new");
+    expect(text).toContain("intent: new");
+    expect(text).toContain("禁止续写");
+    expect(text).toContain("对照（禁止续写）");
+    expect(text).not.toContain("本次请直接继续");
+    expect(text).not.toContain("本次参数匹配到一篇");
   });
 
   it("falls back to the folder slug when topic.md has no heading", () => {

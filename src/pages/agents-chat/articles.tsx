@@ -98,12 +98,15 @@ import {
   loadUnpublishedDrafts,
   pickDefaultDraftOpenPath,
   selectOpenArticle,
+  type UnpublishedDraft,
 } from "@/lib/artifact/unpublished-drafts";
-import { LAST_OPEN_DRAFT_KEY, displayPathUnderDrafts, normalizeDraftPath, sameManuscriptPath, toDraftArticlePath } from "@/lib/artifact/drafts";
+import { currentDraftPickerOptions, shouldOpenBoundDraft } from "@/lib/artifact/current-draft";
+import { displayPathUnderDrafts, normalizeDraftPath, sameManuscriptPath, toDraftArticlePath } from "@/lib/artifact/drafts";
 import {
   persistStoredArticles,
   readLastOpenDraftPath,
   readStoredArticles,
+  writeLastOpenDraftPath,
 } from "@/lib/artifact/article-storage";
 import { useArticleArtifactTree } from "@/hooks/useArticleArtifactTree";
 import { importMarkdownToFeiniao } from "@/lib/functions/ima.api";
@@ -209,6 +212,7 @@ export default function ArticlesPage({
   const [formatThemeId, setFormatThemeId] = useState(DEFAULT_FORMAT_THEME_ID);
   const [themeStyles, setThemeStyles] = useState<Record<string, string> | null>(null);
   const [conflictDisk, setConflictDisk] = useState<string | null>(null);
+  const [coCreationDrafts, setCoCreationDrafts] = useState<UnpublishedDraft[]>([]);
   const lastSaveErrorToastAtRef = useRef(0);
   // Tracks whether a setContent call is in-flight so onUpdate skips writing
   // back to articles state and avoids an infinite loop.
@@ -225,6 +229,21 @@ export default function ArticlesPage({
   const activeArticle = useMemo(() => {
     return selectOpenArticle(articles, activeId);
   }, [activeId, articles]);
+  const draftPickerOptions = useMemo(() => {
+    const options = currentDraftPickerOptions(coCreationDrafts);
+    const current = activeArticle?.filePath;
+    if (current && !options.some((option) => sameManuscriptPath(option.value, current))) {
+      options.unshift({
+        value: current,
+        label: displayPathUnderDrafts(current) ?? current,
+      });
+    }
+    return options;
+  }, [activeArticle?.filePath, coCreationDrafts]);
+  const boundDraftValue =
+    draftPickerOptions.find(
+      (option) => activeArticle?.filePath && sameManuscriptPath(option.value, activeArticle.filePath),
+    )?.value ?? "";
   activeArticleRef.current = activeArticle;
   activeIdRef.current = activeId;
 
@@ -639,7 +658,7 @@ export default function ArticlesPage({
   const handleSave = async () => {
     if (!activeArticle) return;
     if (!activeArticle.filePath) {
-      toast.message("请先在聊天里用 /wechat 让主理人确认选题。讨论阶段不创建文档。");
+      toast.message("请先在聊天里用 /new 让主理人确认选题。讨论阶段不创建文档。");
       return;
     }
     setIsSaving(true);
@@ -767,11 +786,7 @@ export default function ArticlesPage({
         setMode("write");
         activeArticleRef.current = next;
         loadedPathRef.current = opened.filePath;
-        try {
-          window.localStorage.setItem(LAST_OPEN_DRAFT_KEY, toDraftArticlePath(opened.filePath));
-        } catch {
-          // ignore
-        }
+        writeLastOpenDraftPath(opened.filePath);
         void refreshGallery(opened.filePath);
         await applyMarkdownToEditor(content, opened.filePath);
         return true;
@@ -967,20 +982,36 @@ export default function ArticlesPage({
     return isPlaceholderArticleTitle(article.title) || !article.content.trim();
   };
 
+  const refreshCoCreationDrafts = useCallback(async () => {
+    const drafts = await loadUnpublishedDrafts().catch(() => []);
+    setCoCreationDrafts(drafts);
+    return drafts;
+  }, []);
+
   const ensureDefaultDraftOpen = useCallback(async () => {
     const intended = intendedPathRef.current ?? readLastOpenDraftPath();
     const current = activeArticleRef.current?.filePath;
     if (intended) {
       if (!current || !sameManuscriptPath(current, intended) || needsDefaultDraft(activeArticleRef.current)) {
-        await openArticleFromPath(intended, { silent: true });
+        const opened = await openArticleFromPath(intended, { silent: true });
+        if (opened) {
+          void refreshCoCreationDrafts();
+          return;
+        }
+        intendedPathRef.current = undefined;
+      } else {
+        void refreshCoCreationDrafts();
+        return;
       }
+    }
+    if (!needsDefaultDraft(activeArticleRef.current)) {
+      void refreshCoCreationDrafts();
       return;
     }
-    if (!needsDefaultDraft(activeArticleRef.current)) return;
-    const drafts = await loadUnpublishedDrafts().catch(() => []);
+    const drafts = await refreshCoCreationDrafts();
     const fallback = pickDefaultDraftOpenPath(drafts);
     if (fallback) await openArticleFromPath(fallback, { silent: true });
-  }, [openArticleFromPath]);
+  }, [openArticleFromPath, refreshCoCreationDrafts]);
 
   useEffect(() => {
     void ensureDefaultDraftOpen();
@@ -992,14 +1023,21 @@ export default function ArticlesPage({
   }, [activeView, ensureDefaultDraftOpen]);
 
   useEffect(() => subscribeOpenWorkbenchArticle((detail) => {
-    intendedPathRef.current = toDraftArticlePath(detail.filePath);
-    void openArticleFromPath(detail.filePath, { silent: true }).then(() => {
+    const target = toDraftArticlePath(detail.filePath);
+    intendedPathRef.current = target;
+    writeLastOpenDraftPath(target);
+    const current = activeArticleRef.current?.filePath;
+    const open = shouldOpenBoundDraft(current, target)
+      ? openArticleFromPath(detail.filePath, { silent: true })
+      : Promise.resolve(true);
+    void open.then(() => {
+      void refreshCoCreationDrafts();
       if (activeView !== "editor") return;
       if (detail.focus === "images") {
         setRightPanel("images");
       }
     });
-  }), [activeView, openArticleFromPath]);
+  }), [activeView, openArticleFromPath, refreshCoCreationDrafts]);
 
   useEffect(() => subscribeDraftFileChanged((detail) => {
     const open = activeArticleRef.current?.filePath;
@@ -1089,7 +1127,7 @@ export default function ArticlesPage({
 
         {!activeArticle ? (
           <div className="flex min-h-0 flex-1 items-center justify-center px-8 text-center text-sm leading-relaxed text-slate-400">
-            还没有打开一篇已定题的稿。切到对话用 /wechat 确认选题。
+            还没有打开一篇已定题的稿。切到对话用 /new 确认选题。
           </div>
         ) : (
           <>
@@ -1105,6 +1143,31 @@ export default function ArticlesPage({
           <button type="button" title={t("articles.toolbar.preview")} className={tb(mode === "preview")} onClick={() => setMode("preview")}>
             <Eye className="size-4" />
           </button>
+
+          {draftPickerOptions.length > 0 ? (
+            <Select
+              value={boundDraftValue || undefined}
+              onValueChange={(path) => {
+                intendedPathRef.current = toDraftArticlePath(path);
+                void openArticleFromPath(path);
+              }}
+            >
+              <SelectTrigger
+                size="sm"
+                title="当前共创目录"
+                className="ml-1.5 h-8 max-w-[240px] rounded-lg border-slate-200 bg-white text-left text-xs"
+              >
+                <SelectValue placeholder="当前共创目录" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {draftPickerOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
 
           <span className="mx-1.5 h-5 w-px bg-slate-200" />
 
@@ -1450,7 +1513,7 @@ export default function ArticlesPage({
                 </SelectContent>
               </Select>
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-                写入本篇 article.yaml。分栏/预览按此样式显示，排版时小助理也用同一套。
+                写入本篇 article.yaml。分栏/预览按此样式显示，排版时发行也用同一套。
               </p>
             </div>
 

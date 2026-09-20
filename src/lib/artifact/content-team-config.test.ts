@@ -12,28 +12,28 @@ name: 内容创作
 description: 编辑部
 agentFiles:
   - producer.md
-  - wechat-writer.md
+  - writer.md
 skillSlugs:
-  - wechat-article-main
-  - wechat-article-review
+  - article-main
+  - article-review
 default_author: 折叠的AI
 title_max_length: 25
 `;
 
 describe("content team config", () => {
   it("parses roster lists from the merged yaml", () => {
-    expect(parseYamlBlockList(sample, "agentFiles")).toEqual(["producer.md", "wechat-writer.md"]);
+    expect(parseYamlBlockList(sample, "agentFiles")).toEqual(["producer.md", "writer.md"]);
     const manifest = parseContentTeamManifest(sample);
     expect(manifest.name).toBe("内容创作");
-    expect(manifest.skillSlugs).toEqual(["wechat-article-main", "wechat-article-review"]);
+    expect(manifest.skillSlugs).toEqual(["article-main", "article-review"]);
   });
 
   it("parses block lists with CRLF line endings", () => {
     const crlf = sample.replaceAll("\n", "\r\n");
-    expect(parseYamlBlockList(crlf, "agentFiles")).toEqual(["producer.md", "wechat-writer.md"]);
+    expect(parseYamlBlockList(crlf, "agentFiles")).toEqual(["producer.md", "writer.md"]);
     expect(parseYamlBlockList(crlf, "skillSlugs")).toEqual([
-      "wechat-article-main",
-      "wechat-article-review",
+      "article-main",
+      "article-review",
     ]);
     expect(parseContentTeamManifest(crlf).name).toBe("内容创作");
   });

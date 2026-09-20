@@ -1,5 +1,5 @@
 /**
- * WeChat official-account slots injected when /wechat starts.
+ * WeChat official-account slots injected when /publish WECHAT starts.
  * Secrets (APPSECRET / API keys) never appear in the formatted chat context.
  * Account names and AppIDs come from `.env.local` only — no `.aws-article` config.
  */
@@ -96,10 +96,10 @@ export function formatReadyWechatContext(pack: WechatReadyPack): string {
     pack.selectedSlot ? `本次指定槽位: ${pack.selectedSlot}` : "",
     "",
     "规则：",
-    "- 你是小助理（由主理人在发布阶段点名）。列出下列公众号，让用户选一个槽位（序号或名称）。",
+    "- 你是发行（由主理人在发布阶段点名）。列出下列公众号，让用户选一个槽位（序号或名称）。",
     "- 不要打印 APPSECRET、API key 或完整 AppID。",
     "- 选定后在回复里确认槽位序号。不要写任何 yaml 配置文件。",
-    "- 文风和排版风格在写手 / 小助理的 Agent 个性里。",
+    "- 文风和排版风格在写手 / 发行的 Agent 个性里。",
     "- 不要改 .env.local。发布时用对话里确认的槽位序号（`--account N`）。",
     "- 只有一个可用槽位时直接确认。",
     pack.status === "error" || pack.slots.length === 0

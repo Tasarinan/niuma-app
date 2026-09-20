@@ -21,7 +21,7 @@ describe("format theme CSS", () => {
     const raw = readFileSync(
       path.resolve(
         process.cwd(),
-        ".niuma/teams/content/skills/wechat-article-formatting/references/presets/themes/default.yaml",
+        ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes/default.yaml",
       ),
       "utf8",
     );
@@ -35,7 +35,7 @@ describe("format theme CSS", () => {
     const raw = readFileSync(
       path.resolve(
         process.cwd(),
-        ".niuma/teams/content/skills/wechat-article-formatting/references/presets/themes/wechat-tech.yaml",
+        ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes/wechat-tech.yaml",
       ),
       "utf8",
     );
@@ -52,7 +52,7 @@ describe("format theme CSS", () => {
     const raw = readFileSync(
       path.resolve(
         process.cwd(),
-        ".niuma/teams/content/skills/wechat-article-formatting/references/presets/themes/wechat-tech.yaml",
+        ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes/wechat-tech.yaml",
       ),
       "utf8",
     );

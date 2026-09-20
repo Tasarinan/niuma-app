@@ -12,11 +12,19 @@ import {
   requireConfirmedDraftPath,
   requireOpenableDraftMarkdown,
   toDraftSlug,
+  formatDraftTodayContext,
 } from "./drafts";
 
 const DAY = new Date(2026, 8, 3); // 2026-09-03 local
 
 describe("content draft paths", () => {
+  it("injects today's YYYYMMDD for new folders, not the skill example date", () => {
+    const text = formatDraftTodayContext(new Date(2026, 8, 17));
+    expect(text).toContain("[今天] 20260917");
+    expect(text).toContain("20260917-主题");
+    expect(text).not.toContain("20260903");
+  });
+
   it("names a new draft folder as YYYYMMDD-topic", () => {
     expect(toDraftSlug("AI 对内容创作的影响", DAY)).toBe("20260903-ai-对内容创作的影响");
     expect(relativeDraftArticlePath("AI 对内容创作的影响", DAY)).toBe(
@@ -42,7 +50,7 @@ describe("content draft paths", () => {
   });
 
   it("refuses to create a draft folder before the topic is confirmed", () => {
-    expect(() => requireConfirmedDraftPath(undefined)).toThrow(/\/wechat/);
+    expect(() => requireConfirmedDraftPath(undefined)).toThrow(/\/new/);
     expect(requireConfirmedDraftPath("C:/drafts/20260903-topic/article.md")).toBe(
       "C:/drafts/20260903-topic/article.md",
     );
@@ -58,7 +66,7 @@ describe("content draft paths", () => {
         String.raw`C:\N-5CG2150YY9-Data\dvkx47\Documents\niuma\artifact\untitled-article.md`,
       ),
     ).toBe(false);
-    expect(() => requireOpenableDraftMarkdown(undefined)).toThrow(/\/wechat/);
+    expect(() => requireOpenableDraftMarkdown(undefined)).toThrow(/\/new/);
     expect(() => requireOpenableDraftMarkdown("notes.md")).toThrow(/Markdown/);
   });
 

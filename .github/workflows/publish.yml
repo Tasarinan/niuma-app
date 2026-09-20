@@ -1,25 +1,32 @@
-name: "publish"
+name: Release
 
 on:
   push:
     branches:
+      - main
       - master
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   publish-tauri:
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest"
-            args: "--target aarch64-apple-darwin"
-          - platform: "macos-latest"
-            args: "--target x86_64-apple-darwin"
-          - platform: "ubuntu-22.04"
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - platform: ubuntu-22.04
             args: ""
-          - platform: "windows-latest"
+          - platform: windows-latest
             args: ""
 
     runs-on: ${{ matrix.platform }}
@@ -30,6 +37,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          cache: npm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -48,10 +56,15 @@ jobs:
             libayatana-appindicator3-dev ca-certificates binutils
           sudo update-ca-certificates -f
 
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - name: Install frontend deps
         run: npm ci
 
-      - name: Build & publish
+      - name: Build and publish GitHub Release
         uses: tauri-apps/tauri-action@v0.5.16
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -59,9 +72,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: app-v__VERSION__
-          releaseName: "Niuma v__VERSION__"
-          releaseBody: "Download binaries for your OS. macOS users: If blocked, go to System Settings > Privacy & Security > Security section, find 'Niuma was blocked' message, click 'Allow Anyway', then reopen the app."
-          releaseDraft: true
+          releaseName: Niuma v__VERSION__
+          releaseBody: |
+            Download binaries for your OS.
+
+            macOS: if blocked, System Settings → Privacy & Security → Allow Anyway, then reopen the app.
+          releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true

@@ -100,6 +100,14 @@ npm run tauri build
 
 Installers land in `src-tauri/target/release/bundle/`.
 
+Local secrets: copy `.env.example` to `.env.local` at the repo root. `build.rs` loads that file. Never commit `.env.local`.
+
+## Release
+
+Push to `main` or `master` (or run **Actions → Release → Run workflow**) builds macOS / Linux / Windows and publishes a GitHub Release for the version in `package.json` and `src-tauri/tauri.conf.json` (tag `app-v__VERSION__`, currently `app-v1.0.0`). The updater reads `releases/latest/download/latest.json`, so the release is published rather than left as a draft.
+
+Bump that version before you want a new tag. Repo secrets required for updater signatures: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (see `.env.example`).
+
 ## Contributing
 
 Bug fixes and improvements to existing behavior are welcome. New features, new LLM/STT providers, and large UI rewrites should start as an Issue.

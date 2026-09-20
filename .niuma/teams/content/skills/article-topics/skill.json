@@ -1,0 +1,14 @@
+{
+  "name": "article-topics",
+  "version": "0.3.0",
+  "author": "niuma.skills",
+  "description": "采编：remix 已注入简报，拆角度、拟标题、判断能不能写。不定题、不落盘。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["markdown", "desk", "topics", "research"],
+  "permissions": [],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  }
+}

@@ -69,11 +69,22 @@ import {
 import { formatDigestFeedContext, loadCentralFeeds } from "@/lib/digest/central-feeds";
 import { formatReadyWechatContext, loadWechatReadyPack } from "@/lib/wechat/accounts";
 import { formatImaTopicContext, loadImaTopicPack } from "@/lib/ima/openapi";
-import { isAssistantPublishRequest, isPublishWorkflowCommand, isWechatWorkflowCommand } from "@/lib/content/workflow-command";
-import { formatUnpublishedDraftsContext, loadUnpublishedDrafts } from "@/lib/artifact/unpublished-drafts";
+import {
+  isAssistantPublishRequest,
+  isEditArticleCommand,
+  isFormatCommand,
+  isNewArticleCommand,
+  isPublishWorkflowCommand,
+  isResumeArticleCommand,
+  shouldInjectWechatSlots,
+  splitPlatformAndRest,
+} from "@/lib/content/workflow-command";
+import { formatUnpublishedDraftsContext, loadUnpublishedDrafts, pickDefaultDraftOpenPath } from "@/lib/artifact/unpublished-drafts";
 import { injectOpenDraftContext } from "@/lib/artifact/draft-workspace";
+import { injectDraftTodayContext } from "@/lib/artifact/drafts";
 import { formatContentTeamConfigContext, loadContentTeamConfigRaw } from "@/lib/artifact/content-team-config";
 import { readLastOpenDraftPath } from "@/lib/artifact/article-storage";
+import { requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-article";
 import { runImaApi } from "@/lib/functions/ima.api";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, SandboxMode } from "@/types";
 import type { ImageContent } from "@earendil-works/pi-ai";
@@ -1322,7 +1333,7 @@ export default function ChatPage({
     setSlashMenuDismissed(true);
 
     let agentInput = resolution?.kind === "prompt" ? resolution.text : text;
-    // Visible bubble stays as the user's typed text. Hidden draft/wechat
+    // Visible bubble stays as the user's typed text. Hidden draft/platform
     // context is only attached to agentInput so it does not inflate history.
 
     // Allow image-only send by supplying a minimal fallback prompt.
@@ -1331,18 +1342,34 @@ export default function ChatPage({
     }
 
     const _slashForRouting = parseSlashInvocation(text);
+    if (_slashForRouting && isEditArticleCommand(_slashForRouting.command)) {
+      let path = openFilePath || readLastOpenDraftPath();
+      if (!path) {
+        try {
+          const drafts = await loadUnpublishedDrafts();
+          path = pickDefaultDraftOpenPath(drafts);
+        } catch {
+          path = undefined;
+        }
+      }
+      if (path) {
+        requestOpenWorkbenchArticle({ filePath: path, focus: "editor", switchView: true });
+      }
+      activateEditor();
+      return;
+    }
     const publishRequested = isAssistantPublishRequest(text);
     const commandAgentNames: string[] | undefined = (() => {
       if (_slashForRouting) {
         const cmd = slashCommands.find((c) => c.name === _slashForRouting.command);
         if (cmd?.agent) return [cmd.agent];
       }
-      if (publishRequested) return ["小助理"];
+      if (publishRequested) return ["发行"];
       return undefined;
     })();
 
-    // /wechat: inject feeds + IMA + drafts for 主理人. 公众号槽位只在发布时给小助理。
-    if (_slashForRouting && isWechatWorkflowCommand(_slashForRouting.command)) {
+    // /new: inject feeds + IMA + drafts(new) for 主理人. /resume: unpublished drafts only.
+    if (_slashForRouting && isNewArticleCommand(_slashForRouting.command)) {
       setIsAugmenting(true);
       try {
         try {
@@ -1370,9 +1397,9 @@ export default function ChatPage({
         }
         try {
           const drafts = await loadUnpublishedDrafts();
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, _slashForRouting.args)}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, _slashForRouting.args, "new")}`;
         } catch (err) {
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], _slashForRouting.args)}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], _slashForRouting.args, "new")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
         }
         try {
           const configRaw = await loadContentTeamConfigRaw();
@@ -1385,13 +1412,57 @@ export default function ChatPage({
       }
     }
 
-    if (publishRequested) {
+    if (_slashForRouting && isResumeArticleCommand(_slashForRouting.command)) {
+      setIsAugmenting(true);
+      try {
+        try {
+          const drafts = await loadUnpublishedDrafts();
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, _slashForRouting.args, "resume")}`;
+        } catch (err) {
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], _slashForRouting.args, "resume")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
+        }
+        try {
+          const configRaw = await loadContentTeamConfigRaw();
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext(configRaw)}`;
+        } catch (err) {
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext("")}\n- 读取团队配置失败：${err instanceof Error ? err.message : String(err)}`;
+        }
+      } finally {
+        setIsAugmenting(false);
+      }
+    }
+
+    if (
+      _slashForRouting &&
+      (isFormatCommand(_slashForRouting.command) || isPublishWorkflowCommand(_slashForRouting.command))
+    ) {
+      const { platform, rest } = splitPlatformAndRest(_slashForRouting.args);
+      const isFormat = isFormatCommand(_slashForRouting.command);
+      agentInput = [
+        agentInput,
+        "",
+        "[内容平台]",
+        `command: /${_slashForRouting.command}`,
+        `platform: ${platform ?? "unset"}`,
+        rest ? `rest: ${rest}` : "",
+        platform
+          ? isFormat
+            ? "- 只排版，不要推草稿箱。"
+            : "- 推到该平台草稿箱；XHS/ZHIHU 未接通时禁止假装已发。"
+          : "- 先让用户选择 WECHAT、XHS 或 ZHIHU。未选定不要跑微信 format.py / publish.py。",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    const injectWechatSlots =
+      (_slashForRouting && shouldInjectWechatSlots(_slashForRouting.command, _slashForRouting.args))
+      || (!_slashForRouting && /(发到公众号|推送到公众号|发布到微信)/i.test(text));
+    if (injectWechatSlots) {
       setIsAugmenting(true);
       try {
         const pack = await loadWechatReadyPack({
-          args: _slashForRouting && isPublishWorkflowCommand(_slashForRouting.command)
-            ? _slashForRouting.args
-            : "",
+          args: _slashForRouting ? splitPlatformAndRest(_slashForRouting.args).rest : "",
         });
         agentInput = `${agentInput}\n\n${formatReadyWechatContext(pack)}`;
       } catch (err) {
@@ -1455,7 +1526,7 @@ export default function ChatPage({
             parts.push(`[Web 搜索失败: ${compactImaError(e)}]`);
           }
         }
-        if (imaEnabled && !(_slashForRouting && isWechatWorkflowCommand(_slashForRouting.command))) {
+        if (imaEnabled && !(_slashForRouting && isNewArticleCommand(_slashForRouting.command))) {
           try {
             const imaResults = await gatherImaResults(text);
             if (imaResults.trim()) {
@@ -1476,7 +1547,10 @@ export default function ChatPage({
     }
 
     const lastOpenPath = readLastOpenDraftPath();
-    agentInput = injectOpenDraftContext(agentInput, { openFilePath, lastOpenPath });
+    agentInput = injectDraftTodayContext(agentInput);
+    if (!(_slashForRouting && isNewArticleCommand(_slashForRouting.command))) {
+      agentInput = injectOpenDraftContext(agentInput, { openFilePath, lastOpenPath });
+    }
 
     await sendMessage(agentInput, images, undefined, commandAgentNames, text.trim() ? text : undefined);
   };

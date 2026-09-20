@@ -4,17 +4,17 @@ import { describeAgentToolDone, describeAgentToolProgress } from "./tool-progres
 describe("describeAgentToolProgress", () => {
   it("only names the skill while it is in use", () => {
     expect(describeAgentToolProgress("load_skill", { name: "wechat-article-images" })).toBe(
-      "正在使用技能 wechat-article-images",
+      "正在使用技能 article-images",
     );
     expect(describeAgentToolProgress("run_skill", { name: "ima-skill" })).toBe("正在使用技能 ima-skill");
-    expect(describeAgentToolDone("正在使用技能 wechat-article-images")).toBe(
-      "使用技能 wechat-article-images",
+    expect(describeAgentToolDone("正在使用技能 article-images")).toBe(
+      "使用技能 article-images",
     );
   });
 
   it("normalizes legacy aws-wechat skill ids for display", () => {
     expect(describeAgentToolProgress("load_skill", { name: "aws-wechat-article-publish" })).toBe(
-      "正在使用技能 wechat-article-publish",
+      "正在使用技能 article-publish-wechat",
     );
   });
 

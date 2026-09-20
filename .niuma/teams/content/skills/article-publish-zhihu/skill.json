@@ -1,0 +1,15 @@
+{
+  "name": "article-publish-zhihu",
+  "version": "0.1.0",
+  "author": "niuma.skills",
+  "description": "发布到知乎（尚未接通）。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["zhihu", "知乎", "publish"],
+  "permissions": ["filesystem"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  },
+  "dependencies": []
+}

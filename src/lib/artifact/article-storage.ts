@@ -81,3 +81,13 @@ export function readLastOpenDraftPath(): string | undefined {
     return undefined;
   }
 }
+
+export function writeLastOpenDraftPath(path: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (!isOpenableDraftMarkdown(path)) return;
+    window.localStorage.setItem(LAST_OPEN_DRAFT_KEY, toDraftArticlePath(path));
+  } catch {
+    // ignore quota / private-mode failures
+  }
+}

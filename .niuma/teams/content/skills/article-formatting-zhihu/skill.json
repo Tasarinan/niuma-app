@@ -1,0 +1,15 @@
+{
+  "name": "article-formatting-zhihu",
+  "version": "0.1.0",
+  "author": "niuma.skills",
+  "description": "知乎排版（尚未接通）。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["zhihu", "知乎", "formatting"],
+  "permissions": ["filesystem"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  },
+  "dependencies": []
+}

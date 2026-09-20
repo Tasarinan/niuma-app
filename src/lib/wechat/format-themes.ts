@@ -18,7 +18,7 @@ export const DEFAULT_FORMAT_THEME_ID = "default";
 
 export const FORMAT_THEME_USER_DIR = ".niuma/teams/content/presets/formatting";
 export const FORMAT_THEME_BUILTIN_DIR =
-  ".niuma/teams/content/skills/wechat-article-formatting/references/presets/themes";
+  ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes";
 
 export const FORMAT_THEME_GROUPS: { id: FormatThemeGroupId; label: string }[] = [
   { id: "niuma", label: "Niuma 原主题" },

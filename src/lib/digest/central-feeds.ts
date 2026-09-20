@@ -1,8 +1,8 @@
 /**
- * Pull follow-builders central feeds when /wechat starts.
+ * Pull follow-builders central feeds when /new starts.
  *
  * GitHub raw often times out in CN networks; try jsDelivr (and gitmirror) first.
- * The app injects the compacted JSON into the slash prompt so 小蜜蜂 only remixes.
+ * The app injects the compacted JSON into the slash prompt so 采编 only remixes.
  */
 
 export const FOLLOW_BUILDERS_REPO = "zarazhangrui/follow-builders";
