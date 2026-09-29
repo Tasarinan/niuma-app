@@ -97,13 +97,13 @@ arguments:
     ).toBe("小助理");
   });
 
-  it("routes /new to 主理人", () => {
+  it("routes /article to 主理人", () => {
     expect(
       parseSlashCommandAgent(`---
-description: 开一篇新公众号
+description: 管理内容草稿
 agent: 主理人
 ---
-# new`),
+# article`),
     ).toBe("主理人");
   });
 

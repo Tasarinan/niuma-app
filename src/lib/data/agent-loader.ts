@@ -68,12 +68,32 @@ function parseFrontmatter(raw: string): Record<string, string> {
   if (!match) return {};
 
   const meta: Record<string, string> = {};
-  for (const line of match[1].split("\n")) {
-    const item = line.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
+  const lines = match[1].split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const item = lines[i].match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
     if (!item) continue;
     const key = item[1].trim();
-    const value = item[2].trim();
-    meta[key] = value.replace(/^['"]|['"]$/g, "");
+    const inlineValue = item[2].trim();
+
+    if (inlineValue === "") {
+      const listItems: string[] = [];
+      let j = i + 1;
+      while (j < lines.length) {
+        const listMatch = lines[j].match(/^\s*-\s+(.+)$/);
+        if (!listMatch) break;
+        listItems.push(listMatch[1].trim().replace(/^['"]|['"]$/g, ""));
+        j++;
+      }
+      if (listItems.length > 0) {
+        meta[key] = JSON.stringify(listItems);
+        i = j - 1;
+        continue;
+      }
+      meta[key] = "";
+      continue;
+    }
+
+    meta[key] = inlineValue.replace(/^['"]|['"]$/g, "");
   }
   return meta;
 }

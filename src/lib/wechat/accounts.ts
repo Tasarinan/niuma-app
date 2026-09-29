@@ -101,6 +101,7 @@ export function formatReadyWechatContext(pack: WechatReadyPack): string {
     "- 选定后在回复里确认槽位序号。不要写任何 yaml 配置文件。",
     "- 文风和排版风格在写手 / 发行的 Agent 个性里。",
     "- 不要改 .env.local。发布时用对话里确认的槽位序号（`--account N`）。",
+    "- 发布必须用 `publish.py ... full <草稿目录>/`：`full` 会先对磁盘 article.md 跑 format.py 再上传；不要只传旧 article.html。",
     "- 只有一个可用槽位时直接确认。",
     pack.status === "error" || pack.slots.length === 0
       ? "- 找不到账号时说明要在工作区 `.env.local` 填写 WECHAT_1_APPID / WECHAT_1_APPSECRET，不要编造 AppID。"

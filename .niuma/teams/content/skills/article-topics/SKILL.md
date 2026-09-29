@@ -10,7 +10,7 @@ homepage: https://github.com/Tasarinan/niuma-app
 
 ## 输入
 
-`/new` 时应用会注入 `[中央 Feed · follow-builders]`、`[IMA 文章资产]`。只使用对话里已有材料，不要自己爬 X/YouTube，不要 `web_search`，不要跑 `prepare-digest.mjs` / `run_skill` / `bash` fetch。
+`/article create` 时应用会注入 `[中央 Feed · follow-builders]`、`[IMA 文章资产]`。只使用对话里已有材料，不要自己爬 X/YouTube，不要 `web_search`，不要跑 `prepare-digest.mjs` / `run_skill` / `bash` fetch。
 
 remix 简报时：每条必须带原文 `url`；没有 URL 的丢掉。禁止发明条目。`feed status: error` 或条目为空时说明是网络/中央 feed 问题，停止编造。
 

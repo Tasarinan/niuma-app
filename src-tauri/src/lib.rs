@@ -484,6 +484,7 @@ pub fn run() {
             fs_tools::write_binary_file,
             fs_tools::read_binary_file,
             fs_tools::list_directory,
+            fs_tools::remove_file,
             search_tools::search_local_files,
             search_tools::web_search,
             http_tools::http_request,

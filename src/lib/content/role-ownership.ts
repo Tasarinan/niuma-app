@@ -15,7 +15,7 @@ export const CONTENT_ROLE_OWNERSHIP: ContentRoleOwnership[] = [
     agentFile: "producer.md",
     name: "主理人",
     skills: ["article-main"],
-    commands: ["new", "resume"],
+    commands: ["article"],
     summary: "开新题、续旧稿、主持、定题、建目录、点名",
   },
   {
@@ -36,8 +36,8 @@ export const CONTENT_ROLE_OWNERSHIP: ContentRoleOwnership[] = [
     agentFile: "illustrator.md",
     name: "配图师",
     skills: ["article-images"],
-    commands: [],
-    summary: "生/搜 PNG 到 imgs/，改文中图片引用",
+    commands: ["image"],
+    summary: "生/搜 PNG 到 imgs/，/image 整理目录图，改文中图片引用",
   },
   {
     agentFile: "chief.md",

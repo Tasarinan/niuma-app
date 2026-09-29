@@ -10,4 +10,4 @@ homepage: https://github.com/Tasarinan/niuma-app
 
 明确告诉用户：小红书成稿与推送**尚未接通**。不能建目录、不能写笔记、不能定位文稿、**不能假装已经发到小红书**。不要 mkdir，不要 `open_article`，不要跑微信 `publish.py`。
 
-公众号推草稿箱用 `/publish WECHAT`（技能 `article-publish-wechat`）。知乎用 `/publish ZHIHU`（同样未接通）。排版用 `/format`。开新题用 `/new`，续写用 `/resume`。
+公众号推草稿箱用 `/publish WECHAT`（技能 `article-publish-wechat`）。知乎用 `/publish ZHIHU`（同样未接通）。排版用 `/format`。开新题用 `/article create`，继续稿用 `/article edit <target>`。

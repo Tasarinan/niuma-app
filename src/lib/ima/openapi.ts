@@ -106,7 +106,7 @@ export async function imaOpenApiPost(
 
 export function formatImaTopicContext(pack: ImaTopicPack): string {
   const lines = [
-    "[IMA 文章资产 · /new]",
+    "[IMA 文章资产 · /article create]",
     `status: ${pack.status}`,
     `query: ${pack.query}`,
     "",

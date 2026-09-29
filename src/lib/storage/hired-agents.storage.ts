@@ -1,6 +1,6 @@
 /**
- * Persisted preference for which catalog agents (by `.niuma/agents` filename
- * filename) are "hired". Shared by the Agents page (browse/hire toggle) and
+ * Persisted preference for which catalog agents (by `.niuma/agents` filename)
+ * are "hired". Shared by the Agents page (browse/hire toggle) and
  * the agent-chat main channel's default-agent resolution, so both stay in
  * sync.
  *
@@ -12,14 +12,42 @@
 const LS_KEY = "niuma-hired-agents";
 const DEFAULT_HIRED = ["assistant.md"];
 
+/** Old catalog filenames folded into the current specialists. */
+export const CATALOG_HIRED_FILE_MIGRATION: Record<string, string> = {
+  "bob.md": "dev.md",
+  "charlie.md": "dev.md",
+  "leo.md": "dev.md",
+  "kate.md": "dev.md",
+  "kai.md": "alice.md",
+  "jack.md": "alice.md",
+  "eve.md": "diana.md",
+  "henry.md": "grace.md",
+  "mary.md": "grace.md",
+  "nick.md": "grace.md",
+  "frank.md": "atlas.md",
+  "olivia.md": "atlas.md",
+};
+
+function normalizeHiredFile(file: string): string {
+  const asMd = file.toLowerCase().endsWith(".json") ? file.replace(/\.json$/i, ".md") : file;
+  return CATALOG_HIRED_FILE_MIGRATION[asMd] ?? asMd;
+}
+
+export function migrateHiredAgentFiles(files: string[]): string[] {
+  return [...new Set(files.map(normalizeHiredFile))];
+}
+
 export function loadHiredAgentFiles(): Set<string> {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return new Set(DEFAULT_HIRED);
-    const migrated = (JSON.parse(raw) as string[]).map((file) =>
-      file.toLowerCase().endsWith(".json") ? file.replace(/\.json$/i, ".md") : file
-    );
-    return new Set(migrated);
+    const original = JSON.parse(raw) as string[];
+    const migrated = migrateHiredAgentFiles(original);
+    const next = new Set(migrated);
+    const mapped = original.map(normalizeHiredFile);
+    const changed = original.some((file, index) => file !== mapped[index]) || mapped.length !== migrated.length;
+    if (changed) saveHiredAgentFiles(next);
+    return next;
   } catch {
     return new Set(DEFAULT_HIRED);
   }

@@ -5,3 +5,4 @@ export * from "./write";
 export * from "./ensure-dir";
 export * from "./exists";
 export * from "./get-unique-path";
+export * from "./remove";

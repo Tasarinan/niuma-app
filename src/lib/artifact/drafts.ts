@@ -57,7 +57,7 @@ export function isDraftArticleFile(relativeOrAbsolutePath: string): boolean {
 /** Editor/app may only write into a folder that the 主理人 already created after topic confirm. */
 export function requireConfirmedDraftPath(existingPath?: string): string {
   if (!existingPath) {
-    throw new Error("选题尚未确认，不能创建草稿目录。请先在聊天里用 /new 让主理人正式定题。");
+    throw new Error("选题尚未确认，不能创建草稿目录。请先在聊天里用 /article create 让主理人正式定题。");
   }
   return existingPath;
 }

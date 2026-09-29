@@ -2,29 +2,90 @@
 
 export type ContentPlatform = "wechat" | "xhs" | "zhihu";
 
+/** Sub-actions for `/article`, similar to `/record` types or `/profile` actions. */
+export type ArticleCommandAction = "create" | "edit" | "delete" | "update";
+
 export function normalizeCommandName(name: string): string {
   return name.trim().toLowerCase();
 }
 
-export function isNewArticleCommand(name: string): boolean {
-  return normalizeCommandName(name) === "new";
+export function isArticleCommand(name: string): boolean {
+  return normalizeCommandName(name) === "article";
 }
 
-export function isResumeArticleCommand(name: string): boolean {
-  return normalizeCommandName(name) === "resume";
+const ARTICLE_ACTION_ALIASES: Record<string, ArticleCommandAction> = {
+  create: "create",
+  new: "create",
+  edit: "edit",
+  delete: "delete",
+  remove: "delete",
+  update: "update",
+  modify: "update",
+};
+
+export function parseArticleCommandArgs(args: string): {
+  action?: ArticleCommandAction;
+  rest: string;
+} {
+  const trimmed = args.trim();
+  if (!trimmed) return { rest: "" };
+  const [first, ...restParts] = trimmed.split(/\s+/);
+  const action = ARTICLE_ACTION_ALIASES[first.toLowerCase()];
+  if (action) return { action, rest: restParts.join(" ") };
+  return { rest: trimmed };
 }
 
-export function isEditArticleCommand(name: string): boolean {
-  return normalizeCommandName(name) === "edit";
+export type ArticleDraftWorkflowIntent = "create" | "continue";
+
+/**
+ * Draft workflow injection in chat: create = roundtable (/article create),
+ * continue = pick an existing draft (/article edit <which>).
+ */
+export function resolveArticleDraftWorkflow(
+  command: string,
+  args: string,
+): { intent: ArticleDraftWorkflowIntent; query: string } | null {
+  const name = normalizeCommandName(command);
+  if (name === "new") return { intent: "create", query: args.trim() };
+  if (name === "resume") return { intent: "continue", query: args.trim() };
+  if (!isArticleCommand(name)) return null;
+
+  const { action, rest } = parseArticleCommandArgs(args);
+  if (action === "create") return { intent: "create", query: rest.trim() };
+  if (action === "edit" && rest.trim()) return { intent: "continue", query: rest.trim() };
+  return null;
+}
+
+/** UI-only: open workbench editor bar (no agent turn). */
+export function isArticleEditUiCommand(command: string, args: string): boolean {
+  const name = normalizeCommandName(command);
+  if (name === "edit" && !args.trim()) return true;
+  if (!isArticleCommand(name)) return false;
+  const { action, rest } = parseArticleCommandArgs(args);
+  return action === "edit" && !rest.trim();
+}
+
+/** @deprecated Use resolveArticleDraftWorkflow(...)?.intent === "create". */
+export function isNewArticleCommand(name: string, args = ""): boolean {
+  return resolveArticleDraftWorkflow(name, args)?.intent === "create";
+}
+
+/** @deprecated Use resolveArticleDraftWorkflow(...)?.intent === "continue". */
+export function isResumeArticleCommand(name: string, args = ""): boolean {
+  return resolveArticleDraftWorkflow(name, args)?.intent === "continue";
+}
+
+/** @deprecated Use isArticleEditUiCommand. */
+export function isEditArticleCommand(name: string, args = ""): boolean {
+  return isArticleEditUiCommand(name, args);
 }
 
 export function isFormatCommand(name: string): boolean {
   return normalizeCommandName(name) === "format";
 }
 
-/** @deprecated Command /xhs was removed; keep the export so old callers compile. */
-export function isXhsStubCommand(_name: string): boolean {
-  return false;
+export function isImageCommand(name: string): boolean {
+  return normalizeCommandName(name) === "image";
 }
 
 /** @deprecated Use isNewArticleCommand. Kept so old tests/callers compile during rename. */
@@ -36,8 +97,13 @@ export function isStubWorkflowCommand(name: string): boolean {
   return isXhsStubCommand(name);
 }
 
-export function isContentWorkflowCommand(name: string): boolean {
-  return isNewArticleCommand(name) || isResumeArticleCommand(name);
+/** @deprecated Command /xhs was removed; keep the export so old callers compile. */
+export function isXhsStubCommand(_name: string): boolean {
+  return false;
+}
+
+export function isContentWorkflowCommand(name: string, args = ""): boolean {
+  return resolveArticleDraftWorkflow(name, args) !== null;
 }
 
 /** Slash command that 发行 owns: push to a platform draft box. */
@@ -69,10 +135,16 @@ export function splitPlatformAndRest(args: string): { platform?: ContentPlatform
 export function isAssistantPublishRequest(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
-  const slash = trimmed.match(/^\/([A-Za-z0-9_-]+)\b/);
+  const slash = trimmed.match(/^\/([A-Za-z0-9_-]+)\b(?:\s+([\s\S]*))?$/);
   if (slash) {
-    if (isContentWorkflowCommand(slash[1]) || isEditArticleCommand(slash[1])) return false;
-    return isPublishWorkflowCommand(slash[1]) || isFormatCommand(slash[1]);
+    const cmd = slash[1];
+    const args = slash[2] ?? "";
+    if (isContentWorkflowCommand(cmd, args) || isArticleEditUiCommand(cmd, args)) return false;
+    if (isArticleCommand(cmd)) {
+      const { action } = parseArticleCommandArgs(args);
+      if (action === "delete" || action === "update") return false;
+    }
+    return isPublishWorkflowCommand(cmd) || isFormatCommand(cmd) || isImageCommand(cmd);
   }
   return /(发布|排版|发到公众号|推送到公众号|生成\s*html|转\s*html)/i.test(trimmed);
 }

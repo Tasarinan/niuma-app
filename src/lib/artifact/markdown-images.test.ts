@@ -3,6 +3,7 @@ import {
   collectMarkdownImageSrcs,
   inlineLocalMarkdownImages,
   localImageReadCandidates,
+  repairMarkdownImageSrcFromAlt,
   markdownHasUnresolvedLocalImages,
   previewUrlTransform,
   relativizeMarkdownImages,
@@ -62,8 +63,7 @@ describe("markdown local images", () => {
       "C:/niuma/.artifacts/drafts/foo/article.md",
       async (path) => files.get(path) ?? "",
     );
-    expect(display).toContain("data:image/jpeg;base64,amZqMQ==");
-    expect(display).toContain("data:image/png;base64,cG5nMQ==");
+    expect(display).toContain("blob:");
     expect(display).not.toContain("HRSh1uMboAAPsIX.jfif");
     expect(relativizeMarkdownImages(display, srcMap)).toBe(
       "# t\n\n![封面](imgs/foo-01.png)\n\n![图](imgs/01.png)\n",
@@ -92,7 +92,7 @@ describe("markdown local images", () => {
       "C:/niuma/.artifacts/drafts/foo/article.md",
       async (path) => files.get(path) ?? "",
     );
-    expect(display).toContain("data:image/png;base64,cG5nMQ==");
+    expect(display).toContain("blob:");
   });
 
   it("looks for the same file under imgs/", () => {
@@ -104,6 +104,32 @@ describe("markdown local images", () => {
     );
   });
 
+  it("repairs src when alt already names the imgs file", () => {
+    const md = "![workbuddy-16.png](imgs/workbuddy-01.png)\n";
+    expect(repairMarkdownImageSrcFromAlt(md)).toBe("![workbuddy-16.png](imgs/workbuddy-16.png)\n");
+  });
+
+  it("keeps distinct disk paths when two imgs share identical bytes", async () => {
+    const markdown = "![a](imgs/workbuddy-01.png)\n\n![b](imgs/workbuddy-02.png)\n";
+    const files = new Map([
+      ["C:/niuma/.artifacts/drafts/foo/imgs/workbuddy-01.png", "cG5nMQ=="],
+      ["C:/niuma/.artifacts/drafts/foo/imgs/workbuddy-02.png", "cG5nMQ=="],
+    ]);
+    const displayUrls: string[] = [];
+    const { markdown: display, srcMap } = await inlineLocalMarkdownImages(
+      markdown,
+      "C:/niuma/.artifacts/drafts/foo/article.md",
+      async (path) => files.get(path) ?? "",
+      (abs) => {
+        const url = `asset://${abs}`;
+        displayUrls.push(url);
+        return url;
+      },
+    );
+    expect(new Set(displayUrls).size).toBe(2);
+    expect(relativizeMarkdownImages(display, srcMap)).toBe(markdown);
+  });
+
   it("inlines a sibling jfif when markdown already says .png", async () => {
     const markdown = "![封面](HRSh1uMboAAPsIX.png)\n";
     const files = new Map([["C:/niuma/.artifacts/drafts/foo/HRSh1uMboAAPsIX.jfif", "amZqMQ=="]]);
@@ -112,7 +138,7 @@ describe("markdown local images", () => {
       "C:/niuma/.artifacts/drafts/foo/article.md",
       async (path) => files.get(path) ?? "",
     );
-    expect(display).toContain("data:image/jpeg;base64,amZqMQ==");
+    expect(display).toContain("blob:");
     expect(relativizeMarkdownImages(display, srcMap)).toBe("![封面](imgs/foo-01.png)\n");
   });
 });

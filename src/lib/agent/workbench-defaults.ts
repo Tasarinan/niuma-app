@@ -36,7 +36,7 @@ export const WORKBENCH_TEAM_PRESETS: WorkbenchTeamPreset[] = [
     id: "content",
     name: "内容创作",
     eyebrow: "Markdown · 多平台",
-    description: "编辑部。主理人 /new 开新题、/resume 续旧稿；采编选题；写手写 Markdown；主编审稿；配图师配图；发行 /format /publish。",
+    description: "编辑部。主理人 /article 管稿；采编选题；写手写 Markdown；主编审稿；配图师配图；发行 /format /publish。",
     avatar: "✍️",
     accent: "amber",
     kind: "chat",
@@ -81,11 +81,10 @@ export const WORKBENCH_TEAM_PRESETS: WorkbenchTeamPreset[] = [
       "article-assets",
     ],
     starterPrompts: [
-      "/new 今天想做一篇什么",
-      "/resume",
+      "/article create 今天想做一篇什么",
+      "/article edit",
       "/format WECHAT",
       "/publish WECHAT",
-      "/edit",
     ],
   },
   {

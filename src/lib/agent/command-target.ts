@@ -83,7 +83,7 @@ export function shouldSmartDispatch<T extends CommandTargetAgent>(options: {
 
 export function missingCommandAgentMessage(targets: string[]): string {
   const label = targets.filter(Boolean).join("、") || "指定角色";
-  return `频道里没有找到「${label}」，所以这次没有生成回复。请确认内容创作团队已入职该角色，并刷新工作台后再试 /new。`;
+  return `频道里没有找到「${label}」，所以这次没有生成回复。请确认内容创作团队已入职该角色，并刷新工作台后再试 /article create。`;
 }
 
 export function catalogAgentAliases(file: string, name?: string, role?: string): string[] {

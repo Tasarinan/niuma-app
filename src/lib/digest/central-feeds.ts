@@ -1,5 +1,5 @@
 /**
- * Pull follow-builders central feeds when /new starts.
+ * Pull follow-builders central feeds when /article create starts.
  *
  * GitHub raw often times out in CN networks; try jsDelivr (and gitmirror) first.
  * The app injects the compacted JSON into the slash prompt so 采编 only remixes.

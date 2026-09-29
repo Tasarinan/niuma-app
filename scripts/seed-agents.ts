@@ -1,7 +1,11 @@
 /**
  * scripts/seed-agents.ts
  *
+ * Canonical catalog lives in `.niuma/agents/*.md`. This script only rebuilds
+ * the optional `public/agents/` JSON fallback used when the agent store is empty.
+ *
  * Regenerates the bundled default agent JSON files under public/agents/.
+ * Keep `AGENTS` aligned with `.niuma/agents/` (minus `_TEMPLATE.md`).
  * Edit the `AGENTS` array below and run:
  *
  *   npx tsx scripts/seed-agents.ts
@@ -23,6 +27,8 @@ const OUTPUT_DIR = resolve(__dirname, "../public/agents");
 //         providerId ("" = use active provider), modelId ("" = use active model),
 //         enabledInternalTools, sandboxMode, temperature, maxTokens
 
+// Canonical catalog is `.niuma/agents/*.md`. Do not add specialists here that
+// are not also markdown files in that directory.
 const AGENTS = [
   {
     name: "Alice",

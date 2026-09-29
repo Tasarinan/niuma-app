@@ -43,7 +43,7 @@ describe("unpublished drafts", () => {
   it("tells the host to resume instead of opening a new topic", () => {
     const text = formatUnpublishedDraftsContext([wealth], "财富自由");
     expect(text).toContain("[未推送草稿]");
-    expect(text).toContain("intent: resume");
+    expect(text).toContain("intent: continue");
     expect(text).toContain("不要再 mkdir");
     expect(text).toContain("本次请直接继续");
     expect(text).toContain("article.md");
@@ -55,8 +55,8 @@ describe("unpublished drafts", () => {
   });
 
   it("forbids resume when intent is a new topic even if the query matches", () => {
-    const text = formatUnpublishedDraftsContext([wealth], "财富自由", "new");
-    expect(text).toContain("intent: new");
+    const text = formatUnpublishedDraftsContext([wealth], "财富自由", "create");
+    expect(text).toContain("intent: create");
     expect(text).toContain("禁止续写");
     expect(text).toContain("对照（禁止续写）");
     expect(text).not.toContain("本次请直接继续");

@@ -6,6 +6,7 @@ import {
   isWechatSafeImageFilename,
   nextWechatImageFilename,
   normalizeWechatImageFilename,
+  resolveEditorImageFilename,
 } from "./draft-image-names";
 
 describe("draft image names", () => {
@@ -39,5 +40,38 @@ describe("draft image names", () => {
     expect(nextWechatImageFilename(["cover.png"])).toBe("01.png");
     expect(inferImageNameIntent("placeholder_cover.png")).toBe("cover");
     expect(inferImageNameIntent("Screenshot.png")).toBe("inline");
+  });
+
+  it("does not reuse disk imgs names when the gallery state is still empty", () => {
+    expect(
+      resolveEditorImageFilename({
+        rawName: "image.png",
+        galleryNames: [],
+        diskNames: ["workbuddy-01.png"],
+        reservedNames: [],
+        themeSlug: "workbuddy",
+      }),
+    ).toBe("workbuddy-02.png");
+  });
+
+  it("does not collide two clipboard pastes that share image.png", () => {
+    const reserved: string[] = [];
+    const first = resolveEditorImageFilename({
+      rawName: "image.png",
+      galleryNames: [],
+      diskNames: [],
+      reservedNames: reserved,
+      themeSlug: "workbuddy",
+    });
+    reserved.push(first);
+    const second = resolveEditorImageFilename({
+      rawName: "image.png",
+      galleryNames: [],
+      diskNames: [],
+      reservedNames: reserved,
+      themeSlug: "workbuddy",
+    });
+    expect(first).toBe("workbuddy-01.png");
+    expect(second).toBe("workbuddy-02.png");
   });
 });

@@ -508,6 +508,19 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
     Ok(general_purpose::STANDARD.encode(bytes))
 }
 
+/// Delete a single file at an absolute path. Directories are rejected.
+#[tauri::command]
+pub fn remove_file(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    if p.is_dir() {
+        return Err("remove_file: path is a directory".into());
+    }
+    if !p.exists() {
+        return Ok(());
+    }
+    fs::remove_file(p).map_err(|e| format!("remove_file error: {e}"))
+}
+
 /// List files and directories at an absolute path.
 #[tauri::command]
 pub fn list_directory(path: String) -> Result<Vec<SimpleDirEntry>, String> {

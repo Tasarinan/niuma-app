@@ -94,3 +94,38 @@ export function normalizeWechatImageFilename(
 
   return nextWechatImageFilename(taken, themeSlug);
 }
+
+export function collectTakenImageFilenames(
+  ...groups: Array<Iterable<string> | undefined>
+): string[] {
+  const names: string[] = [];
+  for (const group of groups) {
+    if (!group) continue;
+    for (const entry of group) {
+      const file = entry.replace(/^.*[\\/]/, "").trim();
+      if (file) names.push(file);
+    }
+  }
+  return names;
+}
+
+/** Unique WeChat-safe PNG name for editor paste/upload, using disk + in-flight names. */
+export function resolveEditorImageFilename(input: {
+  rawName: string;
+  galleryNames?: string[];
+  diskNames?: string[];
+  reservedNames?: Iterable<string>;
+  themeSlug?: string;
+  intent?: DraftImageNameIntent;
+}): string {
+  const taken = collectTakenImageFilenames(
+    input.galleryNames,
+    input.diskNames,
+    input.reservedNames,
+  );
+  const raw = input.rawName.replace(/^.*[\\/]/, "").trim() || "image.png";
+  const intent =
+    input.intent ??
+    (isScreenshotLikeFilename(raw) ? "inline" : inferImageNameIntent(raw));
+  return normalizeWechatImageFilename(raw, taken, { themeSlug: input.themeSlug, intent });
+}

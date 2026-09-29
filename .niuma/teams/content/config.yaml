@@ -1,18 +1,17 @@
 # 内容创作团队唯一配置。
-# 替代 TEAM.md 与旧的 .aws-article/config.yaml。
 # 不含模型密钥：写稿/配图走应用「设置 → API 提供商」。
 # 本篇元数据、审稿、配图仍写在 .artifacts/drafts/<YYYYMMDD-主题>/ 同目录。
 
 schemaVersion: v1
 id: content
 name: 内容创作
-description: 编辑部。主理人 /new 开新题、/resume 续旧稿；采编选题；写手写 Markdown；主编审稿；配图师配图；发行 /format /publish。
+description: 编辑部。主理人 /article 管稿；采编选题；写手写 Markdown；主编审稿；配图师 /image 与配图；发行 /format /publish。
 eyebrow: Markdown · 多平台
 avatar: "✍️"
 accent: amber
 kind: chat
 commandDir: teams/content/commands
-defaultCommand: new
+defaultCommand: article
 defaultAgent: producer
 dataDomain: contentbook
 surface: default
@@ -25,25 +24,9 @@ agentFiles:
   - chief.md
   - publisher.md
 
-legacyAgentFiles:
-  - wechat-director.md
-  - wechat-researcher.md
-  - gzh-expert.md
-  - brand-advisor.md
-  - marketing.md
-  - video-director.md
-  - wechat-writer.md
-  - wechat-formatter.md
-  - wechat-reviewer.md
-  - wechat-publisher.md
-  - aria.md
-  - iris.md
-  - tina.md
-  - sam.md
-  - rose.md
 
 # 技能/命令一人一摊（与 src/lib/content/role-ownership.ts 一致）。
-# 主理人 /new /resume → article-main
+# 主理人 /article → article-main
 # 采编 → article-topics
 # 写手 → article-writing
 # 配图师 → article-images
@@ -102,10 +85,9 @@ forbid_legacy_roots:
   - .niuma-article
 
 starterPrompts:
-  - "/new 今天想做一篇什么"
-  - "/new 开一篇乾坤AI路书（讲一个工具）"
-  - "/resume"
+  - "/article create 今天想做一篇什么"
+  - "/article create 开一篇乾坤AI路书（讲一个工具）"
+  - "/article edit"
   - "/format WECHAT"
   - "/publish WECHAT"
-  - "/edit"
 

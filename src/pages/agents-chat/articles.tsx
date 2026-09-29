@@ -73,6 +73,7 @@ import {
   draftFolderFromFilePath,
   draftImageStem,
   formatDraftImagePromptMarkdown,
+  listDraftImgsFilenames,
   loadDraftImageGallery,
   nextDraftImageFilename,
   pickOpenManuscriptContent,
@@ -84,13 +85,13 @@ import { readBinaryBase64, readText, writeBinary, writeText } from "@/lib/artifa
 import {
   inlineLocalMarkdownImages,
   relativizeMarkdownImages,
+  repairMarkdownImageSrcFromAlt,
 } from "@/lib/artifact/markdown-images";
+import { imageMimeFromPath } from "@/lib/artifact/workspace-path";
 import { encodePngInBrowser, ensurePngBytes, materializeLocalImagesAsPng, toPngPath } from "@/lib/artifact/png-images";
 import {
   draftThemeSlugFromFolder,
-  inferImageNameIntent,
-  isScreenshotLikeFilename,
-  normalizeWechatImageFilename,
+  resolveEditorImageFilename,
 } from "@/lib/artifact/draft-image-names";
 import { generateProviderImage } from "@/lib/providers/media";
 import {
@@ -203,6 +204,9 @@ export default function ArticlesPage({
   const editorRef = useRef<Editor | null>(null);
   const activeArticleRef = useRef<ArticleRecord | null>(null);
   const [galleryItems, setGalleryItems] = useState<DraftGalleryItem[]>([]);
+  const galleryItemsRef = useRef<DraftGalleryItem[]>([]);
+  const reservedImageNamesRef = useRef(new Set<string>());
+  const saveImageChainRef = useRef(Promise.resolve());
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [generatePrompt, setGeneratePrompt] = useState("");
@@ -218,6 +222,7 @@ export default function ArticlesPage({
   // back to articles state and avoids an infinite loop.
   const isSettingContentRef = useRef(false);
   const imageSrcMapRef = useRef(new Map<string, string>());
+  const editorObjectUrlsRef = useRef<string[]>([]);
   const markdownLoadGenRef = useRef(0);
   const openGenRef = useRef(0);
   const humanEditedRef = useRef(false);
@@ -246,6 +251,7 @@ export default function ArticlesPage({
     )?.value ?? "";
   activeArticleRef.current = activeArticle;
   activeIdRef.current = activeId;
+  galleryItemsRef.current = galleryItems;
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -269,12 +275,27 @@ export default function ArticlesPage({
     const loadGen = ++markdownLoadGenRef.current;
     isSettingContentRef.current = true;
     imageSrcMapRef.current = new Map();
-    const { markdown: display, srcMap } = await inlineLocalMarkdownImages(
-      markdown,
+    for (const url of editorObjectUrlsRef.current) {
+      URL.revokeObjectURL(url);
+    }
+    editorObjectUrlsRef.current = [];
+    const repaired = repairMarkdownImageSrcFromAlt(markdown);
+    if (repaired !== markdown && path && activeIdRef.current) {
+      setArticles((current) =>
+        current.map((article) =>
+          article.id === activeIdRef.current || article.filePath === path
+            ? { ...article, content: repaired }
+            : article,
+        ),
+      );
+    }
+    const { markdown: display, srcMap, objectUrls } = await inlineLocalMarkdownImages(
+      repaired,
       path,
       readBinaryBase64,
     );
     if (loadGen !== markdownLoadGenRef.current) return;
+    editorObjectUrlsRef.current = objectUrls;
     imageSrcMapRef.current = srcMap;
     loadedPathRef.current = path;
     const currentEditor = editorRef.current;
@@ -398,60 +419,65 @@ export default function ArticlesPage({
   }, []);
 
   const saveGalleryImage = useCallback(
-    async (name: string, bytes: Uint8Array, title?: string) => {
-      const article = activeArticleRef.current;
-      if (!article?.filePath) {
-        toast.message("请先打开一篇已定题的稿。");
-        return;
-      }
-      const folder = draftFolderFromFilePath(article.filePath);
-      if (!folder) {
-        toast.message("请先打开一篇已定题的稿。");
-        return;
-      }
-      const existing = galleryItems.map((item) => item.name);
-      const themeSlug = draftThemeSlugFromFolder(folder);
-      const rawName = name.replace(/^.*[\\/]/, "") || "01.png";
-      const intent = inferImageNameIntent(rawName);
-      const pngName = normalizeWechatImageFilename(
-        toPngPath(rawName, existing, { themeSlug, intent }),
-        existing,
-        { themeSlug, intent },
+    (name: string, bytes: Uint8Array, title?: string) => {
+      const run = async () => {
+        const article = activeArticleRef.current;
+        if (!article?.filePath) {
+          toast.message("请先打开一篇已定题的稿。");
+          return;
+        }
+        const folder = draftFolderFromFilePath(article.filePath);
+        if (!folder) {
+          toast.message("请先打开一篇已定题的稿。");
+          return;
+        }
+        const diskNames = await listDraftImgsFilenames(folder);
+        const themeSlug = draftThemeSlugFromFolder(folder);
+        const rawName = name.replace(/^.*[\\/]/, "") || "image.png";
+        const pngName = resolveEditorImageFilename({
+          rawName,
+          galleryNames: galleryItemsRef.current.map((item) => item.name),
+          diskNames,
+          reservedNames: reservedImageNamesRef.current,
+          themeSlug,
+        });
+        reservedImageNamesRef.current.add(pngName);
+        const png = await ensurePngBytes(bytes, encodePngInBrowser);
+        const dest = `${folder}/imgs/${pngName}`;
+        await writeBinary(dest, png);
+        if (/^cover\.png$/i.test(pngName)) {
+          const dataUrl = await fileToDataUrl(new File([png], pngName, { type: "image/png" }));
+          updateArticle({ cover: dataUrl });
+        }
+        await refreshGallery(article.filePath);
+        toast.success(title ? `已保存「${title}」` : "配图已保存");
+        return { name: pngName, dest, bytes: png };
+      };
+      const pending = saveImageChainRef.current.then(run, run);
+      saveImageChainRef.current = pending.then(
+        () => undefined,
+        () => undefined,
       );
-      const png = await ensurePngBytes(bytes, encodePngInBrowser);
-      const dest = `${folder}/imgs/${pngName}`;
-      await writeBinary(dest, png);
-      if (/^cover\.png$/i.test(pngName)) {
-        const dataUrl = await fileToDataUrl(new File([png], pngName, { type: "image/png" }));
-        updateArticle({ cover: dataUrl });
-      }
-      await refreshGallery(article.filePath);
-      toast.success(title ? `已保存「${title}」` : "配图已保存");
-      return { name: pngName, dest, bytes: png };
+      return pending;
     },
     [refreshGallery],
   );
 
   const persistPngFromFile = useCallback(
     async (file: File) => {
-      const existing = galleryItems.map((item) => item.name);
-      const article = activeArticleRef.current;
-      const folder = article?.filePath ? draftFolderFromFilePath(article.filePath) : null;
-      const themeSlug = folder ? draftThemeSlugFromFolder(folder) : undefined;
-      const intent = inferImageNameIntent(file.name);
-      const suggested = /\.(png|jpe?g|jfif|gif|webp)$/i.test(file.name)
-        ? toPngPath(file.name, existing, {
-            themeSlug,
-            intent: isScreenshotLikeFilename(file.name) ? "inline" : intent,
-          })
-        : nextDraftImageFilename(existing, { intent, themeSlug });
-      const saved = await saveGalleryImage(suggested, new Uint8Array(await file.arrayBuffer()), file.name);
+      const saved = await saveGalleryImage(
+        file.name || "image.png",
+        new Uint8Array(await file.arrayBuffer()),
+        file.name,
+      );
       if (!saved) return;
-      const dataUrl = await fileToDataUrl(new File([saved.bytes], saved.name, { type: "image/png" }));
-      imageSrcMapRef.current.set(dataUrl, `imgs/${saved.name}`);
-      return { name: saved.name, dataUrl };
+      const rel = `imgs/${saved.name}`;
+      const displaySrc = URL.createObjectURL(new Blob([saved.bytes], { type: "image/png" }));
+      editorObjectUrlsRef.current.push(displaySrc);
+      imageSrcMapRef.current.set(displaySrc, rel);
+      return { name: saved.name, dataUrl: displaySrc };
     },
-    [galleryItems, saveGalleryImage],
+    [saveGalleryImage],
   );
 
   const handleDropFile = useCallback(async (editorInstance: Editor, files: File[], position: number) => {
@@ -658,7 +684,7 @@ export default function ArticlesPage({
   const handleSave = async () => {
     if (!activeArticle) return;
     if (!activeArticle.filePath) {
-      toast.message("请先在聊天里用 /new 让主理人确认选题。讨论阶段不创建文档。");
+      toast.message("请先在聊天里用 /article create 让主理人确认选题。讨论阶段不创建文档。");
       return;
     }
     setIsSaving(true);
@@ -949,12 +975,29 @@ export default function ArticlesPage({
     }
   }, [galleryItems, generateName, generatePrompt, generateTargetId, refreshGallery, saveGalleryImage]);
 
-  const handleInsertGalleryImage = useCallback((item: DraftGalleryItem) => {
-    if (!item.dataUrl || !editor) return;
-    if (item.relativeSrc) imageSrcMapRef.current.set(item.dataUrl, toPngPath(item.relativeSrc));
-    editor.chain().focus().setImage({ src: item.dataUrl, alt: item.title }).run();
-    toast.success("已插入正文");
-  }, [editor]);
+  const handleInsertGalleryImage = useCallback(
+    async (item: DraftGalleryItem) => {
+      if (!editor) return;
+      const rel = item.relativeSrc ?? `imgs/${item.name}`;
+      let displaySrc = item.dataUrl;
+      if (item.path) {
+        try {
+          const base64 = await readBinaryBase64(item.path);
+          const bytes = Uint8Array.from(atob(base64.replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+          displaySrc = URL.createObjectURL(
+            new Blob([bytes], { type: imageMimeFromPath(item.name) }),
+          );
+          editorObjectUrlsRef.current.push(displaySrc);
+        } catch {
+          if (!displaySrc) return;
+        }
+      } else if (!displaySrc) return;
+      imageSrcMapRef.current.set(displaySrc, rel);
+      editor.chain().focus().setImage({ src: displaySrc, alt: item.name }).run();
+      toast.success("已插入正文");
+    },
+    [editor],
+  );
 
   const handleInsertArticleBlock = useCallback(
     (preset: ArticleBlockPreset) => {
@@ -1127,7 +1170,7 @@ export default function ArticlesPage({
 
         {!activeArticle ? (
           <div className="flex min-h-0 flex-1 items-center justify-center px-8 text-center text-sm leading-relaxed text-slate-400">
-            还没有打开一篇已定题的稿。切到对话用 /new 确认选题。
+            还没有打开一篇已定题的稿。切到对话用 /article create 确认选题。
           </div>
         ) : (
           <>

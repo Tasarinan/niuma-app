@@ -44,6 +44,9 @@ export function describeAgentToolProgress(toolName: string, args?: unknown): str
   if (toolName === "open_article") {
     return "正在定位当前文稿";
   }
+  if (toolName === "consolidate_draft_images") {
+    return "正在整理草稿配图到 imgs/";
+  }
   return null;
 }
 

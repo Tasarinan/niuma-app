@@ -129,8 +129,32 @@ export function replaceMarkdownImageSrcs(
   });
 }
 
+/** Unique editor `src` for a data URL so identical bytes still map to different `imgs/` paths on save. */
+export function editorImageDisplaySrc(dataUrl: string, relativePath: string): string {
+  const rel = relativePath.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!dataUrl || dataUrl.includes("#")) return dataUrl;
+  return `${dataUrl}#${encodeURIComponent(rel)}`;
+}
+
+export function registerEditorImageSrc(
+  srcMap: Map<string, string>,
+  dataUrl: string,
+  relativePath: string,
+): string {
+  const rel = relativePath.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  const disk = /^imgs\//i.test(rel) ? rel : `imgs/${rel.replace(/^imgs\//i, "")}`;
+  const displaySrc = editorImageDisplaySrc(dataUrl, disk);
+  srcMap.set(displaySrc, disk);
+  return displaySrc;
+}
+
 export function lookupMappedImageSrc(src: string, srcMap: Map<string, string>): string | undefined {
   if (srcMap.has(src)) return srcMap.get(src);
+  const hash = src.indexOf("#");
+  if (hash > 0) {
+    const base = src.slice(0, hash);
+    if (srcMap.has(base)) return srcMap.get(base);
+  }
   let decoded = src;
   try {
     decoded = decodeURIComponent(src);
@@ -139,10 +163,49 @@ export function lookupMappedImageSrc(src: string, srcMap: Map<string, string>): 
   }
   if (decoded !== src && srcMap.has(decoded)) return srcMap.get(decoded);
   const compact = decoded.replace(/\s/g, "");
-  for (const [dataUrl, original] of srcMap) {
-    if (dataUrl.replace(/\s/g, "") === compact) return original;
+  for (const [displaySrc, original] of srcMap) {
+    const displayBase = displaySrc.split("#")[0]?.replace(/\s/g, "") ?? "";
+    if (displayBase && displayBase === compact.split("#")[0]) return original;
   }
   return undefined;
+}
+
+/** When alt is already `workbuddy-07.png` but src wrongly points elsewhere, fix the link. */
+export function repairMarkdownImageSrcFromAlt(markdown: string): string {
+  return replaceMarkdownImageSrcs(markdown, (src, alt) => {
+    const file = alt.trim().replace(/^.*[\\/]/, "");
+    if (!file) return src;
+    const ok =
+      /^cover\.png$/i.test(file) ||
+      /^\d{2}\.png$/i.test(file) ||
+      /^[a-z0-9]+(?:-[a-z0-9]+)*-\d{2}\.png$/i.test(file);
+    if (!ok) return src;
+    const expected = `imgs/${file}`;
+    const current = src.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+    return current === expected ? src : expected;
+  });
+}
+
+function preferredMarkdownImageRelative(
+  markdownSrc: string,
+  resolvedAbs: string,
+  articleFilePath: string,
+  taken: string[],
+  themeSlug?: string,
+): string {
+  const normalizedSrc = markdownSrc.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (/^imgs\/[^/]+\.png$/i.test(normalizedSrc)) {
+    return normalizedSrc;
+  }
+  const abs = resolvedAbs.replace(/\\/g, "/");
+  if (/\/imgs\/[^/]+\.png$/i.test(abs)) {
+    const file = abs.slice(abs.lastIndexOf("/") + 1);
+    return `imgs/${file}`;
+  }
+  return toImgsMarkdownSrc(markdownSrc, taken, {
+    themeSlug,
+    intent: inferImageNameIntent(markdownSrc),
+  });
 }
 
 export function relativizeMarkdownImages(markdown: string, srcMap: Map<string, string>): string {
@@ -150,14 +213,43 @@ export function relativizeMarkdownImages(markdown: string, srcMap: Map<string, s
   return replaceMarkdownImageSrcs(markdown, (src) => lookupMappedImageSrc(src, srcMap) ?? src);
 }
 
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64.replace(/\s+/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function displaySrcForImageBytes(
+  bytes: Uint8Array,
+  mime: string,
+  relative: string,
+  toDisplaySrc?: (absPath: string, markdownSrc: string) => string,
+  absPath?: string,
+  markdownSrc?: string,
+): string {
+  if (toDisplaySrc && absPath && markdownSrc) {
+    return toDisplaySrc(absPath, markdownSrc);
+  }
+  if (typeof URL !== "undefined" && typeof Blob !== "undefined") {
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  }
+  const dataUrl = `data:${mime};base64,${btoa(String.fromCharCode(...bytes))}`;
+  return editorImageDisplaySrc(dataUrl, relative);
+}
+
 export async function inlineLocalMarkdownImages(
   markdown: string,
   articleFilePath: string | undefined,
   readBase64: (path: string) => Promise<string>,
-): Promise<{ markdown: string; srcMap: Map<string, string> }> {
+  toDisplaySrc?: (absPath: string, markdownSrc: string) => string,
+): Promise<{ markdown: string; srcMap: Map<string, string>; objectUrls: string[] }> {
   const srcMap = new Map<string, string>();
+  const objectUrls: string[] = [];
   if (!articleFilePath || !markdownHasUnresolvedLocalImages(markdown)) {
-    return { markdown, srcMap };
+    return { markdown, srcMap, objectUrls };
   }
 
   const folder = articleFilePath ? draftFolderFromFilePath(articleFilePath) : null;
@@ -173,22 +265,30 @@ export async function inlineLocalMarkdownImages(
       for (const candidate of localImageReadCandidates(abs)) {
         const base64 = await readBase64(candidate).catch(() => "");
         if (!base64) continue;
-        const dataUrl = `data:${imageMimeFromPath(candidate)};base64,${base64}`;
-        dataUrls.set(src, dataUrl);
-        const relative = toImgsMarkdownSrc(src, taken, {
-          themeSlug,
-          intent: inferImageNameIntent(src),
-        });
+        const mime = imageMimeFromPath(candidate);
+        const bytes = base64ToBytes(base64);
+        const relative = preferredMarkdownImageRelative(src, candidate, articleFilePath, taken, themeSlug);
         taken.push(relative.replace(/^imgs\//i, ""));
-        srcMap.set(dataUrl, relative);
+        const displaySrc = displaySrcForImageBytes(
+          bytes,
+          mime,
+          relative,
+          toDisplaySrc,
+          candidate,
+          src,
+        );
+        if (displaySrc.startsWith("blob:")) objectUrls.push(displaySrc);
+        dataUrls.set(src, displaySrc);
+        srcMap.set(displaySrc, relative);
         return;
       }
     }),
   );
 
-  if (dataUrls.size === 0) return { markdown, srcMap };
+  if (dataUrls.size === 0) return { markdown, srcMap, objectUrls };
   return {
     markdown: replaceMarkdownImageSrcs(markdown, (src) => dataUrls.get(src) ?? src),
     srcMap,
+    objectUrls,
   };
 }

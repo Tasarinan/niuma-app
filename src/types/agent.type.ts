@@ -31,7 +31,8 @@ export type AgentInternalToolId =
   | "open_article"
   | "generate_image"
   | "search_images"
-  | "save_web_image";
+  | "save_web_image"
+  | "consolidate_draft_images";
 
 /** Every internal tool id, in display order. */
 export const AGENT_INTERNAL_TOOL_IDS: AgentInternalToolId[] = [
@@ -49,6 +50,7 @@ export const AGENT_INTERNAL_TOOL_IDS: AgentInternalToolId[] = [
   "generate_image",
   "search_images",
   "save_web_image",
+  "consolidate_draft_images",
 ];
 
 /** Wire format used to talk to a model provider. */

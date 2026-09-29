@@ -50,7 +50,7 @@ describe("content draft paths", () => {
   });
 
   it("refuses to create a draft folder before the topic is confirmed", () => {
-    expect(() => requireConfirmedDraftPath(undefined)).toThrow(/\/new/);
+    expect(() => requireConfirmedDraftPath(undefined)).toThrow(/\/article create/);
     expect(requireConfirmedDraftPath("C:/drafts/20260903-topic/article.md")).toBe(
       "C:/drafts/20260903-topic/article.md",
     );
@@ -66,7 +66,7 @@ describe("content draft paths", () => {
         String.raw`C:\N-5CG2150YY9-Data\dvkx47\Documents\niuma\artifact\untitled-article.md`,
       ),
     ).toBe(false);
-    expect(() => requireOpenableDraftMarkdown(undefined)).toThrow(/\/new/);
+    expect(() => requireOpenableDraftMarkdown(undefined)).toThrow(/\/article create/);
     expect(() => requireOpenableDraftMarkdown("notes.md")).toThrow(/Markdown/);
   });
 

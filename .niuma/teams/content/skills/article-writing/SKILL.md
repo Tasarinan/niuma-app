@@ -16,7 +16,7 @@ homepage: https://github.com/Tasarinan/niuma-app
 
 ## 流程
 
-1. 先确认 `.artifacts/drafts/<YYYYMMDD-主题>/topic.md` 已存在。没有就停止，请用户先让主理人 `/new` 确认选题，**不要 mkdir**
+1. 先确认 `.artifacts/drafts/<YYYYMMDD-主题>/topic.md` 已存在。没有就停止，请用户先让主理人 `/article create` 确认选题，**不要 mkdir**
 2. `read` `topic.md` 和已有 `article.md`（若有）
 3. 将完整稿 `write` 到同目录 `article.md`（Markdown，公众号调性，中文默认）
 4. 用 `open_article` **定位**当前文稿（不要切换对话/编辑）。告诉用户点工具栏 **编辑** 继续改同一份文件

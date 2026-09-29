@@ -23,6 +23,7 @@ export function mergeRuntimeInternalTools(
   if (isIllustrator(options)) {
     tools.add("search_images");
     tools.add("save_web_image");
+    tools.add("consolidate_draft_images");
   }
   return Array.from(tools);
 }

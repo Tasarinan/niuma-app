@@ -71,11 +71,11 @@ import { formatReadyWechatContext, loadWechatReadyPack } from "@/lib/wechat/acco
 import { formatImaTopicContext, loadImaTopicPack } from "@/lib/ima/openapi";
 import {
   isAssistantPublishRequest,
-  isEditArticleCommand,
+  isArticleEditUiCommand,
   isFormatCommand,
-  isNewArticleCommand,
+  isImageCommand,
   isPublishWorkflowCommand,
-  isResumeArticleCommand,
+  resolveArticleDraftWorkflow,
   shouldInjectWechatSlots,
   splitPlatformAndRest,
 } from "@/lib/content/workflow-command";
@@ -1342,7 +1342,10 @@ export default function ChatPage({
     }
 
     const _slashForRouting = parseSlashInvocation(text);
-    if (_slashForRouting && isEditArticleCommand(_slashForRouting.command)) {
+    const _articleDraftWorkflow = _slashForRouting
+      ? resolveArticleDraftWorkflow(_slashForRouting.command, _slashForRouting.args)
+      : null;
+    if (_slashForRouting && isArticleEditUiCommand(_slashForRouting.command, _slashForRouting.args)) {
       let path = openFilePath || readLastOpenDraftPath();
       if (!path) {
         try {
@@ -1368,8 +1371,9 @@ export default function ChatPage({
       return undefined;
     })();
 
-    // /new: inject feeds + IMA + drafts(new) for 主理人. /resume: unpublished drafts only.
-    if (_slashForRouting && isNewArticleCommand(_slashForRouting.command)) {
+    // /article create: inject feeds + IMA + drafts(create). /article edit <target>: continue draft.
+    if (_articleDraftWorkflow?.intent === "create") {
+      const topicQuery = _articleDraftWorkflow.query;
       setIsAugmenting(true);
       try {
         try {
@@ -1385,21 +1389,21 @@ export default function ChatPage({
           })}`;
         }
         try {
-          const pack = await loadImaTopicPack({ query: _slashForRouting.args || "选题" });
+          const pack = await loadImaTopicPack({ query: topicQuery || "选题" });
           agentInput = `${agentInput}\n\n${formatImaTopicContext(pack)}`;
         } catch (err) {
           agentInput = `${agentInput}\n\n${formatImaTopicContext({
             status: "error",
-            query: _slashForRouting.args || "选题",
+            query: topicQuery || "选题",
             items: [],
             errors: [err instanceof Error ? err.message : String(err)],
           })}`;
         }
         try {
           const drafts = await loadUnpublishedDrafts();
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, _slashForRouting.args, "new")}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, topicQuery, "create")}`;
         } catch (err) {
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], _slashForRouting.args, "new")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], topicQuery, "create")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
         }
         try {
           const configRaw = await loadContentTeamConfigRaw();
@@ -1412,14 +1416,15 @@ export default function ChatPage({
       }
     }
 
-    if (_slashForRouting && isResumeArticleCommand(_slashForRouting.command)) {
+    if (_articleDraftWorkflow?.intent === "continue") {
+      const whichQuery = _articleDraftWorkflow.query;
       setIsAugmenting(true);
       try {
         try {
           const drafts = await loadUnpublishedDrafts();
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, _slashForRouting.args, "resume")}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, whichQuery, "continue")}`;
         } catch (err) {
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], _slashForRouting.args, "resume")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], whichQuery, "continue")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
         }
         try {
           const configRaw = await loadContentTeamConfigRaw();
@@ -1434,22 +1439,41 @@ export default function ChatPage({
 
     if (
       _slashForRouting &&
-      (isFormatCommand(_slashForRouting.command) || isPublishWorkflowCommand(_slashForRouting.command))
+      (isFormatCommand(_slashForRouting.command) ||
+        isPublishWorkflowCommand(_slashForRouting.command) ||
+        isImageCommand(_slashForRouting.command))
     ) {
       const { platform, rest } = splitPlatformAndRest(_slashForRouting.args);
       const isFormat = isFormatCommand(_slashForRouting.command);
+      const isImage = isImageCommand(_slashForRouting.command);
+      const isPublish = isPublishWorkflowCommand(_slashForRouting.command);
       agentInput = [
         agentInput,
         "",
-        "[内容平台]",
+        isImage ? "[配图整理]" : "[内容平台]",
         `command: /${_slashForRouting.command}`,
-        `platform: ${platform ?? "unset"}`,
-        rest ? `rest: ${rest}` : "",
-        platform
-          ? isFormat
-            ? "- 只排版，不要推草稿箱。"
-            : "- 推到该平台草稿箱；XHS/ZHIHU 未接通时禁止假装已发。"
-          : "- 先让用户选择 WECHAT、XHS 或 ZHIHU。未选定不要跑微信 format.py / publish.py。",
+        ...(isImage
+          ? [
+              rest ? `target: ${rest}` : "target: (当前共创稿)",
+              "- 调用 consolidate_draft_images，把图片收进 imgs/ 并同步 Markdown 引用与 alt。",
+              "- 不要排版或发布。",
+            ]
+          : [
+              `platform: ${platform ?? "unset"}`,
+              rest ? `rest: ${rest}` : "",
+              platform
+                ? isFormat
+                  ? "- 只排版，不要推草稿箱。"
+                  : isPublish && platform === "wechat"
+                    ? [
+                        "- 推到微信公众号草稿箱。",
+                        "- 必须用 publish.py 的 full 子命令：`python .../publish.py --account N full <草稿目录>/`。",
+                        "- full 会先从磁盘最新 article.md 跑 format.py 生成 article.html，再上传；禁止 create-draft 直传旧 HTML，禁止 --skip-format。",
+                        "- 以磁盘 article.md 为准：请用户先在编辑里保存，再发布。",
+                      ]
+                    : "- 推到该平台草稿箱；XHS/ZHIHU 未接通时禁止假装已发。"
+                : "- 先让用户选择 WECHAT、XHS 或 ZHIHU。未选定不要跑微信 format.py / publish.py。",
+            ].flat()),
       ]
         .filter(Boolean)
         .join("\n");
@@ -1526,7 +1550,7 @@ export default function ChatPage({
             parts.push(`[Web 搜索失败: ${compactImaError(e)}]`);
           }
         }
-        if (imaEnabled && !(_slashForRouting && isNewArticleCommand(_slashForRouting.command))) {
+        if (imaEnabled && _articleDraftWorkflow?.intent !== "create") {
           try {
             const imaResults = await gatherImaResults(text);
             if (imaResults.trim()) {
@@ -1548,7 +1572,7 @@ export default function ChatPage({
 
     const lastOpenPath = readLastOpenDraftPath();
     agentInput = injectDraftTodayContext(agentInput);
-    if (!(_slashForRouting && isNewArticleCommand(_slashForRouting.command))) {
+    if (_articleDraftWorkflow?.intent !== "create") {
       agentInput = injectOpenDraftContext(agentInput, { openFilePath, lastOpenPath });
     }
 

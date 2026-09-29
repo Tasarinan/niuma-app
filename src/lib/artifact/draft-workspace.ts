@@ -347,6 +347,15 @@ export function assembleDraftGalleryItems(input: {
   return sortDraftGalleryItems(items);
 }
 
+/** Filenames already in `<draft>/imgs/` — cheap, no image bytes. */
+export async function listDraftImgsFilenames(folder: string): Promise<string[]> {
+  const { listDirectory } = await import("./fs");
+  const entries = await listDirectory(`${normalizeFsPath(folder)}/imgs`).catch(() => []);
+  return entries
+    .filter((entry) => !entry.isDir && classifyDraftFile(entry.name) === "image")
+    .map((entry) => entry.name);
+}
+
 export async function loadDraftImageGallery(openFilePath: string): Promise<DraftGalleryItem[]> {
   const folder = draftFolderFromFilePath(openFilePath);
   if (!folder) return [];

@@ -20,7 +20,15 @@ import { getImaKbConfig } from "@/lib/storage/ima.storage";
 import { runImaOpenApi } from "@/lib/ima/openapi";
 import { notifyDraftFileChanged, requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-article";
 import { isOpenableDraftMarkdown, toDraftArticlePath } from "@/lib/artifact/drafts";
-import { writeBinary, readBinaryBase64, writeText } from "@/lib/artifact/fs";
+import {
+  writeBinary,
+  readBinaryBase64,
+  writeText,
+  readText,
+  listDirectory,
+  removeFile,
+} from "@/lib/artifact/fs";
+import { consolidateDraftImages } from "@/lib/artifact/consolidate-draft-images";
 import {
   convertDraftImageToPngImgs,
   ensurePngBytes,
@@ -88,6 +96,7 @@ export const INTERNAL_TOOL_IDS: InternalToolId[] = [
   "generate_image",
   "search_images",
   "save_web_image",
+  "consolidate_draft_images",
 ];
 
 export interface InternalToolDeps {
@@ -773,7 +782,53 @@ function saveWebImageTool(deps: InternalToolDeps): AgentTool {
   });
 }
 
-function openArticleTool(): AgentTool {
+function consolidateDraftImagesTool(deps: InternalToolDeps): AgentTool {
+  return defineTool({
+    name: "consolidate_draft_images",
+    label: "整理草稿配图",
+    description:
+      "Move raster images in the current draft folder into imgs/*.png with themed WeChat-safe names, " +
+      "convert to PNG, and rewrite article.md / topic.md / review.md image refs so alt matches the filename.",
+    parameters: Type.Object({
+      goal: goalParam(),
+      path: Type.String({
+        description: "Path to article.md or the draft folder under .artifacts/drafts/.",
+      }),
+    }),
+    execute: async (_id, params) => {
+      const raw = String(params.path ?? "").trim();
+      const resolved = raw.toLowerCase().endsWith(".md")
+        ? locateDraftMarkdownPath(deps.workspaceRoot, raw)
+        : locateDraftMarkdownPath(
+            deps.workspaceRoot,
+            `${raw.replace(/\/$/, "")}/article.md`,
+          );
+      const articlePath = toDraftArticlePath(resolved);
+      const result = await consolidateDraftImages({
+        articlePath,
+        readText,
+        writeText,
+        readBase64: readBinaryBase64,
+        writeBytes: writeBinary,
+        listDirectory,
+        removeFile,
+      });
+      notifyDraftFileChanged(articlePath);
+      const lines = [
+        `已整理草稿配图：${result.folder}`,
+        `主题前缀：${result.themeSlug}`,
+        `写入 ${result.written.length} 个 PNG`,
+        result.removed.length ? `已移走/删除 ${result.removed.length} 个旧文件（含草稿根目录截图）` : "",
+        result.updatedMarkdown.length
+          ? `已更新：${result.updatedMarkdown.map((p) => p.replace(/\\/g, "/")).join(", ")}`
+          : "Markdown 引用已对齐，无需改写",
+      ];
+      return textResult(lines.join("\n"), result);
+    },
+  });
+}
+
+function openArticleTool(deps: InternalToolDeps): AgentTool {
   return defineTool({
     name: "open_article",
     label: "定位当前文稿",
@@ -821,6 +876,7 @@ const BUILDERS: Record<InternalToolId, (deps: InternalToolDeps) => AgentTool> = 
   generate_image: generateImageTool,
   search_images: searchImagesTool,
   save_web_image: saveWebImageTool,
+  consolidate_draft_images: consolidateDraftImagesTool,
 };
 
 /** Build the selected internal tools. */

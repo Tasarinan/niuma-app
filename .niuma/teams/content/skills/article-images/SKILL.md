@@ -32,6 +32,17 @@ homepage: https://github.com/Tasarinan/niuma-app
 | 原创插画、品牌封面、抽象概念图、按稿现画的流程图 | `generate_image` |
 | 没说死 | 先判断上面两行；封面常生图，正文里「长这样」的实物常搜图 |
 
+## 整理散落图片（/image）
+
+用户或主理人发出 `/image` 时：
+
+1. 加载本技能（若尚未加载）
+2. 对当前篇调用 **`consolidate_draft_images`**（`path` 指向 `article.md` 或草稿目录）
+3. 工具会把草稿**根目录**与 `imgs/` 下的图**移动**到 `imgs/{主题}-NN.png`（封面仍 `cover.png`），删除根目录旧文件与非 PNG 中间文件，并改写 `article.md` / `topic.md` / `review.md` 中的 `![](...)`，**alt 与文件名一致**
+4. `open_article` 定位文稿，请用户点「编辑」核对
+
+不要用 bash `mv` 代替该工具。
+
 ## 流程
 
 1. 确认 `.artifacts/drafts/<YYYYMMDD-主题>/article.md` 已存在。没有就停止，不要 mkdir
