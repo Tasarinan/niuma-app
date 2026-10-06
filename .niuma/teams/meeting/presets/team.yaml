@@ -3,6 +3,7 @@ description: 会前准备、会中记录、会后纪要与行动项、同步消�
 eyebrow: 准备 · 记录 · 跟进
 avatar: "🎯"
 accent: sky
+view: meeting
 workflow: meeting
 
 starterPrompts:

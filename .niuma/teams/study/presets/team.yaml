@@ -3,6 +3,7 @@ description: 语法、词汇、阅读、句子分析与写作辅导。
 eyebrow: 语法 / 词汇 / 阅读 / 写作
 avatar: "📚"
 accent: violet
+view: chat
 workflow: study
 
 starterPrompts:

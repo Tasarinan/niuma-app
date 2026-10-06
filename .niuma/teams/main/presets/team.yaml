@@ -3,6 +3,7 @@ description: 可雇佣的通用代理与跨团队技能。主对话用 defaultAg
 eyebrow: 主对话 · 可雇佣
 avatar: "💬"
 accent: violet
+view: chat
 channelName: 主对话
 
 starterPrompts:

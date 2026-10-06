@@ -1,5 +1,4 @@
 id: meeting
-kind: meeting
 defaultAgent: facilitator.md
 
 roles:

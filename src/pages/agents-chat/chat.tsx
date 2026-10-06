@@ -60,6 +60,7 @@ import {
 } from "@/lib/agent/workbench-defaults";
 import { discoverCatalogTeamPresets } from "@/lib/agent/team-discovery";
 import { findRoleByCommand } from "@/lib/agent/team-manifest";
+import { channelKindFromTeam, isMeetingChannel, resolveTeamChannelMode, usesManuscriptWorkspace } from "@/lib/agent/team-channel-mode";
 import {
   resolveContentRosterCopy,
   resolveContentWorkflowCommands,
@@ -362,12 +363,10 @@ function ChannelModal({
   existingDefs: AgentDefinition[];
   /** Teams available for binding. */
   availableTeams: WorkbenchTeamPreset[];
-  /** Receives (name, selectedCatalogIds, avatar, kind, tags, teamId). */
-  onSave: (name: string, selectedCatalogIds: string[], avatar: string, kind: "chat" | "meeting", tags: string[], teamId?: string) => void;
+  onSave: (name: string, selectedCatalogIds: string[], avatar: string, tags: string[], teamId?: string) => void;
 }) {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(CHANNEL_ICONS[0] ?? "");
-  const [kind, setKind] = useState<"chat" | "meeting">("chat");
   const [teamId, setTeamId] = useState<string | undefined>(undefined);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
   const [hiredCatalog, setHiredCatalog] = useState<CatalogAgent[]>([]);
@@ -386,7 +385,6 @@ function ChannelModal({
         ? initial.avatar
         : (CHANNEL_ICONS[0] ?? "")
     );
-    setKind(initial?.kind ?? "chat");
     setTeamId(initial?.teamId);
   }, [open, initial]);
 
@@ -438,8 +436,6 @@ function ChannelModal({
       const preset = availableTeams.find((t) => t.id === id);
       if (preset) {
         if (!initial && !name.trim()) setName(preset.name);
-        // Auto-set channel kind to match the team preset (e.g. meeting team → "meeting")
-        if (preset.kind === "meeting" || preset.kind === "chat") setKind(preset.kind);
         // Auto-select team agents that exist in the hired catalog
         if (hiredCatalog.length > 0 && preset.agentFiles.length > 0) {
           const teamIds = hiredCatalog
@@ -472,38 +468,7 @@ function ChannelModal({
             />
           </div>
 
-          {/* Channel type */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-slate-500">{t("chatPage.channelTypeLabel")}</Label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setKind("chat")}
-                className={cn(
-                  "flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                  kind === "chat"
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 text-slate-500 hover:border-slate-300"
-                )}
-              >
-                {t("chatPage.channelTypeChat")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setKind("meeting")}
-                className={cn(
-                  "flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                  kind === "meeting"
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 text-slate-500 hover:border-slate-300"
-                )}
-              >
-                {t("chatPage.channelTypeMeeting")}
-              </button>
-            </div>
-          </div>
-
-          {/* Team binding — above icon picker */}
+          {/* Team binding — this is the channel surface (main chat / editor / meeting / …) */}
           {availableTeams.length > 0 && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-slate-500">绑定团队</Label>
@@ -525,7 +490,7 @@ function ChannelModal({
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-slate-400">绑定后自动加载该团队的智能体、技能和命令</p>
+              <p className="text-[10px] text-slate-400">不绑定为普通对话；内容创作打开编辑，会议打开会中记录，其余按该团队能力运行</p>
             </div>
           )}
 
@@ -638,7 +603,7 @@ function ChannelModal({
             size="sm"
             className="rounded-md px-5"
             onClick={() => {
-              onSave(name, selectedCatalogIds, avatar, kind, [], teamId);
+              onSave(name, selectedCatalogIds, avatar, [], teamId);
               onClose();
             }}
             disabled={!name.trim()}
@@ -780,7 +745,9 @@ export default function ChatPage({
     [activeChannel, workbenchTeamPresets],
   );
   const activeTeamStyle = activeTeamPreset ? TEAM_STYLES[activeTeamPreset.accent] : null;
-  const isHealthChannel = activeTeamPreset?.dataDomain === "healthbook";
+  const channelMode = resolveTeamChannelMode(activeTeamPreset);
+  const isHealthChannel = channelMode === "health";
+  const meetingSurface = isMeetingChannel(activeTeamPreset, activeChannel?.kind);
   const workflowCommands = useMemo(
     () =>
       resolveContentWorkflowCommands(
@@ -934,6 +901,10 @@ export default function ChatPage({
     const commandDir = activeTeamPreset?.commandDir;
 
     const loadCommands = async () => {
+      if (!commandDir) {
+        if (!cancelled) setSlashCommands(getSeedSlashCommands());
+        return;
+      }
       let scopedCommandsDir: string | undefined;
       if (commandDir) {
         if (commandDir.startsWith("teams/")) {
@@ -1552,9 +1523,11 @@ export default function ChatPage({
     }
 
     const lastOpenPath = readLastOpenDraftPath();
-    agentInput = injectDraftTodayContext(agentInput);
-    if (_articleDraftWorkflow?.intent !== "create") {
-      agentInput = injectOpenDraftContext(agentInput, { openFilePath, lastOpenPath });
+    if (usesManuscriptWorkspace(channelMode)) {
+      agentInput = injectDraftTodayContext(agentInput);
+      if (_articleDraftWorkflow?.intent !== "create") {
+        agentInput = injectOpenDraftContext(agentInput, { openFilePath, lastOpenPath });
+      }
     }
 
     await sendMessage(agentInput, images, undefined, commandAgentNames, text.trim() ? text : undefined);
@@ -1604,7 +1577,7 @@ export default function ChatPage({
    * Creates AgentDefinitions on-the-fly for any hired agent not yet in the repo.
    */
   const handleChannelSave = useCallback(
-    async (name: string, selectedCatalogIds: string[], avatar: string, kind: "chat" | "meeting", tags: string[], teamId?: string) => {
+    async (name: string, selectedCatalogIds: string[], avatar: string, tags: string[], teamId?: string) => {
       const hiredSet = loadHiredAgentFiles();
       const all = await loadAgentCatalog();
       const hired = all.filter((a) => hiredSet.has(a.file));
@@ -1617,13 +1590,18 @@ export default function ChatPage({
         agentIds.push(id);
       }
 
+      const preset = teamId
+        ? workbenchTeamPresets.find((item) => item.id === teamId)
+        : undefined;
+      const kind = channelKindFromTeam(preset);
+
       if (editChannelState) {
         hookEditChannel(editChannelState.id, { name, agentIds, avatar, kind, tags, teamId: teamId ?? undefined });
       } else {
         createChannel(name, agentIds, avatar || randomIcon(), kind, tags, teamId);
       }
     },
-    [agents, editChannelState, hookEditChannel, createChannel, createAgent]
+    [agents, editChannelState, hookEditChannel, createChannel, createAgent, workbenchTeamPresets]
   );
 
   /**
@@ -1670,7 +1648,7 @@ export default function ChatPage({
           mainName,
           agentIds,
           catalogPreset?.avatar || randomIcon(),
-          catalogPreset?.kind ?? "chat",
+          catalogPreset ? channelKindFromTeam(catalogPreset) : "chat",
           undefined,
           catalogPreset?.id,
         );
@@ -1757,7 +1735,7 @@ export default function ChatPage({
           style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
         >
           <div className="flex min-w-0 items-center gap-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-            {activeTeamPreset?.workspaceRoot && (
+            {channelMode === "editor" && (
             <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
               <button
                 type="button"
@@ -1924,7 +1902,7 @@ export default function ChatPage({
           <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
             {t("chatPage.selectChannel")}
           </div>
-        ) : activeChannel.kind === "meeting" ? (
+        ) : meetingSurface ? (
           <MeetingChannelView
             key={activeChannel.id}
             channel={activeChannel}
@@ -2464,7 +2442,7 @@ export default function ChatPage({
               </span>
             </div>
           ))}
-          {activeChannel?.kind === "meeting" && meetingParticipants.length > 0 && (
+          {meetingSurface && meetingParticipants.length > 0 && (
             <>
               <div className="mb-2 mt-4 border-t border-slate-100 pt-3">
                 <p className="px-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
@@ -2503,8 +2481,8 @@ export default function ChatPage({
         initial={editChannelState}
         existingDefs={agents}
         availableTeams={workbenchTeamPresets}
-        onSave={(name, selectedCatalogIds, avatar, kind, tags, teamId) => {
-          void handleChannelSave(name, selectedCatalogIds, avatar, kind, tags, teamId);
+        onSave={(name, selectedCatalogIds, avatar, tags, teamId) => {
+          void handleChannelSave(name, selectedCatalogIds, avatar, tags, teamId);
         }}
       />
       {(() => {

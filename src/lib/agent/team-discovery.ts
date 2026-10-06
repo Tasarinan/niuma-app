@@ -12,6 +12,7 @@ import {
   type TeamPackManifest,
 } from "./team-manifest";
 import type { WorkbenchTeamAccent, WorkbenchTeamPreset } from "./workbench-defaults";
+import { channelKindFromTeam } from "./team-channel-mode";
 
 function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -30,12 +31,13 @@ export function manifestToWorkbenchPreset(manifest: TeamPackManifest): Workbench
     description: manifest.description ?? "",
     avatar: manifest.avatar ?? "💬",
     accent: isWorkbenchTeamAccent(manifest.accent) ? manifest.accent : "violet",
-    kind: manifest.kind === "meeting" ? "meeting" : "chat",
+    kind: channelKindFromTeam(manifest),
     commandDir: manifestToCommandDir(manifest),
     agentFiles: listAgentFilesFromManifest(manifest),
     skillSlugs: listSkillSlugsFromManifest(manifest),
     starterPrompts: manifest.starterPrompts,
     workflow: manifest.workflow,
+    view: manifest.view,
     workspaceRoot: manifest.workspaceRoot,
     roles: manifest.roles,
     defaultAgent: manifest.defaultAgent,

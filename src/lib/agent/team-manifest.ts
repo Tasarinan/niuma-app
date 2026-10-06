@@ -16,6 +16,8 @@ export type TeamPackManifest = ContentTeamManifest & {
   workflow?: string;
   workspaceRoot?: boolean;
   workbench?: boolean;
+  /** Predefined channel UI from presets/team.yaml: chat | editor | meeting | health. */
+  view?: string;
   roles: TeamRoleDefinition[];
 };
 
@@ -166,6 +168,7 @@ export function parseTeamPackManifest(raw: string): TeamPackManifest {
     workflow,
     workspaceRoot,
     workbench,
+    view: meta.view?.trim(),
     roles: parseTeamRoles(raw),
   };
 }
@@ -239,6 +242,7 @@ export function mergeTeamPackManifest(
     starterPrompts: extra.starterPrompts.length ? extra.starterPrompts : roster.starterPrompts,
     defaultHired: extra.defaultHired.length ? extra.defaultHired : roster.defaultHired,
     workflow: pick(extra.workflow, roster.workflow),
+    view: pick(extra.view, roster.view),
     workspaceRoot: extra.workspaceRoot || roster.workspaceRoot,
     roles,
   };

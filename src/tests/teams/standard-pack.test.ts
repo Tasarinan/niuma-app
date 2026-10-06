@@ -8,7 +8,6 @@ import { parseTeamPackManifest } from "@/lib/agent/team-manifest";
 const TEAMS_ROOT = ".niuma/teams";
 const CONFIG_KEYS = new Set([
   "id",
-  "kind",
   "defaultAgent",
   "defaultHired",
   "surface",
@@ -39,7 +38,6 @@ describe("standard team packs", () => {
       const pack = parseTeamPackManifest(raw);
       expect(pack.id).toBe(id);
       expect(pack.roles.length).toBeGreaterThan(0);
-      if (id === "meeting") expect(pack.kind).toBe("meeting");
     }
   });
 

@@ -22,12 +22,14 @@ export interface WorkbenchTeamPreset {
   description: string;
   avatar: string;
   accent: WorkbenchTeamAccent;
+  /** Derived from the bound team. Not a user-facing channel type. */
   kind: GroupChannel["kind"];
   commandDir?: string;
   agentFiles: string[];
   skillSlugs: string[];
   starterPrompts: string[];
-  /** Declared in team config.yaml — drives editor / dispatch without hardcoded team ids. */
+  /** Declared in presets/team.yaml — picks a predefined channel UI. */
+  view?: string;
   workflow?: string;
   workspaceRoot?: boolean;
   roles?: TeamRoleDefinition[];

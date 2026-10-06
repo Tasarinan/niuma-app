@@ -189,7 +189,6 @@ export function repairMarkdownImageSrcFromAlt(markdown: string): string {
 function preferredMarkdownImageRelative(
   markdownSrc: string,
   resolvedAbs: string,
-  _articleFilePath: string,
   taken: string[],
   themeSlug?: string,
 ): string {
@@ -267,7 +266,7 @@ export async function inlineLocalMarkdownImages(
         if (!base64) continue;
         const mime = imageMimeFromPath(candidate);
         const bytes = base64ToBytes(base64);
-        const relative = preferredMarkdownImageRelative(src, candidate, articleFilePath, taken, themeSlug);
+        const relative = preferredMarkdownImageRelative(src, candidate, taken, themeSlug);
         taken.push(relative.replace(/^imgs\//i, ""));
         const displaySrc = displaySrcForImageBytes(
           bytes,

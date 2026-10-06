@@ -10,7 +10,7 @@ export interface GroupChannel {
   agentIds: string[];
   /** Short user-defined labels shown in the channel list. */
   tags?: string[];
-  /** Channel type. "meeting" channels enable live meeting transcription/diarization. Defaults to "chat" when unset. */
+  /** Deprecated: kept in storage for old channels. UI follows the bound team. */
   kind?: "chat" | "meeting";
   /** Slug of the bound team in .niuma/teams/<teamId>/. When set, the channel auto-loads that team's agents, skills, and commands. */
   teamId?: string;

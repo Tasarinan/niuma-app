@@ -76,6 +76,7 @@ surface: default
     expect(pack.workbench).toBe(false);
     expect(pack.defaultAgent).toBe("assistant.md");
     expect(pack.channelName).toBe("主对话");
+    expect(pack.view).toBe("chat");
     const agentFiles = listAgentFilesFromManifest(pack);
     expect(agentFiles.length).toBeGreaterThan(0);
     expect(pack.roles).toHaveLength(agentFiles.length);
@@ -93,6 +94,7 @@ surface: default
     expect(pack.id).toBe("content");
     expect(pack.name).toBe("内容创作");
     expect(pack.workflow).toBe("content");
+    expect(pack.view).toBe("editor");
     expect(pack.workspaceRoot).toBe(true);
     const agentFiles = listAgentFilesFromManifest(pack);
     const skillSlugs = listSkillSlugsFromManifest(pack);
@@ -117,9 +119,11 @@ surface: default
   });
 
   it("reads health, meeting, and study rosters from their config.yaml", () => {
+    const views = { health: "health", meeting: "meeting", study: "chat" } as const;
     for (const id of ["health", "meeting", "study"] as const) {
       const pack = loadTeamPack(id);
       expect(pack.id).toBe(id);
+      expect(pack.view).toBe(views[id]);
       const agentFiles = listAgentFilesFromManifest(pack);
       expect(agentFiles.length).toBeGreaterThan(0);
       expect(pack.roles).toHaveLength(agentFiles.length);

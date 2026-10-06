@@ -23,6 +23,7 @@ import { getWorkbenchTeamPreset, loadWorkbenchTeamPresets } from "@/lib/agent/wo
 import { mergeRuntimeInternalTools } from "@/lib/agent/runtime-internal-tools";
 import { describeAgentToolProgress } from "@/lib/agent/tool-progress";
 import { agentMatchesRole, resolveDefaultRole } from "@/lib/agent/team-manifest";
+import { resolveTeamChannelMode } from "@/lib/agent/team-channel-mode";
 import { imageRoleNames } from "@/lib/content/roster-workflow";
 import {
   formatContentDispatchInstruction,
@@ -169,6 +170,7 @@ export function useGroupChat() {
       const workbenchPresets = await loadWorkbenchTeamPresets();
       const teamPreset = getWorkbenchTeamPreset(channel, workbenchPresets);
       const teamRoles = teamPreset?.roles ?? [];
+      const teamMode = resolveTeamChannelMode(teamPreset);
       const producerRole = resolveDefaultRole(teamPreset ?? {});
       const producerName = producerRole?.name;
       const channelAgents = teamRoles.length > 0
@@ -282,7 +284,7 @@ export function useGroupChat() {
 
         // Smart-dispatch: default agent from config.yaml routes; specialists escalate back.
         const dispatchInstruction =
-          useSmartDispatch && teamRoles.length > 0
+          useSmartDispatch && teamRoles.length > 0 && teamMode !== "chat"
             ? formatContentDispatchInstruction(agent.name, teamRoles, producerName)
             : isDispatcherTurn
               ? (() => {
