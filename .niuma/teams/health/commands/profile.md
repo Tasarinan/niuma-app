@@ -1,13 +1,6 @@
 ---
 description: 管理个人和家庭成员健康档案（建立/查看/更新）
-agent: 健康向导
-arguments:
-  - name: action
-    description: 操作类型：setup(首次建档)/view(查看)/update(更新)/add-member(添加家人)
-    required: true
-  - name: member
-    description: 家庭成员关系（self/spouse/parent/child），默认 self
-    required: false
+argument-hint: [setup|view|update|add-member] [member]
 ---
 
 # 个人与家庭健康档案管理

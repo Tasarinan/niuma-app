@@ -1,18 +1,13 @@
 ---
 description: 管理内容草稿 — 开题、打开编辑、改元数据、删除
-agent: 主理人
-arguments:
-  - name: action
-    description: 操作类型：create(开新题圆桌)/edit(打开编辑或继续某篇)/update(改 topic 或 article.yaml)/delete(删整篇草稿目录)
-    required: true
-  - name: target
-    description: 选题关键词、目录名或要改的字段（依 action 而定，可空）
-    required: false
+argument-hint: [create|edit|update|delete] [target]
 ---
 
 # 文章草稿管理（/article）
 
-管理 `.artifacts/drafts/<YYYYMMDD-主题>/` 下的单篇稿件。成稿源文件是 `article.md`；`topic.md` 记录选题共识；`article.yaml` 存本篇元数据（标题、摘要、排版主题等）。
+本次参数：`$ARGUMENTS`（`$0` 为操作，其余为选题或目录）。
+
+管理 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/` 下的单篇稿件。成稿源文件是 `article.md`；`topic.md` 记录选题共识；`article.yaml` 存本篇元数据（标题、摘要、排版主题等）。
 
 ## 操作类型
 
@@ -29,7 +24,7 @@ arguments:
 
 **阶段 2 · 用户确认定题后**
 
-1. 创建 `.artifacts/drafts/<YYYYMMDD-主题>/`（日期用对话 `[今天]` 的 YYYYMMDD）
+1. 创建 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/`（日期用对话 `[今天]` 的 YYYYMMDD）
 2. 写入 `topic.md`（必要时空 `article.md`）
 3. `open_article` 定位本篇；请用户点「编辑」共创
 
@@ -74,7 +69,7 @@ arguments:
 
 ### delete — 删除整篇草稿目录
 
-用户明确要**丢弃**某篇未推送稿时使用。先确认目录与标题，再删除整个 `.artifacts/drafts/<文件夹>/`（含 article、配图、review）。已推送的稿不要删本地目录除非用户坚持。
+用户明确要**丢弃**某篇未推送稿时使用。先确认目录与标题，再删除整个 `.niuma/artifacts/drafts/<文件夹>/`（含 article、配图、review）。已推送的稿不要删本地目录除非用户坚持。
 
 **示例：**
 

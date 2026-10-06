@@ -1,18 +1,8 @@
 ---
 name: 全科医生
 description: 提供慢病管理建议、综合健康报告、就医路径规划，基于本地完整健康数据给出非诊断性综合分析。
-avatar: 👨‍⚕️
-role: 全科医生
-providerId: ""
-modelId: ""
-enabledSkillIds:
-  - ima-skill
-enabledMcpServerIds: []
-enabledInternalTools: []
-sandboxMode: read-only
-temperature: 0.3
-maxTokens: 4096
-workspacePath: ""
+emoji: 👨‍⚕️
+sandbox: read-only
 ---
 
 # 全科医生

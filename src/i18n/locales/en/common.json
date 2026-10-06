@@ -45,15 +45,26 @@
     "system": "System"
   },
   "toolbar": {
-    "inputPlaceholder": "Ask me anything or call me teams"
+    "inputPlaceholder": "Search local files and summarize"
   },
   "quickSearch": {
     "close": "Close (Esc)",
-    "localFiles": "Local Files",
-    "noLocalFiles": "No matching files",
-    "webSearch": "Online Search",
+    "localFiles": "Local files",
+    "noLocalFiles": "No match in file names or contents",
+    "webSearch": "Search the web",
     "noWebResults": "No web results",
-    "aiSummary": "AI Summary"
+    "aiSummary": "Doubao",
+    "doubaoResult": "Doubao",
+    "searching": "Searching local files and the IMA library",
+    "writing": "Doubao is writing the answer",
+    "emptyAnswer": "Doubao returned no answer",
+    "references": "References",
+    "localRef": "Local",
+    "imaRef": "IMA library",
+    "none": "None",
+    "baidu": "Baidu",
+    "bing": "Bing",
+    "aiSearch": "AI search"
   },
   "meeting": {
     "startMeeting": "Start Meeting",

@@ -45,15 +45,26 @@
     "system": "跟随系统"
   },
   "toolbar": {
-    "inputPlaceholder": "Ask me anything or call me teams"
+    "inputPlaceholder": "检索本地和 IMA，由豆包总结"
   },
   "quickSearch": {
     "close": "关闭 (Esc)",
     "localFiles": "本地文件",
-    "noLocalFiles": "无匹配文件",
-    "webSearch": "在线搜索",
+    "noLocalFiles": "文件名和正文里都没有找到",
+    "webSearch": "继续搜索",
     "noWebResults": "无网络结果",
-    "aiSummary": "AI 摘要"
+    "aiSummary": "豆包",
+    "doubaoResult": "豆包",
+    "searching": "正在检索本地文件和 IMA 资料库",
+    "writing": "豆包正在写正文",
+    "emptyAnswer": "豆包没有返回正文",
+    "references": "参考",
+    "localRef": "本地",
+    "imaRef": "IMA资料库",
+    "none": "无",
+    "baidu": "百度",
+    "bing": "Bing",
+    "aiSearch": "AI 搜索"
   },
   "meeting": {
     "startMeeting": "开始会议",

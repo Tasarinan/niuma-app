@@ -8,7 +8,7 @@
 1. .niuma/teams/content/presets/formatting/<主题名>.yaml（用户自定义）
 2. skill 内置 references/presets/themes/<主题名>.yaml
 
-全局文风读 .niuma/teams/content/config.yaml，不要读 .aws-article/config.yaml。
+全局文风读 .niuma/teams/content/presets/editorial.yaml，不要读 .aws-article/config.yaml。
 
 用法：
     python format.py <article.md>                      主题：本篇 article.yaml 的 default_format_preset（编辑器「排版样式」写入），否则 default
@@ -205,8 +205,8 @@ def _deep_merge_dict(base: dict, override: dict) -> dict:
 def _content_team_config_path() -> Path:
     cwd = Path.cwd()
     candidates = [
-        cwd / ".niuma" / "teams" / "content" / "config.yaml",
-        cwd / "niuma-app" / ".niuma" / "teams" / "content" / "config.yaml",
+        cwd / ".niuma" / "teams" / "content" / "presets" / "editorial.yaml",
+        cwd / "niuma-app" / ".niuma" / "teams" / "content" / "presets" / "editorial.yaml",
     ]
     for path in candidates:
         if path.is_file():
@@ -216,7 +216,7 @@ def _content_team_config_path() -> Path:
 
 def _merge_format_context(draft_dir: Path) -> dict:
     """
-    合并：.niuma/teams/content/config.yaml（顶层，不含 writing_model/image_model）
+    合并：.niuma/teams/content/presets/editorial.yaml（顶层，不含 writing_model/image_model）
     → 本篇 article.yaml（同键本篇覆盖）。
     不要读 .aws-article/config.yaml。
     """

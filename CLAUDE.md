@@ -266,7 +266,7 @@ Use the narrowest verification command that proves the change, then broaden when
 - Frontend build: `npm run build`
 - Desktop dev smoke test: `npm run tauri dev`
 
-Existing tests include `src/tests/editor-validation.test.ts` and `src/lib/slash-commands/index.test.ts`.
+Existing tests live under `src/tests/` (for example `src/tests/editor-validation.test.ts` and `src/tests/lib/slash-commands/index.test.ts`). Do not colocate `*.test.ts` next to source.
 
 ## Common Tasks
 
@@ -276,15 +276,14 @@ Existing tests include `src/tests/editor-validation.test.ts` and `src/lib/slash-
 2. Add agent files under `.niuma/teams/<id>/agents/`.
 3. Add commands under `.niuma/teams/<id>/commands/` if needed.
 4. Add team skills under `.niuma/teams/<id>/skills/` or reference existing skill slugs.
-5. Add or update the preset in `src/lib/agent/workbench-defaults.ts`.
+5. Confirm `.niuma/teams/<id>/config.yaml` is picked up by workbench discovery.
 6. Verify the workbench loads the team and starter prompts.
 
 ### Add A New Agent
 
 1. Add the agent Markdown file under the relevant `.niuma/teams/<team>/agents/` folder.
 2. Include clear role, responsibilities, and prompt instructions.
-3. Add the filename to `agentFiles` in `WORKBENCH_TEAM_PRESETS`.
-4. If replacing old agents, use `legacyAgentFiles` to clean old hired sets.
+3. Add the filename to `agentFiles` in that team's `config.yaml`.
 
 ### Add A New Slash Command
 

@@ -180,3 +180,9 @@ body {
   height: 100%;
   overflow: hidden;
 }
+
+/* Keep the toolbar at the top while the search panel hangs below it. */
+body[data-quick-search-open="true"] .toolbar-stage {
+  align-items: flex-start;
+  padding-top: 6px;
+}

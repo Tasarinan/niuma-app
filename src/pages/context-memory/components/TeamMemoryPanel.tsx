@@ -9,7 +9,7 @@
  *  - "Clear team memory" button
  */
 import { useState, useEffect, useCallback } from "react";
-import { WORKBENCH_TEAM_PRESETS } from "@/lib/agent/workbench-defaults";
+import { loadWorkbenchTeamPresets, type WorkbenchTeamPreset } from "@/lib/agent/workbench-defaults";
 import {
   readMemoryIndex,
   listTopicFiles,
@@ -21,8 +21,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw, Trash2, Plus, ChevronDown, ChevronRight, Brain } from "lucide-react";
 
 export function TeamMemoryPanel() {
-  const teams = WORKBENCH_TEAM_PRESETS;
-  const [selectedTeam, setSelectedTeam] = useState(teams[0]?.id ?? "");
+  const [teams, setTeams] = useState<WorkbenchTeamPreset[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState("");
+  useEffect(() => {
+    void loadWorkbenchTeamPresets().then((presets) => {
+      setTeams(presets);
+      setSelectedTeam((current) => current || presets[0]?.id || "");
+    });
+  }, []);
   const [memoryIndex, setMemoryIndex] = useState("");
   const [topics, setTopics] = useState<string[]>([]);
   const [topicContent, setTopicContent] = useState<Record<string, string>>({});

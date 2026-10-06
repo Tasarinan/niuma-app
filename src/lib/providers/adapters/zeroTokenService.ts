@@ -609,47 +609,94 @@ function buildDoubaoApiChatScript(payload: string): string {
   return `
     const { prompt, credentials, showThinking } = ${payload};
     ${buildReadStreamHelper()}
-    const base = 'https://www.doubao.com';
     const headers = {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream, application/json, */*',
+      'agw-js-conv': 'str, str',
       ...(credentials.bearer ? { Authorization: 'Bearer ' + credentials.bearer } : {}),
     };
-    const convRes = await fetch(base + '/samantha/channel/create_conversation', {
-      method: 'POST', credentials: 'include', headers,
-      body: JSON.stringify({ name: '', source: 10, bot_id: '7193487635999899649' }),
-    });
-    if (!convRes.ok) throw new Error('Doubao create_conversation failed: ' + convRes.status);
-    const convData = await convRes.json();
-    const conversationId = convData?.data?.id ?? convData?.data?.conversation_id ?? convData?.id;
-    if (!conversationId) throw new Error('Doubao conversationId not found');
     const fullPrompt = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
-    const compRes = await fetch(base + '/samantha/chat/im/send', {
-      method: 'POST', credentials: 'include',
-      headers: { ...headers, Accept: 'text/event-stream' },
-      body: JSON.stringify({
-        conversation_id: conversationId,
-        content: fullPrompt,
-        content_type: 1,
-        plugin_ids: [],
+    const body = {
+      messages: [{
+        content: JSON.stringify({ text: fullPrompt }),
+        content_type: 2001,
+        attachments: [],
         references: [],
-        local_message_id: crypto.randomUUID(),
-      }),
-    });
-    if (!compRes.ok) throw new Error('Doubao im/send failed: ' + compRes.status + ' ' + await compRes.text());
+      }],
+      completion_option: {
+        is_regen: false,
+        with_suggest: false,
+        need_create_conversation: true,
+        launch_stage: 1,
+        is_replace: false,
+        is_delete: false,
+        message_from: 0,
+        use_deep_think: false,
+        use_auto_cot: false,
+        resend_for_regen: false,
+        enable_commerce_credit: false,
+      },
+      evaluate_option: { web_ab_params: '' },
+      conversation_id: '0',
+      local_conversation_id: 'local_' + crypto.randomUUID().replace(/-/g, ''),
+      local_message_id: crypto.randomUUID(),
+    };
+    const params = 'aid=497858&device_platform=web&language=zh&pc_version=2.41.0&pkg_type=release_version&real_aid=497858&region=CN&samantha_web=1&sys_region=CN&use-olympus-account=1&version_code=20800';
+    const paths = ['/samantha/chat/completion', '/chat/completion'];
+    let compRes = null;
+    for (const path of paths) {
+      compRes = await fetch(path + '?' + params, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(body),
+      });
+      if (compRes.ok || compRes.status !== 404) break;
+    }
+    if (!compRes?.ok) {
+      const detail = await compRes.text().catch(() => '');
+      throw new Error('Doubao chat/completion failed: ' + (compRes?.status ?? 'no-response') + ' ' + detail.slice(0, 180));
+    }
     const raw = await readResponseText(compRes);
+    const pullText = (content) => {
+      if (!content) return '';
+      if (typeof content === 'string') {
+        try { return pullText(JSON.parse(content)); } catch { return content; }
+      }
+      if (typeof content.text === 'string') return content.text;
+      if (content.text_block && typeof content.text_block.text === 'string') return content.text_block.text;
+      if (typeof content.content === 'string') return pullText(content.content);
+      return '';
+    };
     let combined = '';
     for (const line of raw.split('\\n')) {
-      if (!line.startsWith('data: ')) continue;
-      const chunk = line.slice(6).trim();
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const chunk = trimmed.slice(5).trim();
       if (!chunk || chunk === '[DONE]') continue;
       try {
         const evt = JSON.parse(chunk);
-        const delta = evt?.data?.reply_content ?? evt?.data?.content ?? evt?.choices?.[0]?.delta?.content ?? evt?.content ?? null;
-        if (typeof delta === 'string' && delta) combined += delta;
-      } catch {}
+        if (evt.event_type === 2005) {
+          const err = typeof evt.event_data === 'string' ? evt.event_data : JSON.stringify(evt.event_data || evt);
+          throw new Error('Doubao stream error: ' + err.slice(0, 240));
+        }
+        if (evt.event_type != null && evt.event_type !== 2001) continue;
+        let eventData = evt.event_data ?? evt.data ?? evt;
+        if (typeof eventData === 'string') {
+          try { eventData = JSON.parse(eventData); } catch { eventData = {}; }
+        }
+        const message = eventData.message || eventData;
+        const contentType = Number(message.content_type || 0);
+        if (!showThinking && (contentType === 10040 || contentType === 2008 || contentType === 2003)) continue;
+        if (contentType === 2002) continue;
+        const text = pullText(message.content);
+        if (text) combined += text;
+      } catch (err) {
+        if (String(err?.message || err).startsWith('Doubao stream error')) throw err;
+      }
     }
-    await emitResult({ ok: true, content: combined || raw });
+    if (!combined.trim()) throw new Error('Doubao chat/completion returned no text');
+    await emitResult({ ok: true, content: combined });
   `;
 }
 

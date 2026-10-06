@@ -4,7 +4,7 @@
 合并到 `.niuma/teams/content/presets/<子目录>/`。
 
 包根若含 `config.yaml`：
-  - 若本地尚无 `.niuma/teams/content/config.yaml`，则从包内复制一份；
+  - 若本地尚无 `.niuma/teams/content/presets/editorial.yaml`，则从包内复制一份；
   - 若本地已存在，则**不覆盖**；按包内字段在本地同名路径上递归比对，将差异以 **JSON 数组**
     打印到 **stdout**（供智能体读取后询问用户再手改配置）。
 
@@ -42,7 +42,7 @@ except ImportError:
 
 TEAM_CONTENT_REL = Path(".niuma/teams/content")
 PRESETS_REL = TEAM_CONTENT_REL / "presets"
-TEAM_CONFIG_REL = TEAM_CONTENT_REL / "config.yaml"
+TEAM_CONFIG_REL = PRESETS_REL / "editorial.yaml"
 IMPORT_TMP_REL = PRESETS_REL / ".import-tmp"
 DOWNLOADS_REL = PRESETS_REL / "downloads"
 

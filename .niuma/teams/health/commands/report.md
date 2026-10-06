@@ -1,16 +1,6 @@
 ---
 description: 生成个人或家庭成员健康报告摘要，综合本地记录并可检索 IMA 知识库历史资料
-agent: 全科医生
-arguments:
-  - name: range
-    description: 时间范围：month(近30天)/quarter(近90天)/year(近1年)/all(全部)，默认 month
-    required: false
-  - name: member
-    description: 指定家庭成员（默认本人）
-    required: false
-  - name: focus
-    description: 重点关注的方面：symptoms/diet/sleep/mood/lab，默认全部
-    required: false
+argument-hint: [month|quarter|year|all|visit] [member]
 ---
 
 # 健康报告

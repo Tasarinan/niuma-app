@@ -88,7 +88,14 @@ export function parseReadyAccountArg(
   return slots.find((item) => item.name && item.name.toLowerCase().includes(needle));
 }
 
-export function formatReadyWechatContext(pack: WechatReadyPack): string {
+export function formatReadyWechatContext(
+  pack: WechatReadyPack,
+  copy?: { publisherName?: string; hostName?: string; writerName?: string },
+): string {
+  const publisher = copy?.publisherName?.trim() || "当前坐席";
+  const host = copy?.hostName?.trim() || "接待坐席";
+  const writer = copy?.writerName?.trim();
+  const voice = writer ? `${writer} / ${publisher}` : publisher;
   const lines = [
     "[微信公众号槽位]",
     `status: ${pack.status}`,
@@ -96,10 +103,10 @@ export function formatReadyWechatContext(pack: WechatReadyPack): string {
     pack.selectedSlot ? `本次指定槽位: ${pack.selectedSlot}` : "",
     "",
     "规则：",
-    "- 你是发行（由主理人在发布阶段点名）。列出下列公众号，让用户选一个槽位（序号或名称）。",
+    `- 你是${publisher}（由${host}在发布阶段点名）。列出下列公众号，让用户选一个槽位（序号或名称）。`,
     "- 不要打印 APPSECRET、API key 或完整 AppID。",
     "- 选定后在回复里确认槽位序号。不要写任何 yaml 配置文件。",
-    "- 文风和排版风格在写手 / 发行的 Agent 个性里。",
+    `- 文风和排版风格在${voice}的 Agent 个性里。`,
     "- 不要改 .env.local。发布时用对话里确认的槽位序号（`--account N`）。",
     "- 发布必须用 `publish.py ... full <草稿目录>/`：`full` 会先对磁盘 article.md 跑 format.py 再上传；不要只传旧 article.html。",
     "- 只有一个可用槽位时直接确认。",

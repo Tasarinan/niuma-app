@@ -34,8 +34,8 @@ export function isTopicCommand(name: string): boolean {
 }
 
 export function parseImaCredentials(env: Record<string, string>): ImaCredentials | null {
-  const clientId = String(env.IMA_CLIENT_ID ?? env.IMA_OPENAPI_CLIENTID ?? "").trim();
-  const apiKey = String(env.IMA_API_KEY ?? env.IMA_OPENAPI_APIKEY ?? "").trim();
+  const clientId = String(env.IMA_OPENAPI_CLIENTID ?? env.IMA_CLIENT_ID ?? "").trim();
+  const apiKey = String(env.IMA_OPENAPI_APIKEY ?? env.IMA_API_KEY ?? "").trim();
   if (!clientId || !apiKey) return null;
   return { clientId, apiKey };
 }
@@ -83,6 +83,7 @@ export async function imaOpenApiPost(
     headers: {
       "ima-openapi-clientid": options.credentials.clientId,
       "ima-openapi-apikey": options.credentials.apiKey,
+      "ima-openapi-ctx": "skill_version=1.1.8",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -134,16 +135,134 @@ export function formatImaTopicContext(pack: ImaTopicPack): string {
   return lines.join("\n");
 }
 
+function stripMarkup(value: string): string {
+  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function textField(item: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = item[key];
+    if (typeof value === "string" && value.trim()) return stripMarkup(value).slice(0, 280);
+  }
+  return "";
+}
+
 export function compactImaItems(data: Record<string, unknown>): ImaTopicItem[] {
   const items = firstArray(data, ["info_list", "infoList", "knowledge_list", "list"]);
   return items.slice(0, 8).map((item) => ({
-    title: String(item.title ?? item.name ?? "未命名"),
-    excerpt: String(item.summary ?? item.digest ?? item.content ?? item.snippet ?? "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 280),
+    title: textField(item, ["title", "name"]) || "未命名",
+    excerpt: textField(item, ["highlight_content", "highlightContent", "summary", "digest", "content", "snippet"]),
     url: String(item.url ?? item.link ?? ""),
   }));
+}
+
+export function compactImaNoteItems(data: Record<string, unknown>): ImaTopicItem[] {
+  const rows = firstArray(data, ["search_note_infos", "searchNoteInfos"]);
+  return rows.slice(0, 8).map((row) => {
+    const info = asRecord(row.note_book_info ?? row.noteBookInfo ?? row);
+    const highlight = asRecord(row.highlightInfo ?? row.highlight_info);
+    const highlighted = Object.values(highlight)
+      .filter((value): value is string => typeof value === "string")
+      .join(" ");
+    return {
+      title: textField(info, ["title"]) || "未命名笔记",
+      excerpt: textField(info, ["summary"]) || stripMarkup(highlighted).slice(0, 280),
+      url: "",
+    };
+  });
+}
+
+function dedupeImaItems(items: ImaTopicItem[]): ImaTopicItem[] {
+  const seen = new Set<string>();
+  const kept: ImaTopicItem[] = [];
+  for (const item of items) {
+    const key = item.title.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    kept.push(item);
+    if (kept.length >= 6) break;
+  }
+  return kept;
+}
+
+/** Toolbar lookup: notes plus every knowledge base, not only 文章资产. */
+export async function searchImaMaterials(query: string): Promise<ImaTopicPack> {
+  const trimmed = query.trim();
+  const env = await readEnvLocal();
+  const credentials = parseImaCredentials(env);
+  if (!credentials) {
+    return {
+      status: "error",
+      query: trimmed,
+      items: [],
+      errors: ["未在工作区 .env.local 找到 IMA_OPENAPI_CLIENTID / IMA_OPENAPI_APIKEY。请在本地文件填写，不要把密钥发到聊天里。"],
+    };
+  }
+
+  const errors: string[] = [];
+  const post = async (apiPath: string, body: Record<string, unknown>) => {
+    try {
+      return await imaOpenApiPost(apiPath, body, { credentials });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push(message);
+      return null;
+    }
+  };
+
+  const [titleNotes, contentNotes, bases] = await Promise.all([
+    post("openapi/note/v1/search_note", {
+      search_type: 0,
+      query_info: { title: trimmed },
+      start: 0,
+      end: 8,
+    }),
+    post("openapi/note/v1/search_note", {
+      search_type: 1,
+      query_info: { content: trimmed },
+      start: 0,
+      end: 8,
+    }),
+    post("openapi/wiki/v1/search_knowledge_base", { query: "", cursor: "", limit: 8 }),
+  ]);
+
+  const kbIds: string[] = [];
+  try {
+    const { getImaKbConfig } = await import("@/lib/storage/ima.storage");
+    const configured = getImaKbConfig().kbId.trim();
+    if (configured) kbIds.push(configured);
+  } catch {
+    // configured id is optional
+  }
+  if (bases) {
+    for (const base of firstArray(bases, ["info_list", "infoList", "list"])) {
+      const id = String(base.knowledge_base_id ?? base.kb_id ?? base.id ?? "").trim();
+      if (id && !kbIds.includes(id)) kbIds.push(id);
+    }
+  }
+
+  const knowledge = await Promise.all(
+    kbIds.slice(0, 6).map((id) =>
+      post("openapi/wiki/v1/search_knowledge", {
+        query: trimmed,
+        cursor: "",
+        knowledge_base_id: id,
+      }),
+    ),
+  );
+
+  const items = dedupeImaItems([
+    ...(titleNotes ? compactImaNoteItems(titleNotes) : []),
+    ...(contentNotes ? compactImaNoteItems(contentNotes) : []),
+    ...knowledge.flatMap((data) => (data ? compactImaItems(data) : [])),
+  ]);
+
+  return {
+    status: items.length > 0 ? "ok" : "error",
+    query: trimmed,
+    items,
+    errors: items.length > 0 ? [] : errors.length > 0 ? [errors[0]] : [`IMA 中未找到与「${trimmed}」相关的内容`],
+  };
 }
 
 async function readEnvLocal(): Promise<Record<string, string>> {
@@ -174,7 +293,7 @@ export async function loadImaTopicPack(options: {
       status: "error",
       query,
       items: [],
-      errors: ["未在工作区 .env.local 找到 IMA_CLIENT_ID / IMA_API_KEY。请在本地文件填写，不要把密钥发到聊天里。"],
+      errors: ["未在工作区 .env.local 找到 IMA_OPENAPI_CLIENTID / IMA_OPENAPI_APIKEY。请在本地文件填写，不要把密钥发到聊天里。"],
     };
   }
 
@@ -224,7 +343,7 @@ export async function loadImaTopicPack(options: {
       status: "error",
       query,
       items: [],
-      errors: [message.includes("认证") ? `${message}。请核对 .env.local 里的 IMA_CLIENT_ID / IMA_API_KEY，不要把密钥发到聊天里。` : message],
+      errors: [message.includes("认证") ? `${message}。请核对 .env.local 里的 IMA_OPENAPI_CLIENTID / IMA_OPENAPI_APIKEY，不要把密钥发到聊天里。` : message],
     };
   }
 }
@@ -235,7 +354,7 @@ export async function runImaOpenApi(
 ): Promise<Record<string, unknown>> {
   const credentials = parseImaCredentials(await readEnvLocal());
   if (!credentials) {
-    throw new Error("未在工作区 .env.local 找到 IMA_CLIENT_ID / IMA_API_KEY");
+    throw new Error("未在工作区 .env.local 找到 IMA_OPENAPI_CLIENTID / IMA_OPENAPI_APIKEY");
   }
   return imaOpenApiPost(apiPath, body, { credentials });
 }

@@ -12,17 +12,17 @@ homepage: https://github.com/Tasarinan/niuma-app
 
 ## 步骤
 
-1. 确定草稿目录 `.artifacts/drafts/<YYYYMMDD-主题>/`
+1. 确定草稿目录 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/`
 2. 用 `read` 打开该目录 `article.md`，确认读到的是当前文件
 3. 立刻对该路径运行 `format.py`（工作区根为 cwd）。用 `bash` 跑这一条即可，不要再 `ls` / `cat` skill 目录：
 
 ```bash
-python {baseDir}/scripts/format.py .artifacts/drafts/<YYYYMMDD-主题>/article.md
+python {baseDir}/scripts/format.py .niuma/artifacts/drafts/<YYYYMMDD-主题>/article.md
 ```
 
 **不要加 `--theme`**，除非用户在对话里当场点名一个主题 id。缺省时脚本读取本篇 `article.yaml` 的 `default_format_preset`（编辑器「排版样式」写入的 YAML 列表，例如 `[wechat-tech]`），没有则用 `default`。
 
-4. 输出写到同目录 `article.html`。若脚本写到别处，把结果拷到 `.artifacts/drafts/<YYYYMMDD-主题>/article.html`
+4. 输出写到同目录 `article.html`。若脚本写到别处，把结果拷到 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/article.html`
 5. 告诉用户：HTML 已由**刚才读到的那份 article.md** 生成；若还要改字，先改 Markdown 再重新跑本 skill
 
 ## 主题

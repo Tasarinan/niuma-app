@@ -1,0 +1,23 @@
+name: 学习
+description: 语法、词汇、阅读、句子分析与写作辅导。
+eyebrow: 语法 / 词汇 / 阅读 / 写作
+avatar: "📚"
+accent: violet
+workflow: study
+
+starterPrompts:
+  - "/ask 讲解这个语法点"
+  - "/explain 分析这句话"
+  - "vocab — 分析单词用法"
+
+roles:
+  - agentFile: tutor.md
+    summary: 默认接待、路由到各教练
+  - agentFile: grammar-coach.md
+    summary: 语法讲解与扩展
+  - agentFile: vocab-coach.md
+    summary: 词汇用法与搭配
+  - agentFile: reader.md
+    summary: 阅读与长句分析
+  - agentFile: writer.md
+    summary: 写作指导与批改

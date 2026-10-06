@@ -4,23 +4,27 @@ export interface RuntimeInternalToolOptions {
   bridgedSkillCount: number;
   agentName?: string;
   agentRole?: string;
+  /** Role names from team config.yaml that own image commands. */
+  imageRoleNames?: string[];
 }
 
-function isIllustrator(options: RuntimeInternalToolOptions): boolean {
+function isImageRole(options: RuntimeInternalToolOptions): boolean {
+  const names = (options.imageRoleNames ?? []).map((name) => name.trim()).filter(Boolean);
+  if (names.length === 0) return false;
   const hay = `${options.agentName ?? ""}\n${options.agentRole ?? ""}`;
-  return /配图|formatter/i.test(hay);
+  return names.some((name) => hay.includes(name));
 }
 
-/** Merge catalog tools with runtime extras (generate / search for 配图师). */
+/** Merge catalog tools with runtime extras for the image role declared in config.yaml. */
 export function mergeRuntimeInternalTools(
   enabled: AgentInternalToolId[],
   options: RuntimeInternalToolOptions,
 ): AgentInternalToolId[] {
   const tools = new Set(enabled);
-  if (enabled.includes("generate_image") || isIllustrator(options)) {
+  if (enabled.includes("generate_image") || isImageRole(options)) {
     tools.add("generate_image");
   }
-  if (isIllustrator(options)) {
+  if (isImageRole(options)) {
     tools.add("search_images");
     tools.add("save_web_image");
     tools.add("consolidate_draft_images");

@@ -189,7 +189,7 @@ export function repairMarkdownImageSrcFromAlt(markdown: string): string {
 function preferredMarkdownImageRelative(
   markdownSrc: string,
   resolvedAbs: string,
-  articleFilePath: string,
+  _articleFilePath: string,
   taken: string[],
   themeSlug?: string,
 ): string {

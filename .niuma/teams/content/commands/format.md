@@ -1,13 +1,11 @@
 ---
 description: 基于磁盘最新 article.md，生成 WECHAT / XHS / ZHIHU 排版（不推草稿箱）
-agent: 发行
-arguments:
-  - name: platform
-    description: 平台 WECHAT(微信)/XHS(小红书)/ZHIHU(知乎)
-    required: true
+argument-hint: [WECHAT|XHS|ZHIHU]
 ---
 
 # 多平台排版（/format）
+
+平台：`$0`。全部参数：`$ARGUMENTS`。
 
 切换到**发行**。这是**排版**，不是选题会，也不是推草稿箱。不要 `ROUTE` 给主理人，不要开会，不要 mkdir。
 
@@ -15,7 +13,7 @@ arguments:
 
 - 必须先指定平台：`WECHAT` / `XHS` / `ZHIHU`
 - 未指定时先问用户，**不要默认微信**
-- 源文件始终是磁盘上**最新的** `.artifacts/drafts/<主题>/article.md`（同一篇 Markdown）
+- 源文件始终是磁盘上**最新的** `.niuma/artifacts/drafts/<主题>/article.md`（同一篇 Markdown）
 
 ## 按平台执行
 

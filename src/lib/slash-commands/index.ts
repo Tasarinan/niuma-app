@@ -1,15 +1,18 @@
 /**
- * Generic slash command runtime.
+ * Slash commands follow the Claude Code / Cursor markdown format.
  *
- * Commands are discovered recursively from `.niuma/commands` at the project root.
- * Each command file may contain YAML frontmatter with `description` and
- * `arguments` fields.  The rest of the file is the execution specification.
+ * ```md
+ * ---
+ * description: Review a pull request
+ * argument-hint: [pr-number] [priority]
+ * allowed-tools: Read, Bash(gh pr view:*)
+ * ---
+ * Review PR #$0 with priority $1.
+ * ```
  *
- * Workflow (mirrors speckit-style slash-command runtimes):
- *   1. App start: scan command directory, parse frontmatter, cache definitions.
- *   2. User types `/`  → show filtered suggestion menu.
- *   3. User hits Enter  → build execution prompt with full command spec inlined.
- *   4. Execution prompt is routed to the PI agent which follows the spec.
+ * Filename is the command name. Placeholders: `$ARGUMENTS`, `$ARGUMENTS[N]`, `$0`.
+ * If the body has no `$ARGUMENTS`/`$N`, leftover args are appended as `ARGUMENTS:`.
+ * Who runs the command comes from team `config.yaml` `roles[].commands`, not frontmatter.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -89,9 +92,6 @@ export type SlashCommandResolution =
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Relative path from the project root to the commands directory. */
-export const COMMANDS_DIR = ".niuma/commands";
-
 const slashCommandExtensions = new Map<string, SlashCommandExtension>();
 let defaultExtensionsRegistered = false;
 
@@ -115,6 +115,54 @@ function parseFrontmatter(raw: string): Record<string, string> {
 
 function cleanFrontmatterValue(value: string): string {
   return value.trim().replace(/^['"]|['"]$/g, "");
+}
+
+export function stripCommandFrontmatter(raw: string): string {
+  return raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+}
+
+/** Turn Claude/Cursor `argument-hint: [create|edit] [target]` into completion specs. */
+export function parseArgumentHint(hint: string): CommandArgument[] {
+  const trimmed = hint.trim();
+  if (!trimmed) return [];
+  const tokens = trimmed.match(/\[[^\]]+\]|<[^>]+>|[^\s]+/g) ?? [];
+  return tokens.map((token, index) => {
+    const inner = token.replace(/^\[|\]$/g, "").replace(/^<|>$/g, "").trim();
+    const parts = inner.split(/[|/]/).map((part) => part.trim()).filter(Boolean);
+    const identParts = parts.filter((part) => /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(part));
+    const choices =
+      identParts.length >= 2
+        ? identParts.map((value) => ({ value, description: "" }))
+        : inferArgumentChoices(inner);
+    const name =
+      identParts.length === 1
+        ? identParts[0]
+        : identParts.length >= 2
+          ? index === 0
+            ? "action"
+            : `arg${index}`
+          : inner.replace(/[^A-Za-z0-9_-]+/g, "") || `arg${index}`;
+    return {
+      name,
+      description: inner,
+      required: !token.startsWith("[") || index === 0,
+      choices,
+    };
+  });
+}
+
+/** Claude/Cursor placeholders: `$ARGUMENTS`, `$ARGUMENTS[N]`, `$0`. */
+export function expandCommandPlaceholders(body: string, args: string): string {
+  const trimmedArgs = args.trim();
+  const tokens = trimmedArgs ? trimmedArgs.split(/\s+/) : [];
+  const hasPlaceholder = /\$ARGUMENTS(?:\[\d+\])?/.test(body) || /\$\d+\b/.test(body);
+  let out = body.replace(/\$ARGUMENTS\[(\d+)\]/g, (_match, index: string) => tokens[Number(index)] ?? "");
+  out = out.replace(/\$ARGUMENTS/g, trimmedArgs);
+  out = out.replace(/\$(\d+)\b/g, (_match, index: string) => tokens[Number(index)] ?? "");
+  if (!hasPlaceholder && trimmedArgs) {
+    out = `${out.trimEnd()}\n\nARGUMENTS: ${trimmedArgs}`;
+  }
+  return out;
 }
 
 /** Infer `value(description)` or comma-separated enum values from descriptions. */
@@ -237,21 +285,23 @@ async function collectMarkdownEntriesRecursive(rootDir: string): Promise<DirEntr
 
 function rawToDefinition(name: string, path: string, raw: string): SlashCommandDefinition {
   const meta = parseFrontmatter(raw);
+  const yamlArgs = parseCommandArguments(raw);
+  const hintArgs = parseArgumentHint(meta["argument-hint"] ?? meta.argumentHint ?? "");
   return {
     name,
     source: "file",
     sourceLabel: "file",
     path,
     description: meta.description ?? "",
-    argumentHint: meta["argument-hint"] ?? undefined,
-    arguments: parseCommandArguments(raw),
+    argumentHint: meta["argument-hint"] ?? meta.argumentHint ?? undefined,
+    arguments: yamlArgs.length > 0 ? yamlArgs : hintArgs,
     content: raw,
     agent: parseSlashCommandAgent(raw),
-    hidden: meta.hidden?.toLowerCase() === "true",
+    hidden: meta.hidden?.toLowerCase() === "true" || meta["disable-model-invocation"]?.toLowerCase() === "true",
   };
 }
 
-/** Agent name from command frontmatter (`agent: 发行`). */
+/** Agent name from command frontmatter (`agent:`), unused for routing. */
 export function parseSlashCommandAgent(raw: string): string | undefined {
   const agent = parseFrontmatter(raw).agent?.trim();
   return agent || undefined;
@@ -355,7 +405,7 @@ export async function loadSlashCommands(
       a.name.localeCompare(b.name)
     );
   } catch (error) {
-    console.warn("[slash-commands] Failed to load commands from", commandsDir ?? COMMANDS_DIR, error);
+    console.warn("[slash-commands] Failed to load commands from", commandsDir ?? "catalog commandDir", error);
     return extensionDefs;
   }
 }
@@ -443,6 +493,36 @@ export function rankSlashCommands(
   return [...startsWith, ...includes];
 }
 
+export interface SlashSkillCandidate {
+  slug: string;
+  name: string;
+  command: string;
+  description: string;
+}
+
+/** Skills shown beside commands when the input is `/` or `/query`. */
+export function rankSlashSkills<T extends SlashSkillCandidate>(
+  skills: T[],
+  query: string,
+  options?: { teamSlugs?: string[]; excludeCommands?: string[] },
+): T[] {
+  const teamSlugs = (options?.teamSlugs ?? []).filter(Boolean);
+  const scoped = teamSlugs.length > 0
+    ? skills.filter((skill) => teamSlugs.includes(skill.slug))
+    : skills;
+  const needle = query.trim().toLowerCase();
+  const matched = !needle
+    ? scoped
+    : scoped.filter((skill) =>
+        [skill.name, skill.command, skill.slug, skill.description]
+          .join("\n")
+          .toLowerCase()
+          .includes(needle),
+      );
+  const excluded = new Set((options?.excludeCommands ?? []).map((name) => name.toLowerCase()));
+  return matched.filter((skill) => !excluded.has(skill.command.toLowerCase()));
+}
+
 // ─── Execution prompt builder ─────────────────────────────────────────────────
 
 /**
@@ -454,31 +534,7 @@ export function buildCommandExecutionPrompt(
   command: SlashCommandDefinition,
   args: string
 ): string {
-  const argHints =
-    command.arguments.length > 0
-      ? command.arguments
-          .map((a) => `  - ${a.name}${a.required ? " (required)" : ""}: ${a.description}`)
-          .join("\n")
-      : "  (none defined)";
-
-  return [
-    `Slash command invoked: /${command.name}`,
-    `Description: ${command.description || "(not provided)"}`,
-    `User-supplied arguments: ${args || "(none)"}`,
-    `Expected arguments:`,
-    argHints,
-    "",
-    "Command specification:",
-    "```md",
-    command.content,
-    "```",
-    "",
-    "Execution rules:",
-    "1. Treat the specification above as the authoritative definition.",
-    "2. Follow every step described in the spec.",
-    "3. Perform any required file reads or writes via tool calls.",
-    "4. Return the final result and list any files that were changed.",
-  ].join("\n");
+  return expandCommandPlaceholders(stripCommandFrontmatter(command.content), args);
 }
 
 /**

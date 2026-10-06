@@ -1,22 +1,13 @@
 ---
 name: 主编
-description: 审稿。技能 article-review；审 article.md，结论写入 review.md；不改正文、不排版发布。
-avatar: 📝
-role: 主编
-providerId: ""
-modelId: ""
-enabledSkillIds:
-  - article-review
-enabledMcpServerIds: []
-enabledInternalTools:
+description: 审稿。审 article.md，结论写入 review.md；不改正文、不排版发布。
+emoji: 📝
+tools:
   - read
   - write
   - ls
   - open_article
-sandboxMode: workspace-write
-temperature: 0.3
-maxTokens: 8192
-workspacePath: ""
+sandbox: workspace-write
 ---
 
 # 主编

@@ -1503,9 +1503,8 @@ export const useCompletion = () => {
   };
 
   /**
-   * Stream a one-shot AI response through the active Pi agent without touching
-   * main conversation state. Used by the quick-search panel to generate its
-   * AI summary through the same assistant as the main chat.
+   * One-shot answer for the toolbar search panel. Uses the logged-in
+   * zero-token browser session and does not touch the main conversation.
    */
   const streamOnce = useCallback(async (
     prompt: string,
@@ -1517,55 +1516,16 @@ export const useCompletion = () => {
     // API providers are reserved for agent channels (useGroupChat).
     const activeStored = getActiveProvider();
     const activeDef = activeStored ? getProvider(activeStored.providerId) : null;
-    if (!activeDef || activeDef.type !== "web") return;
-
-    const connection = resolveActiveConnection();
-    const allSkills = useSkillStore.getState().items;
-    const enabledSkillIds = allSkills
-      .filter((s) => s.enabled !== false)
-      .map((s) => s.id);
-
-    const def: AgentDefinition = {
-      id: `quick-${Date.now()}`,
-      name: "Quick",
-      description: "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      systemPrompt: systemPromptText,
-      providerId: connection.providerId,
-      modelId: connection.model,
-      enabledInternalTools: [],
-      enabledSkillIds,
-      enabledMcpServerIds: [],
-      sandboxMode: "read-only",
-      temperature: 0.7,
-      maxTokens: getResponseSettings().maxTokens,
-      workspacePath: "",
-    };
-
-    const agent = await createAgentRuntime(
-      def,
-      {
-        onAssistantDelta: (text) => { if (!signal.aborted) onDelta(text); },
-        onAssistantEnd: () => {},
-        onError: (msg) => console.error("[streamOnce]", msg),
-      },
-      {
-        skills: allSkills,
-        mcpServers: [],
-        providerVariables: {},
-        connection,
-      }
-    );
-
-    const onAbort = () => agent.abort();
-    signal.addEventListener("abort", onAbort, { once: true });
-    try {
-      await agent.prompt(prompt);
-      await agent.waitForIdle();
-    } finally {
-      signal.removeEventListener("abort", onAbort);
+    if (!activeDef || activeDef.type !== "web") {
+      throw new Error("请先在设置中选择网页零 Token 提供商（豆包、DeepSeek 或 Qwen），再做检索总结。");
     }
+
+    const platform = activeStored!.providerId.replace(/^zt-/, "");
+    const result = await sendZeroTokenPrompt(platform, `${systemPromptText}\n\n${prompt}`);
+    if (signal.aborted) return;
+    const text = result.trim();
+    if (!text) throw new Error("豆包没有返回正文");
+    onDelta(text);
   }, []);
 
   /**

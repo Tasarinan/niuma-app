@@ -1,16 +1,11 @@
 ---
 description: 把当前稿推到指定平台草稿箱（微信须 publish.py full）
-agent: 发行
-arguments:
-  - name: platform
-    description: 平台 WECHAT(微信)/XHS(小红书)/ZHIHU(知乎)
-    required: true
-  - name: account
-    description: 公众号槽位序号或名称（仅 WECHAT，可空）
-    required: false
+argument-hint: [WECHAT|XHS|ZHIHU] [account]
 ---
 
 # 推草稿箱（/publish）
+
+平台：`$0`。账号槽位：`$1`。全部参数：`$ARGUMENTS`。
 
 切换到**发行**。这是**推草稿箱**，不是选题会。不要 `ROUTE` 给主理人，不要开会，不要 mkdir。
 
@@ -30,7 +25,7 @@ arguments:
 3. 在**仓库根**执行（基于磁盘最新 `article.md`）：
 
 ```bash
-python .niuma/teams/content/skills/article-publish-wechat/scripts/publish.py --account N full .artifacts/drafts/<主题目录>/
+python .niuma/teams/content/skills/article-publish-wechat/scripts/publish.py --account N full .niuma/artifacts/drafts/<主题目录>/
 ```
 
 4. `full` 会先跑 `format.py` 再上传；**禁止**直接上传旧 `article.html`，**禁止** `--skip-format`

@@ -1,16 +1,6 @@
 ---
 description: 搜索 IMA 健康知识库，查找历史上传的检查报告和健康文档
-agent: 健康向导
-arguments:
-  - name: query
-    description: 搜索关键词（如：血常规、体检报告、2026年、心电图）
-    required: true
-  - name: kb
-    description: 指定知识库名称（不填则搜索所有已关联健康知识库）
-    required: false
-  - name: type
-    description: 过滤文件类型：lab/imaging/medication/all，默认 all
-    required: false
+argument-hint: [query]
 ---
 
 # 搜索 IMA 健康知识库

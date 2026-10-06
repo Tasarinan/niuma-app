@@ -1,5 +1,7 @@
 /** WeChat format themes shown in the editor. Ids match format.py YAML stems. */
 
+import { formatThemeBuiltinDir, formatThemeUserDir } from "@/lib/content/roster-workflow";
+
 export type FormatThemeGroupId =
   | "niuma"
   | "wechat-classic"
@@ -16,9 +18,8 @@ export type FormatTheme = {
 
 export const DEFAULT_FORMAT_THEME_ID = "default";
 
-export const FORMAT_THEME_USER_DIR = ".niuma/teams/content/presets/formatting";
-export const FORMAT_THEME_BUILTIN_DIR =
-  ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes";
+export const FORMAT_THEME_USER_DIR = formatThemeUserDir("content");
+export const FORMAT_THEME_BUILTIN_DIR = formatThemeBuiltinDir("content", "article-formatting-wechat");
 
 export const FORMAT_THEME_GROUPS: { id: FormatThemeGroupId; label: string }[] = [
   { id: "niuma", label: "Niuma 原主题" },

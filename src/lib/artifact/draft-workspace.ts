@@ -10,7 +10,7 @@ export type DraftFileKind = "article" | "topic" | "review" | "image" | "other";
 
 export type BufferSyncState = "in-sync" | "apply-disk" | "human-dirty" | "conflict";
 
-const DRAFTS_MARKER = ".artifacts/drafts/";
+const DRAFTS_MARKER = ".niuma/artifacts/drafts/";
 
 export function draftFolderFromFilePath(filePath: string): string | null {
   const normalized = normalizeDraftPath(filePath);

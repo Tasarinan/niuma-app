@@ -14,7 +14,7 @@ export async function getArtifactDir(): Promise<string> {
   const dirs = await getArtifactDirs();
   const drafts = dirs.find((dir) => {
     const normalized = dir.replace(/\\/g, "/").replace(/\/$/, "");
-    return normalized.endsWith("/.artifacts/drafts") || normalized.endsWith(".artifacts/drafts");
+    return normalized.endsWith("/.niuma/artifacts/drafts") || normalized.endsWith(".niuma/artifacts/drafts");
   });
   if (drafts) return drafts;
   if (dirs[0]) return dirs[0];

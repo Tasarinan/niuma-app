@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-微信公众号发布工具（skills/article-publish-wechat/scripts/publish.py）
+微信公众号发布工具（skills/article-publish-wechat/scripts/publish.py�?
 
-- check-screening：校验 **`.niuma/teams/content/config.yaml`** 的 **`publish_method`**（`draft` / `published` / `none`）。
-- 其余子命令：token、上传、草稿、发布、一键 full 等。
+- check-screening：校�?**`.niuma/teams/content/presets/editorial.yaml`** �?**`publish_method`**（`draft` / `published` / `none`）�?
+- 其余子命令：token、上传、草稿、发布、一�?full 等�?
 
 **publish_method**（`config.yaml` 顶层）：
-  - **`draft`**（默认）：`full` 仅 **创建草稿**（进公众号草稿箱），不调用 freepublish 发出。
-  - **`published`**：`full` 在创建草稿后 **提交发布**（异步）。命令行 `full --publish` 可**显式**强制带发布一步（即使当前为 draft）。
-  - **`none`**：用户明确不填微信时写入；**`full` 直接退出**，不调任何微信接口；其它子命令（`token`、`create-draft` 等）仍须凭证，照常报错。
+  - **`draft`**（默认）：`full` �?**创建草稿**（进公众号草稿箱），不调�?freepublish 发出�?
+  - **`published`**：`full` 在创建草稿后 **提交发布**（异步）。命令行 `full --publish` �?*显式**强制带发布一步（即使当前�?draft）�?
+  - **`none`**：用户明确不填微信时写入�?*`full` 直接退�?*，不调任何微信接口；其它子命令（`token`、`create-draft` 等）仍须凭证，照常报错�?
 
-微信发布配置分工：
-  - **`.niuma/teams/content/config.yaml`**：文风、审稿等编辑部配置（不含 AppSecret）
+微信发布配置分工�?
+  - **`.niuma/teams/content/presets/editorial.yaml`**：文风、审稿等编辑部配置（不含 AppSecret�?
   - 工作区根 **`.env.local`**：`WECHAT_{i}_APPID`、`WECHAT_{i}_APPSECRET`、`WECHAT_{i}_NAME`、`WECHAT_{i}_API_BASE`
-  - `WECHAT_N_API_BASE` 可空（空则使用官方 https://api.weixin.qq.com）。
+  - `WECHAT_N_API_BASE` 可空（空则使用官�?https://api.weixin.qq.com）�?
 
-在仓库根执行示例：
+在仓库根执行示例�?
     python skills/article-publish-wechat/scripts/publish.py check-screening
     python skills/article-publish-wechat/scripts/publish.py full path/to/article-dir/
 
-`full` 会先对目录内 **article.md** 运行 **format.py** 生成 **article.html**，再上传发布。
-禁止跳过排版直接发布旧 HTML（除非调试时显式 `--skip-format`）。
+`full` 会先对目录内 **article.md** 运行 **format.py** 生成 **article.html**，再上传发布�?
+禁止跳过排版直接发布�?HTML（除非调试时显式 `--skip-format`）�?
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ try:
 except Exception:
     certifi = None
 
-# base 仅域名；接口路径 /cgi-bin 拼在请求 URL 上
+# base 仅域名；接口路径 /cgi-bin 拼在请求 URL �?
 DEFAULT_API_BASE = "https://api.weixin.qq.com"
 API_PATH = "/cgi-bin"
 API_BASE = DEFAULT_API_BASE  # 运行时从 config 覆盖
@@ -91,12 +91,12 @@ def _load_yaml_config(path: Path) -> dict | None:
     try:
         import yaml
     except ImportError:
-        print("[ERROR] 需要 PyYAML：pip install pyyaml", file=sys.stderr)
+        print("[ERROR] 需�?PyYAML：pip install pyyaml", file=sys.stderr)
         return None
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception as e:  # noqa: BLE001
-        print(f"[ERROR] 无法解析 YAML（{path}）: {e}", file=sys.stderr)
+        print(f"[ERROR] 无法解析 YAML（{path}�? {e}", file=sys.stderr)
         return None
     if data is None:
         return {}
@@ -106,7 +106,7 @@ def _load_yaml_config(path: Path) -> dict | None:
 
 
 def errors_for_publish_method(data: dict) -> list[str]:
-    """config.yaml 顶层的 publish_method：缺省视为 draft；有值则须为 draft | published | none。"""
+    """config.yaml 顶层�?publish_method：缺省视�?draft；有值则须为 draft | published | none�?""
     raw = data.get("publish_method")
     if raw is None:
         return []
@@ -116,18 +116,18 @@ def errors_for_publish_method(data: dict) -> list[str]:
     pm = s.lower()
     if pm in ("draft", "published", "none"):
         return []
-    return [f"publish_method 非法: {raw!r}，须为 draft、published 或 none"]
+    return [f"publish_method 非法: {raw!r}，须�?draft、published �?none"]
 
 
 def cmd_check_screening(config_path: Path) -> int:
-    """校验仓库 config.yaml 中的 publish_method（子命令名沿用 check-screening）。"""
+    """校验仓库 config.yaml 中的 publish_method（子命令名沿�?check-screening）�?""
     data = _load_yaml_config(config_path)
     if data is None:
-        print(f"[ERROR] 未找到文件: {config_path.resolve()}", file=sys.stderr)
+        print(f"[ERROR] 未找到文�? {config_path.resolve()}", file=sys.stderr)
         return 1
     errs = errors_for_publish_method(data)
     if errs:
-        print("[ERROR] config.yaml 中 publish_method 校验未通过：", file=sys.stderr)
+        print("[ERROR] config.yaml �?publish_method 校验未通过�?, file=sys.stderr)
         for line in errs:
             print(f"   - {line}", file=sys.stderr)
         return 1
@@ -138,21 +138,21 @@ def cmd_check_screening(config_path: Path) -> int:
         pm = str(raw).strip().lower()
         print(f"[OK] publish_method={pm} 合法")
         if pm == "draft":
-            print("[INFO] draft：`full` 默认只进草稿箱；若要发出请改 published 或执行 full --publish")
+            print("[INFO] draft：`full` 默认只进草稿箱；若要发出请改 published 或执�?full --publish")
         elif pm == "published":
             print(
                 "[INFO] published：`full` 将在创建草稿后提交发布。微信凭证：.env.local；可运行 check-wechat-env"
             )
         elif pm == "none":
             print(
-                "[INFO] none：`full` 将不调微信接口；其它子命令（token、create-draft 等）仍需要凭证"
+                "[INFO] none：`full` 将不调微信接口；其它子命令（token、create-draft 等）仍需要凭�?
             )
     return 0
 
 
 def load_repo_config(config_path: Path | None = None) -> dict:
-    """读取 `.niuma/teams/content/config.yaml`；缺失或无效返回 {}。"""
-    p = config_path if config_path is not None else Path(".niuma/teams/content/config.yaml")
+    """读取 `.niuma/teams/content/presets/editorial.yaml`；缺失或无效返回 {}�?""
+    p = config_path if config_path is not None else Path(".niuma/teams/content/presets/editorial.yaml")
     data = _load_yaml_config(p)
     if data is None or not isinstance(data, dict):
         return {}
@@ -192,7 +192,7 @@ def _parse_wechat_accounts_cfg(cfg: dict) -> int:
 # ── access_token ────────────────────────────────────────────
 
 def get_access_token(appid: str, appsecret: str) -> str:
-    """获取 access_token（有效期 2 小时）。网络类失败会自动重试 1 次。"""
+    """获取 access_token（有效期 2 小时）。网络类失败会自动重�?1 次�?""
     url = (
         f"{API_BASE}{API_PATH}/token?"
         f"grant_type=client_credential&appid={appid}&secret={appsecret}"
@@ -202,7 +202,7 @@ def get_access_token(appid: str, appsecret: str) -> str:
         errcode = data.get("errcode")
         hint = ""
         if errcode in (40013, 40125, 40164, 89004):
-            hint = "（多为 AppID/AppSecret 错误或 IP 未加白名单，请检查 .env.local 对应槽位）"
+            hint = "（多�?AppID/AppSecret 错误�?IP 未加白名单，请检�?.env.local 对应槽位�?
         elif errcode == 40001:
             hint = "（access_token 无效类错误，请核对凭证）"
         _err(f"获取 access_token 失败: {data}{hint}")
@@ -212,7 +212,7 @@ def get_access_token(appid: str, appsecret: str) -> str:
 # ── 图片压缩 ────────────────────────────────────────────────
 
 def _compress_image(image_path: str, max_bytes: int, for_content: bool = False) -> str:
-    """压缩图片到指定大小以内，返回压缩后的路径（可能是临时文件）。
+    """压缩图片到指定大小以内，返回压缩后的路径（可能是临时文件）�?
 
     封面/永久素材：max 10MB
     正文图片：max 1MB
@@ -227,7 +227,7 @@ def _compress_image(image_path: str, max_bytes: int, for_content: bool = False) 
     try:
         from PIL import Image
     except ImportError:
-        _info("未安装 Pillow，跳过压缩（pip install Pillow）")
+        _info("未安�?Pillow，跳过压缩（pip install Pillow�?)
         return image_path
 
     img = Image.open(path)
@@ -260,17 +260,17 @@ CONTENT_MAX_BYTES = 1 * 1024 * 1024   # 正文 1MB
 # ── 上传图片 ────────────────────────────────────────────────
 
 def upload_thumb(token: str, image_path: str) -> dict:
-    """上传封面图为永久素材，返回 {media_id, url}。自动压缩到 10MB 以内。"""
+    """上传封面图为永久素材，返�?{media_id, url}。自动压缩到 10MB 以内�?""
     image_path = _compress_image(image_path, THUMB_MAX_BYTES)
     url = f"{API_BASE}{API_PATH}/material/add_material?access_token={token}&type=image"
     data = _upload_file(url, image_path, field_name="media")
     if "media_id" not in data:
-        _err(f"上传封面图失败: {data}")
+        _err(f"上传封面图失�? {data}")
     return {"media_id": data["media_id"], "url": data.get("url", "")}
 
 
 def upload_content_image(token: str, image_path: str) -> str:
-    """上传正文内图片，返回可在正文中使用的 URL。自动压缩到 1MB 以内。"""
+    """上传正文内图片，返回可在正文中使用的 URL。自动压缩到 1MB 以内�?""
     image_path = _compress_image(image_path, CONTENT_MAX_BYTES, for_content=True)
     url = f"{API_BASE}{API_PATH}/media/uploadimg?access_token={token}"
     data = _upload_file(url, image_path, field_name="media")
@@ -282,14 +282,14 @@ def upload_content_image(token: str, image_path: str) -> str:
 # ── 草稿 ────────────────────────────────────────────────────
 
 def create_draft(token: str, articles: list[dict]) -> str:
-    """创建草稿，返回 media_id。
+    """创建草稿，返�?media_id�?
 
     articles 中每个元素包含：
         title, content, thumb_media_id,
-        author(可选), digest(可选),
-        content_source_url(可选),
-        need_open_comment(可选, 0/1),
-        only_fans_can_comment(可选, 0/1)
+        author(可�?, digest(可�?,
+        content_source_url(可�?,
+        need_open_comment(可�? 0/1),
+        only_fans_can_comment(可�? 0/1)
     """
     url = f"{API_BASE}{API_PATH}/draft/add?access_token={token}"
     body = {"articles": articles}
@@ -302,7 +302,7 @@ def create_draft(token: str, articles: list[dict]) -> str:
 # ── 发布 ────────────────────────────────────────────────────
 
 def publish_draft(token: str, media_id: str) -> str:
-    """发布草稿（异步），返回 publish_id。"""
+    """发布草稿（异步），返�?publish_id�?""
     url = f"{API_BASE}{API_PATH}/freepublish/submit?access_token={token}"
     data = _api_post_json(url, {"media_id": media_id})
     if "publish_id" not in data:
@@ -311,25 +311,25 @@ def publish_draft(token: str, media_id: str) -> str:
 
 
 def get_publish_status(token: str, publish_id: str) -> dict:
-    """查询发布状态。
+    """查询发布状态�?
 
     返回 publish_status:
-        0=成功, 1=发布中, 2=原创失败, 3=常规失败,
-        4=审核不通过, 5=已删除, 6=已封禁
+        0=成功, 1=发布�? 2=原创失败, 3=常规失败,
+        4=审核不通过, 5=已删�? 6=已封�?
     """
     url = f"{API_BASE}{API_PATH}/freepublish/get?access_token={token}"
     return _api_post_json(url, {"publish_id": publish_id})
 
 
-# ── 往期文章 ────────────────────────────────────────────────
+# ── 往期文�?────────────────────────────────────────────────
 
 def get_published_articles(token: str, offset: int = 0, count: int = 10,
                            no_content: bool = True) -> dict:
-    """获取已发布的文章列表。
+    """获取已发布的文章列表�?
 
     Args:
-        offset: 偏移位置，0 = 从最新开始
-        count: 返回数量，1-20
+        offset: 偏移位置�? = 从最新开�?
+        count: 返回数量�?-20
         no_content: True = 不返回正文（省流量）
     """
     url = f"{API_BASE}{API_PATH}/freepublish/batchget?access_token={token}"
@@ -338,7 +338,7 @@ def get_published_articles(token: str, offset: int = 0, count: int = 10,
 
 
 def list_recent_articles(token: str, count: int = 10) -> list[dict]:
-    """获取最近发布的文章，返回 [{title, url, update_time}]。"""
+    """获取最近发布的文章，返�?[{title, url, update_time}]�?""
     result = get_published_articles(token, offset=0, count=count)
     articles = []
     for item in result.get("item", []):
@@ -369,32 +369,32 @@ def regenerate_article_html(article_dir: Path) -> None:
     """Always rebuild article.html from the on-disk article.md before publish."""
     md_path = article_dir / "article.md"
     if not md_path.is_file():
-        _err(f"未找到 {md_path}，无法从 Markdown 重新排版")
+        _err(f"未找�?{md_path}，无法从 Markdown 重新排版")
 
     format_script = _format_script_path()
     if not format_script.is_file():
-        _err(f"未找到排版脚本 {format_script}")
+        _err(f"未找到排版脚�?{format_script}")
 
     try:
         md_arg = str(md_path.relative_to(Path.cwd()))
     except ValueError:
         md_arg = str(md_path.resolve())
 
-    _info(f"发布前从最新 article.md 重新排版: {md_arg}")
+    _info(f"发布前从最�?article.md 重新排版: {md_arg}")
     result = subprocess.run(
         [sys.executable, str(format_script), md_arg],
         cwd=Path.cwd(),
     )
     if result.returncode != 0:
-        _err(f"format.py 失败（exit {result.returncode}），已中止发布")
+        _err(f"format.py 失败（exit {result.returncode}），已中止发�?)
 
     html_path = article_dir / "article.html"
     if not html_path.is_file():
         _err(f"排版后未生成 {html_path}")
-    _ok(f"已生成 {html_path}")
+    _ok(f"已生�?{html_path}")
 
 
-# ── 全流程 ──────────────────────────────────────────────────
+# ── 全流�?──────────────────────────────────────────────────
 
 def full_publish(
     token: str,
@@ -402,13 +402,13 @@ def full_publish(
     do_publish: bool = False,
     skip_format: bool = False,
 ):
-    """一键全流程：读取文章目录 → 上传图片 → 创建草稿 → 可选发布。
+    """一键全流程：读取文章目�?�?上传图片 �?创建草稿 �?可选发布�?
 
-    文章目录结构：
+    文章目录结构�?
         article_dir/
         ├── article.yaml    文章元信息（title, author, digest 等）
         ├── article.html    排版后的正文 HTML
-        ├── cover.jpg       封面图
+        ├── cover.jpg       封面�?
         └── imgs/           正文内图片（可选）
             ├── 01-xxx.png
             └── 02-xxx.jpg
@@ -418,13 +418,13 @@ def full_publish(
     if not skip_format:
         regenerate_article_html(article_dir)
     else:
-        _info("已跳过 format.py（--skip-format）；将直接使用现有 article.html")
+        _info("已跳�?format.py�?-skip-format）；将直接使用现�?article.html")
 
     meta_path = article_dir / "article.yaml"
     if not meta_path.exists():
-        _err(f"未找到 {meta_path}")
+        _err(f"未找�?{meta_path}")
 
-    import yaml  # lazy import，仅全流程需要
+    import yaml  # lazy import，仅全流程需�?
     with open(meta_path, encoding="utf-8") as f:
         meta = yaml.safe_load(f)
 
@@ -435,10 +435,10 @@ def full_publish(
 
     content_path = article_dir / "article.html"
     if not content_path.exists():
-        _err(f"未找到 {content_path}")
+        _err(f"未找�?{content_path}")
     content = content_path.read_text(encoding="utf-8")
 
-    # 上传封面（优先 article_dir/cover.*，fallback imgs/cover.* 和 imgs/*-cover.*）
+    # 上传封面（优�?article_dir/cover.*，fallback imgs/cover.* �?imgs/*-cover.*�?
     _cover_names = ["cover.jpg", "cover.png", "cover.jpeg", "cover.webp"]
     cover_path = _find_file(article_dir, _cover_names)
     if not cover_path:
@@ -452,32 +452,32 @@ def full_publish(
                         cover_path = _cands[0]
                         break
     if not cover_path:
-        _err("未找到封面图（cover.jpg/png/jpeg/webp）；支持 article_dir/ 或 imgs/ 下")
-    _info(f"上传封面图: {cover_path}")
+        _err("未找到封面图（cover.jpg/png/jpeg/webp）；支持 article_dir/ �?imgs/ �?)
+    _info(f"上传封面�? {cover_path}")
     thumb = upload_thumb(token, str(cover_path))
-    _ok(f"封面图上传成功: media_id={thumb['media_id']}")
+    _ok(f"封面图上传成�? media_id={thumb['media_id']}")
 
-    # 上传正文图片并替换路径（仅上传 HTML 中实际引用的 imgs/ 文件）
+    # 上传正文图片并替换路径（仅上�?HTML 中实际引用的 imgs/ 文件�?
     imgs_dir = article_dir / "imgs"
     if imgs_dir.exists():
         for fname in _content_image_refs_flat(content):
             img_file = imgs_dir / fname
             if not img_file.is_file():
-                _err(f"正文引用了不存在的图片: imgs/{fname}")
+                _err(f"正文引用了不存在的图�? imgs/{fname}")
             _info(f"上传正文图片: {img_file.name}")
             img_url = upload_content_image(token, str(img_file))
             content = content.replace(f"imgs/{img_file.name}", img_url)
             content = content.replace(img_file.name, img_url)
-            _ok(f"  → {img_url}")
+            _ok(f"  �?{img_url}")
 
     if "tempkey=" in content or "tempkey%3D" in content:
         _err(
-            "正文 HTML 仍含 tempkey 预览链（常见于 getdraft list-fields 返回的 url）。"
-            "微信 draft/add 常因此返回 45166 invalid content。"
-            "请改用已群发文章的永久链接（后台对该文「复制链接」），或从正文去掉相关超链后重试。"
+            "正文 HTML 仍含 tempkey 预览链（常见�?getdraft list-fields 返回�?url）�?
+            "微信 draft/add 常因此返�?45166 invalid content�?
+            "请改用已群发文章的永久链接（后台对该文「复制链接」），或从正文去掉相关超链后重试�?
         )
 
-    # 构建草稿（author 优先 article.yaml，为空时用 config.yaml default_author）
+    # 构建草稿（author 优先 article.yaml，为空时�?config.yaml default_author�?
     article = {
         "title": meta.get("title", ""),
         "author": author,
@@ -492,15 +492,15 @@ def full_publish(
     media_id = create_draft(token, [article])
     _ok(f"草稿创建成功: media_id={media_id}")
 
-    # 可选发布
+    # 可选发�?
     if do_publish:
         _info("提交发布...")
         publish_id = publish_draft(token, media_id)
-        _ok(f"发布任务已提交: publish_id={publish_id}")
+        _ok(f"发布任务已提�? publish_id={publish_id}")
         _info("等待发布结果（异步，轮询中）...")
         _poll_publish_status(token, publish_id)
     else:
-        _info("草稿已创建，未发布。如需发布：")
+        _info("草稿已创建，未发布。如需发布�?)
         print(
             "  python skills/article-publish-wechat/scripts/publish.py publish "
             f"{media_id}"
@@ -510,25 +510,25 @@ def full_publish(
 
 
 def _poll_publish_status(token: str, publish_id: str, max_wait: int = 60):
-    """轮询发布状态，最多等待 max_wait 秒。"""
+    """轮询发布状态，最多等�?max_wait 秒�?""
     status_map = {
         0: "[OK] 发布成功",
-        1: "[INFO] 发布中",
+        1: "[INFO] 发布�?,
         2: "[ERROR] 原创失败",
         3: "[ERROR] 常规失败",
         4: "[ERROR] 平台审核不通过",
-        5: "[ERROR] 已删除",
-        6: "[ERROR] 已封禁",
+        5: "[ERROR] 已删�?,
+        6: "[ERROR] 已封�?,
     }
     start = time.time()
     while time.time() - start < max_wait:
         result = get_publish_status(token, publish_id)
         status = result.get("publish_status", -1)
-        print(f"  状态: {status_map.get(status, f'未知({status})')}")
+        print(f"  状�? {status_map.get(status, f'未知({status})')}")
         if status != 1:
             return result
         time.sleep(3)
-    _info(f"已等待 {max_wait}s，发布仍在进行中。可稍后查询：")
+    _info(f"已等�?{max_wait}s，发布仍在进行中。可稍后查询�?)
     print(
         "  python skills/article-publish-wechat/scripts/publish.py status "
         f"{publish_id}"
@@ -558,7 +558,7 @@ def _api_get(url: str) -> dict:
         except Exception as e:
             last = e
             if attempt == 0 and _is_transient_network_error(e):
-                _info("【网络】请求失败，1 秒后重试一次…")
+                _info("【网络】请求失败，1 秒后重试一次�?)
                 time.sleep(1)
                 continue
             raise
@@ -579,7 +579,7 @@ def _api_post_json(url: str, body: dict) -> dict:
         except Exception as e:
             last = e
             if attempt == 0 and _is_transient_network_error(e):
-                _info("【网络】请求失败，1 秒后重试一次…")
+                _info("【网络】请求失败，1 秒后重试一次�?)
                 time.sleep(1)
                 continue
             raise
@@ -587,11 +587,11 @@ def _api_post_json(url: str, body: dict) -> dict:
 
 
 def _upload_file(url: str, file_path: str, field_name: str = "media") -> dict:
-    """multipart/form-data 文件上传（纯标准库实现）。"""
+    """multipart/form-data 文件上传（纯标准库实现）�?""
     boundary = f"----WechatPublish{int(time.time() * 1000)}"
     file_path = Path(file_path)
     if not file_path.exists():
-        _err(f"文件不存在: {file_path}")
+        _err(f"文件不存�? {file_path}")
 
     mime_type = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
     file_data = file_path.read_bytes()
@@ -617,7 +617,7 @@ def _upload_file(url: str, file_path: str, field_name: str = "media") -> dict:
         except Exception as e:
             last = e
             if attempt == 0 and _is_transient_network_error(e):
-                _info("【网络】上传失败，1 秒后重试一次…")
+                _info("【网络】上传失败，1 秒后重试一次�?)
                 time.sleep(1)
                 continue
             raise
@@ -633,9 +633,9 @@ def _find_file(directory: Path, candidates: list[str]) -> Path | None:
 
 
 def _content_image_refs_flat(html: str) -> list[str]:
-    """从 article.html 中解析正文引用的 imgs/ 文件名（仅单层文件名，去重保序）。
+    """�?article.html 中解析正文引用的 imgs/ 文件名（仅单层文件名，去重保序）�?
 
-    避免上传 imgs 目录下压缩缓存 *_compressed.jpg、prompts 子目录等未被引用的文件。
+    避免上传 imgs 目录下压缩缓�?*_compressed.jpg、prompts 子目录等未被引用的文件�?
     """
     seen: set[str] = set()
     out: list[str] = []
@@ -652,7 +652,7 @@ def _content_image_refs_flat(html: str) -> list[str]:
     return out
 
 
-# ── 工作区 .env.local（微信凭证，不再读 aws.env）────────────────
+# ── 工作�?.env.local（微信凭证，不再�?aws.env）────────────────
 
 def _resolve_env_path() -> Path:
     candidates = [
@@ -694,13 +694,13 @@ def _load_env_map() -> dict[str, str]:
         return {}
 
 
-# 微信 HTTP 超时（秒）：默认较原 30/60 放宽，慢代理或大图上传统计更稳
+# 微信 HTTP 超时（秒）：默认较原 30/60 放宽，慢代理或大图上传统计更�?
 _DEFAULT_WECHAT_REQUEST_TIMEOUT = 60
 _DEFAULT_WECHAT_UPLOAD_TIMEOUT = 120
 
 
 def _wechat_http_timeouts() -> tuple[int, int]:
-    """从仓库根 env 文件读取 (普通请求超时, 文件上传超时)，单位秒。"""
+    """从仓库根 env 文件读取 (普通请求超�? 文件上传超时)，单位秒�?""
     env = _load_env_map()
     req = _DEFAULT_WECHAT_REQUEST_TIMEOUT
     up = _DEFAULT_WECHAT_UPLOAD_TIMEOUT
@@ -739,7 +739,7 @@ def wechat_slot(cfg: dict, env: dict[str, str], i: int) -> dict:
 
 
 def missing_wechat_slot_fields(slot: dict) -> list[str]:
-    """用于完整性提示：APPID、APPSECRET；API_BASE 可空。"""
+    """用于完整性提示：APPID、APPSECRET；API_BASE 可空�?""
     miss: list[str] = []
     if not slot["appid"]:
         miss.append("APPID")
@@ -754,16 +754,16 @@ def list_wechat_slots(cfg: dict, env: dict[str, str]) -> list[dict]:
 
 
 def cmd_check_wechat_env() -> int:
-    """按 .env.local 槽位检查 WECHAT_N_APPID/APPSECRET 是否齐全。"""
+    """�?.env.local 槽位检�?WECHAT_N_APPID/APPSECRET 是否齐全�?""
     cfg = load_repo_config()
     env = _load_env_map()
     env_path = _resolve_env_path()
     if not env and not env_path.is_file():
-        print("[ERROR] 未找到 .env.local（工作区根）", file=sys.stderr)
+        print("[ERROR] 未找�?.env.local（工作区根）", file=sys.stderr)
         return 1
     n = _parse_wechat_accounts_cfg(cfg)
     if n < 1:
-        print("[ERROR] .env.local 中未解析到 WECHAT_N_APPID 槽位", file=sys.stderr)
+        print("[ERROR] .env.local 中未解析�?WECHAT_N_APPID 槽位", file=sys.stderr)
         return 1
     bad = False
     for slot in list_wechat_slots(cfg, env):
@@ -772,17 +772,17 @@ def cmd_check_wechat_env() -> int:
             bad = True
             keys = ", ".join(f"WECHAT_{slot['slot']}_{m}" for m in miss)
             print(
-                f"[ERROR] 第 {slot['slot']} 个微信账号未填完整：缺少 {', '.join(miss)}（{keys}）",
+                f"[ERROR] �?{slot['slot']} 个微信账号未填完整：缺少 {', '.join(miss)}（{keys}�?,
                 file=sys.stderr,
             )
         else:
             _ok(
-                f"槽位 {slot['slot']}: {slot['name'] or '(未命名)'} — APPID/SECRET 已填"
+                f"槽位 {slot['slot']}: {slot['name'] or '(未命�?'} �?APPID/SECRET 已填"
             )
     return 1 if bad else 0
 
 
-# full 流程从 config.yaml wechat_publish_slot 写入的槽位（1..N），供 _get_credentials 使用
+# full 流程�?config.yaml wechat_publish_slot 写入的槽位（1..N），�?_get_credentials 使用
 _draft_wechat_slot: int | None = None
 
 
@@ -795,10 +795,10 @@ def _resolve_slot_index(
     n = _parse_wechat_accounts_cfg(cfg)
     if n < 1:
         _err(
-            "config.yaml 中 wechat_accounts 无效或未设置。\n"
-            "请设置 wechat_accounts=1，并在 config.yaml 填写 wechat_1_name。"
+            "config.yaml �?wechat_accounts 无效或未设置。\n"
+            "请设�?wechat_accounts=1，并�?config.yaml 填写 wechat_1_name�?
         )
-    # 命令行 --account 优先于 config.yaml 的 wechat_publish_slot
+    # 命令�?--account 优先�?config.yaml �?wechat_publish_slot
     if account_alias:
         s = str(account_alias).strip()
         if s.isdigit():
@@ -811,26 +811,26 @@ def _resolve_slot_index(
             sl = wechat_slot(cfg, env, i)
             nm = sl["name"]
             if nm and (s == nm or s in nm):
-                _info(f"使用名称匹配的槽位 {i}: {nm}")
+                _info(f"使用名称匹配的槽�?{i}: {nm}")
                 return i
         _err(
-            f"未找到账号 '{account_alias}'。"
-            f"请使用槽位序号 1..{n} 或 config.yaml 中 wechat_N_name 的展示名。"
+            f"未找到账�?'{account_alias}'�?
+            f"请使用槽位序�?1..{n} �?config.yaml �?wechat_N_name 的展示名�?
         )
     if preferred_slot is not None:
         if 1 <= preferred_slot <= n:
             _info(f"使用 config.yaml 中的 wechat_publish_slot={preferred_slot}")
             return preferred_slot
         _err(
-            f"config.yaml 中 wechat_publish_slot={preferred_slot} 超出范围，"
-            f"当前 wechat_accounts={n}（有效 1..{n}）"
+            f"config.yaml �?wechat_publish_slot={preferred_slot} 超出范围�?
+            f"当前 wechat_accounts={n}（有�?1..{n}�?
         )
     if n == 1:
         return 1
     _err(
-        f"配置了 {n} 个微信槽位，请指定账号：\n"
-        "  --account <1..N 或 wechat_N_name 子串>\n"
-        "或在 .niuma/teams/content/config.yaml 中设置 wechat_publish_slot: <整数>"
+        f"配置�?{n} 个微信槽位，请指定账号：\n"
+        "  --account <1..N �?wechat_N_name 子串>\n"
+        "或在 .niuma/teams/content/presets/editorial.yaml 中设�?wechat_publish_slot: <整数>"
     )
 
 
@@ -843,17 +843,17 @@ def _get_credentials(account_alias: str | None) -> tuple[str, str]:
     env = _load_env_map()
     if not _resolve_env_path().is_file():
         _err(
-            "未找到 .env.local。请在工作区根创建 .env.local，"
-            "并填写 WECHAT_1_APPID、WECHAT_1_APPSECRET。"
+            "未找�?.env.local。请在工作区根创�?.env.local�?
+            "并填�?WECHAT_1_APPID、WECHAT_1_APPSECRET�?
         )
     slot_i = _resolve_slot_index(cfg, env, account_alias, _draft_wechat_slot)
     slot = _active_slot_dict(cfg, env, slot_i)
     if not slot["appid"] or not slot["appsecret"]:
         miss = missing_wechat_slot_fields(slot)
         _err(
-            f"第 {slot_i} 个账号缺少微信凭证（需 APPID、APPSECRET）。"
-            f"缺: {', '.join(miss) if miss else 'APPID/APPSECRET'}\n"
-            f"请补全 WECHAT_{slot_i}_APPID / WECHAT_{slot_i}_APPSECRET"
+            f"�?{slot_i} 个账号缺少微信凭证（需 APPID、APPSECRET）�?
+            f"�? {', '.join(miss) if miss else 'APPID/APPSECRET'}\n"
+            f"请补�?WECHAT_{slot_i}_APPID / WECHAT_{slot_i}_APPSECRET"
         )
     return slot["appid"], slot["appsecret"]
 
@@ -864,7 +864,7 @@ _cli_account: str | None = None
 
 
 def _slot_for_api_base(cfg: dict, env: dict[str, str]) -> int | None:
-    """不抛错；无法唯一确定槽位时返回 None。CLI --account 优先于 wechat_publish_slot。"""
+    """不抛错；无法唯一确定槽位时返�?None。CLI --account 优先�?wechat_publish_slot�?""
     n = _parse_wechat_accounts_cfg(cfg)
     if n < 1:
         return None
@@ -896,7 +896,7 @@ def _normalize_api_base(raw: str) -> str:
 
 
 def _resolve_api_base(cfg: dict, slot: dict) -> str:
-    """槽位 WECHAT_N_API_BASE 优先；为空时回退 config.yaml.wechat_api_base。"""
+    """槽位 WECHAT_N_API_BASE 优先；为空时回退 config.yaml.wechat_api_base�?""
     slot_base = (slot.get("api_base") or "").strip()
     if slot_base:
         return _normalize_api_base(slot_base)
@@ -907,7 +907,7 @@ def _resolve_api_base(cfg: dict, slot: dict) -> str:
 
 
 def _init_api_base():
-    """优先用槽位 WECHAT_N_API_BASE；为空则回退 config.yaml.wechat_api_base。"""
+    """优先用槽�?WECHAT_N_API_BASE；为空则回退 config.yaml.wechat_api_base�?""
     global API_BASE
     API_BASE = DEFAULT_API_BASE
     cfg = load_repo_config()
@@ -932,26 +932,26 @@ def _get_token() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="微信公众号发布工具",
+        description="微信公众号发布工�?,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
     parser.add_argument(
         "--account",
-        help="微信槽位：填 1..N 或 config.yaml 中 wechat_N_name 的展示名",
+        help="微信槽位：填 1..N �?config.yaml �?wechat_N_name 的展示名",
     )
-    sub = parser.add_subparsers(dest="command", help="子命令")
+    sub = parser.add_subparsers(dest="command", help="子命�?)
 
     p_scr = sub.add_parser(
         "check-screening",
-        help="校验仓库 .niuma/teams/content/config.yaml 中的 publish_method（draft / published / none）",
+        help="校验仓库 .niuma/teams/content/presets/editorial.yaml 中的 publish_method（draft / published / none�?,
     )
     p_scr.add_argument(
         "--config",
         type=Path,
-        default=Path(".niuma/teams/content/config.yaml"),
+        default=Path(".niuma/teams/content/presets/editorial.yaml"),
         metavar="FILE",
-        help="默认 .niuma/teams/content/config.yaml",
+        help="默认 .niuma/teams/content/presets/editorial.yaml",
     )
 
     sub.add_parser("token", help="获取 access_token")
@@ -962,33 +962,33 @@ def main() -> int:
     p_img = sub.add_parser("upload-content-image", help="上传正文图片（自动压缩）")
     p_img.add_argument("image", help="图片路径")
 
-    p_draft = sub.add_parser("create-draft", help="从 YAML 创建草稿")
+    p_draft = sub.add_parser("create-draft", help="�?YAML 创建草稿")
     p_draft.add_argument("article_yaml", help="article.yaml 路径")
 
     p_pub = sub.add_parser("publish", help="发布草稿")
     p_pub.add_argument("media_id", help="草稿 media_id")
 
-    p_status = sub.add_parser("status", help="查询发布状态")
+    p_status = sub.add_parser("status", help="查询发布状�?)
     p_status.add_argument("publish_id", help="发布任务 publish_id")
 
     p_full = sub.add_parser("full", help="一键全流程（先 format 再上传）")
     p_full.add_argument("article_dir", help="文章目录路径")
-    p_full.add_argument("--publish", action="store_true", help="创建草稿后立即发布")
+    p_full.add_argument("--publish", action="store_true", help="创建草稿后立即发�?)
     p_full.add_argument(
         "--skip-format",
         action="store_true",
-        help="调试专用：跳过 format.py，直接使用现有 article.html",
+        help="调试专用：跳�?format.py，直接使用现�?article.html",
     )
 
-    sub.add_parser("accounts", help="列出 config.yaml 中的微信槽位与名称")
+    sub.add_parser("accounts", help="列出 config.yaml 中的微信槽位与名�?)
     sub.add_parser("check", help="检查发布环境（.env 微信槽位等）")
     sub.add_parser(
         "check-wechat-env",
-        help="按 .env.local 槽位检查 WECHAT_N_APPID/APPSECRET 是否已填写",
+        help="�?.env.local 槽位检�?WECHAT_N_APPID/APPSECRET 是否已填�?,
     )
 
     p_recent = sub.add_parser("recent-articles", help="获取最近发布的文章")
-    p_recent.add_argument("-n", "--count", type=int, default=5, help="数量（默认5）")
+    p_recent.add_argument("-n", "--count", type=int, default=5, help="数量（默�?�?)
 
     args = parser.parse_args()
 
@@ -1007,18 +1007,18 @@ def main() -> int:
         env = _load_env_map()
         ep = _resolve_env_path()
         if not ep.is_file():
-            print("[ERROR] 未找到 .env.local（工作区根）")
+            print("[ERROR] 未找�?.env.local（工作区根）")
             return 1
         n = _parse_wechat_accounts_cfg(cfg)
         if n < 1:
-            print("[ERROR] config.yaml 中 wechat_accounts 无效")
+            print("[ERROR] config.yaml �?wechat_accounts 无效")
             return 1
-        print(f"微信槽位（共 {n} 个，名称来自 config.yaml，凭证来自 {ep.name}）：")
+        print(f"微信槽位（共 {n} 个，名称来自 config.yaml，凭证来�?{ep.name}）：")
         for i in range(1, n + 1):
             s = wechat_slot(cfg, env, i)
             miss = missing_wechat_slot_fields(s)
-            mark = " [OK]" if not miss else f" [WARN] 缺: {','.join(miss)}"
-            print(f"  {i}. {s['name'] or '(未命名)'}{mark}")
+            mark = " [OK]" if not miss else f" [WARN] �? {','.join(miss)}"
+            print(f"  {i}. {s['name'] or '(未命�?'}{mark}")
         return 0
 
     if args.command == "check-wechat-env":
@@ -1032,9 +1032,9 @@ def main() -> int:
         token = _get_token()
         articles = list_recent_articles(token, count=args.count)
         if not articles:
-            _info("暂无已发布文章")
+            _info("暂无已发布文�?)
         else:
-            print(f"最近 {len(articles)} 篇已发布文章：\n")
+            print(f"最�?{len(articles)} 篇已发布文章：\n")
             for i, art in enumerate(articles, 1):
                 print(f"  {i}. {art['title']}")
                 print(f"     {art['url']}")
@@ -1096,13 +1096,13 @@ def main() -> int:
         pm = str(cfg.get("publish_method") or "draft").strip().lower() or "draft"
         if pm == "none":
             if args.publish:
-                _info("已忽略 --publish：config.yaml 中 publish_method 为 none。")
-            _info("publish_method: none — 不调用微信 API，不执行发布或草稿上传。")
+                _info("已忽�?--publish：config.yaml �?publish_method �?none�?)
+            _info("publish_method: none �?不调用微�?API，不执行发布或草稿上传�?)
             _ok("已按配置跳过 publish.py full（可继续本地写稿/排版等）")
             return 0
         if pm not in ("draft", "published"):
             print(
-                f"[ERROR] config.yaml 中 publish_method 须为 draft、published 或 none，当前: {pm!r}",
+                f"[ERROR] config.yaml �?publish_method 须为 draft、published �?none，当�? {pm!r}",
                 file=sys.stderr,
             )
             return 1
@@ -1113,7 +1113,7 @@ def main() -> int:
                 _draft_wechat_slot = int(ws)
             except (TypeError, ValueError):
                 print(
-                    "[ERROR] config.yaml 中 wechat_publish_slot 须为整数",
+                    "[ERROR] config.yaml �?wechat_publish_slot 须为整数",
                     file=sys.stderr,
                 )
                 return 1
@@ -1132,29 +1132,29 @@ def main() -> int:
 
 
 def _run_checks():
-    """检查发布环境（.env.local 微信槽位、依赖等）。"""
-    print("=== 发布环境检查 ===\n")
+    """检查发布环境（.env.local 微信槽位、依赖等）�?""
+    print("=== 发布环境检�?===\n")
     issues: list[str] = []
     cfg = load_repo_config()
     n_cfg = _parse_wechat_accounts_cfg(cfg)
 
     ep = _resolve_env_path()
     if not ep.is_file():
-        print("[ERROR] 未找到 .env.local（工作区根）")
-        issues.append("在工作区根创建 .env.local，填写 WECHAT_1_APPID / WECHAT_1_APPSECRET")
+        print("[ERROR] 未找�?.env.local（工作区根）")
+        issues.append("在工作区根创�?.env.local，填�?WECHAT_1_APPID / WECHAT_1_APPSECRET")
         env = {}
     else:
         _ok(f"环境文件找到: {ep.resolve()}")
         env = _load_env_map()
     if n_cfg < 1:
-        print("[ERROR] .env.local 中未解析到 WECHAT_N_APPID 槽位")
-        issues.append("在 .env.local 填写 WECHAT_1_APPID / WECHAT_1_APPSECRET（及可选 WECHAT_1_NAME）")
+        print("[ERROR] .env.local 中未解析�?WECHAT_N_APPID 槽位")
+        issues.append("�?.env.local 填写 WECHAT_1_APPID / WECHAT_1_APPSECRET（及可�?WECHAT_1_NAME�?)
     else:
         for i in range(1, n_cfg + 1):
             s = wechat_slot(cfg, env, i)
             miss = missing_wechat_slot_fields(s)
             if miss:
-                print(f"  [ERROR] 槽位 {i} ({s['name'] or '未命名'}): 缺少 {', '.join(miss)}")
+                print(f"  [ERROR] 槽位 {i} ({s['name'] or '未命�?}): 缺少 {', '.join(miss)}")
                 keys = ", ".join(f"WECHAT_{i}_{m}" for m in miss)
                 issues.append(f"补全 .env.local 槽位 {i}: {keys}")
             elif s["name"]:
@@ -1162,7 +1162,7 @@ def _run_checks():
             else:
                 _ok(f"  槽位 {i}: APPID/SECRET 已填")
 
-    # API 连通性：用第一个 APPID+SECRET 齐全的槽位探测
+    # API 连通性：用第一�?APPID+SECRET 齐全的槽位探�?
     probe_i: int | None = None
     for i in range(1, n_cfg + 1):
         s = wechat_slot(cfg, env, i)
@@ -1184,37 +1184,37 @@ def _run_checks():
             data = _api_get(url)
             if "access_token" in data:
                 tok = data["access_token"]
-                _ok(f"API 连通正常（槽位 {probe_i}，token: {tok[:16]}...）")
+                _ok(f"API 连通正常（槽位 {probe_i}，token: {tok[:16]}...�?)
             else:
                 print(f"[ERROR] 微信接口返回: {data}")
                 issues.append(
-                    f"槽位 {probe_i} 凭证或白名单有误（见 errcode/errmsg），请检查 .env"
+                    f"槽位 {probe_i} 凭证或白名单有误（见 errcode/errmsg），请检�?.env"
                 )
         except Exception as e:
-            print(f"[ERROR] API 连通失败: {e}")
+            print(f"[ERROR] API 连通失�? {e}")
             issues.append("网络异常或微信接口不可用，可稍后重试")
 
     try:
         import yaml
-        _ok("PyYAML 已安装")
+        _ok("PyYAML 已安�?)
     except ImportError:
-        print("[ERROR] PyYAML 未安装")
+        print("[ERROR] PyYAML 未安�?)
         issues.append("pip install pyyaml")
 
     try:
         from PIL import Image
-        _ok("Pillow 已安装（图片压缩可用）")
+        _ok("Pillow 已安装（图片压缩可用�?)
     except ImportError:
-        print("[WARN] Pillow 未安装（大图上传可能失败）")
+        print("[WARN] Pillow 未安装（大图上传可能失败�?)
         issues.append("建议: pip install Pillow")
 
-    print("\n=== 检查完成 ===")
+    print("\n=== 检查完�?===")
     if issues:
-        print(f"\n需要处理的问题（{len(issues)} 个）：")
+        print(f"\n需要处理的问题（{len(issues)} 个）�?)
         for i, issue in enumerate(issues, 1):
             print(f"  {i}. {issue}")
     else:
-        _ok("发布相关检查通过！")
+        _ok("发布相关检查通过�?)
 
 
 if __name__ == "__main__":

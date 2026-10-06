@@ -1,7 +1,7 @@
 /**
  * IMA (腾讯IMA) OpenAPI helpers for niuma-app.
  *
- * Auth: `.env.local` IMA_CLIENT_ID / IMA_API_KEY, sent as official
+ * Auth: `.env.local` IMA_OPENAPI_CLIENTID / IMA_OPENAPI_APIKEY, sent as official
  * `ima-openapi-*` headers via plugin-http. Do not use sandboxed ima_api.cjs
  * (env_clear strips KEY vars and causes 认证失败).
  *

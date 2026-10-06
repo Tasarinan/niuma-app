@@ -1,15 +1,13 @@
 ---
 description: 整理当前草稿目录下的图片到 imgs/（主题前缀 PNG），并同步 article.md 等文中的引用与 alt
-agent: 配图师
-arguments:
-  - name: target
-    description: 可选：草稿目录或 article.md 路径；省略则用当前已定位的共创稿
-    required: false
+argument-hint: [path]
 ---
 
 # 配图整理（/image）
 
-切换到**配图师**。把当前篇草稿里散落的图片**移动进** `.artifacts/drafts/<YYYYMMDD-主题>/imgs/`（草稿根目录的 `Screenshot*.png` 等会**移走并删除原文件**），全部落成 **PNG**，并按主题重命名为 `{主题}-01.png`、`{主题}-02.png`……；`cover.png` 仅用于封面。
+目标路径：`$ARGUMENTS`。
+
+切换到**配图师**。把当前篇草稿里散落的图片**移动进** `.niuma/artifacts/drafts/<YYYYMMDD-主题>/imgs/`（草稿根目录的 `Screenshot*.png` 等会**移走并删除原文件**），全部落成 **PNG**，并按主题重命名为 `{主题}-01.png`、`{主题}-02.png`……；`cover.png` 仅用于封面。
 
 ## 做什么
 
@@ -37,5 +35,5 @@ arguments:
 
 ```
 /image
-/image .artifacts/drafts/20260918-workbuddy-办公搭子还是付费陷阱/article.md
+/image .niuma/artifacts/drafts/20260918-workbuddy-办公搭子还是付费陷阱/article.md
 ```

@@ -1,17 +1,8 @@
 ---
 name: 身心顾问
 description: 负责睡眠质量追踪、情绪记录与趋势分析、压力管理建议，非临床心理治疗。
-avatar: 🧘
-role: 身心健康顾问
-providerId: ""
-modelId: ""
-enabledSkillIds: []
-enabledMcpServerIds: []
-enabledInternalTools: []
-sandboxMode: read-only
-temperature: 0.6
-maxTokens: 2048
-workspacePath: ""
+emoji: 🧘
+sandbox: read-only
 ---
 
 # 身心健康顾问

@@ -1,16 +1,12 @@
 /**
- * Persisted preference for which catalog agents (by `.niuma/agents` filename)
- * are "hired". Shared by the Agents page (browse/hire toggle) and
- * the agent-chat main channel's default-agent resolution, so both stay in
- * sync.
+ * Persisted preference for which catalog agents (by filename)
+ * are "hired". Shared by the Agents page and the toolbar main chat.
  *
- * "assistant.md" (the general-purpose Assistant) is hired by default for
- * first-time users, so the main chat has a sensible agent out of the box.
- * Once the user has saved any preference (including explicitly dismissing
- * it), that choice is respected.
+ * First-run defaults come from the catalog team pack (`defaultHired` /
+ * `defaultAgent` in `.niuma/teams/<id>/config.yaml` with `surface: catalog`).
  */
 const LS_KEY = "niuma-hired-agents";
-const DEFAULT_HIRED = ["assistant.md"];
+let defaultHiredFiles: string[] = [];
 
 /** Old catalog filenames folded into the current specialists. */
 export const CATALOG_HIRED_FILE_MIGRATION: Record<string, string> = {
@@ -28,6 +24,10 @@ export const CATALOG_HIRED_FILE_MIGRATION: Record<string, string> = {
   "olivia.md": "atlas.md",
 };
 
+export function setDefaultHiredAgentFiles(files: string[]) {
+  defaultHiredFiles = [...new Set(files.filter(Boolean))];
+}
+
 function normalizeHiredFile(file: string): string {
   const asMd = file.toLowerCase().endsWith(".json") ? file.replace(/\.json$/i, ".md") : file;
   return CATALOG_HIRED_FILE_MIGRATION[asMd] ?? asMd;
@@ -40,7 +40,7 @@ export function migrateHiredAgentFiles(files: string[]): string[] {
 export function loadHiredAgentFiles(): Set<string> {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return new Set(DEFAULT_HIRED);
+    if (!raw) return new Set(defaultHiredFiles);
     const original = JSON.parse(raw) as string[];
     const migrated = migrateHiredAgentFiles(original);
     const next = new Set(migrated);
@@ -49,7 +49,7 @@ export function loadHiredAgentFiles(): Set<string> {
     if (changed) saveHiredAgentFiles(next);
     return next;
   } catch {
-    return new Set(DEFAULT_HIRED);
+    return new Set(defaultHiredFiles);
   }
 }
 

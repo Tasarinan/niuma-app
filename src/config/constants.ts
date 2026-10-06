@@ -59,6 +59,9 @@ export const STORAGE_KEYS = {
 
   // IMA (腾讯IMA) knowledge-base integration
   IMA_CONFIG: "ima_config",
+
+  CHAT_COMPOSER_IMA: "chat_composer_ima_enabled",
+  CHAT_COMPOSER_WEB: "chat_composer_web_enabled",
 } as const;
 
 // Local-dev-only default ElevenLabs API key. Sourced from the gitignored

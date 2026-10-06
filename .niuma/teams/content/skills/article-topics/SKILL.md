@@ -32,4 +32,4 @@ remix 简报时：每条必须带原文 `url`；没有 URL 的丢掉。禁止发
 
 ## 禁止
 
-不要创建 `.artifacts/drafts/`，不要写文件，不要配图，不要排版。不要 `ROUTE` 给写手；做完交回 `ROUTE: @主理人`。
+不要创建 `.niuma/artifacts/drafts/`，不要写文件，不要配图，不要排版。不要 `ROUTE` 给写手；做完交回 `ROUTE: @主理人`。

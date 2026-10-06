@@ -15,7 +15,7 @@ homepage: https://github.com/Tasarinan/niuma-app
 在仓库根执行 **`publish.py full`**（脚本会**自动**先跑 `format.py`，再上传）：
 
 ```bash
-python .niuma/teams/content/skills/article-publish-wechat/scripts/publish.py --account N full .artifacts/drafts/<YYYYMMDD-主题>/
+python .niuma/teams/content/skills/article-publish-wechat/scripts/publish.py --account N full .niuma/artifacts/drafts/<YYYYMMDD-主题>/
 ```
 
 需要立即发出时加 `--publish`（仍会先排版）。
@@ -24,7 +24,7 @@ python .niuma/teams/content/skills/article-publish-wechat/scripts/publish.py --a
 
 ## 流程
 
-1. 确定 `.artifacts/drafts/<YYYYMMDD-主题>/`（对话里的 `[当前共创目录]` / `[当前打开的文稿]` 或用户点名）
+1. 确定 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/`（对话里的 `[当前共创目录]` / `[当前打开的文稿]` 或用户点名）
 2. 可选：`read` `article.md` 确认标题/摘要/封面路径
 3. 跑 **`publish.py full <目录> --account N`**（内部自动 `format.py` → `article.html` → 微信草稿）
 4. 发布前检查：`article.yaml` 标题、作者、摘要、封面 `imgs/cover.png`、正文无 placeholder

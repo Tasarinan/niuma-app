@@ -19,11 +19,13 @@ import {
   clearMessages,
 } from "@/lib/storage/group-chat.storage";
 import { missingCommandAgentMessage, selectAgentsForCommand, shouldSmartDispatch } from "@/lib/agent/command-target";
+import { getWorkbenchTeamPreset, loadWorkbenchTeamPresets } from "@/lib/agent/workbench-defaults";
 import { mergeRuntimeInternalTools } from "@/lib/agent/runtime-internal-tools";
 import { describeAgentToolProgress } from "@/lib/agent/tool-progress";
+import { agentMatchesRole, resolveDefaultRole } from "@/lib/agent/team-manifest";
+import { imageRoleNames } from "@/lib/content/roster-workflow";
 import {
   formatContentDispatchInstruction,
-  isContentProducer,
   resolveContentRouteTarget,
 } from "@/lib/content/role-ownership";
 import { stripHiddenDraftContext } from "@/lib/artifact/draft-workspace";
@@ -164,10 +166,14 @@ export function useGroupChat() {
         .map((id) => agents.find((a) => a.id === id))
         .filter(Boolean) as AgentDefinition[];
 
-      const isContentTeam = channel.teamId === "content";
-      const channelAgents = isContentTeam
+      const workbenchPresets = await loadWorkbenchTeamPresets();
+      const teamPreset = getWorkbenchTeamPreset(channel, workbenchPresets);
+      const teamRoles = teamPreset?.roles ?? [];
+      const producerRole = resolveDefaultRole(teamPreset ?? {});
+      const producerName = producerRole?.name;
+      const channelAgents = teamRoles.length > 0
         ? (() => {
-            const producer = allChannelAgents.find((a) => isContentProducer(a.name));
+            const producer = allChannelAgents.find((a) => agentMatchesRole(a, producerRole));
             return producer
               ? [producer, ...allChannelAgents.filter((a) => a.id !== producer.id)]
               : allChannelAgents;
@@ -197,7 +203,7 @@ export function useGroupChat() {
           channelId: targetId,
           role: "agent",
           agentName: targetAgentNames[0],
-          content: missingCommandAgentMessage(targetAgentNames),
+          content: missingCommandAgentMessage(targetAgentNames, teamPreset?.defaultCommand),
           timestamp: new Date().toISOString(),
         };
         const withMiss = [...msgsAfterUser, miss];
@@ -210,7 +216,7 @@ export function useGroupChat() {
 
       // Register file-based .niuma skills in the Skill store so load_skill
       // can resolve them. Keep each agent's own enabledSkillIds — dumping the
-      // whole catalog onto every member would let 写手跑配图、配图师写稿.
+      // Role skills stay per-agent from config.yaml roles.
       if (initialAgents.length > 0) {
         await bridgeEnabledNiumaSkills().catch(() => []);
       }
@@ -274,10 +280,10 @@ export function useGroupChat() {
           ? `\n\nYou are in a group chat channel named "${channel.name}". Other participants: ${otherMembers}. Respond as ${agent.name} (${agent.role ?? "AI assistant"}). Be concise and in-character.`
           : `\n\nYou are in a channel named "${channel.name}". Respond as ${agent.name}.`;
 
-        // Smart-dispatch: content team — only 主理人 routes out; others escalate to 主理人
+        // Smart-dispatch: default agent from config.yaml routes; specialists escalate back.
         const dispatchInstruction =
-          useSmartDispatch && isContentTeam
-            ? formatContentDispatchInstruction(agent.name)
+          useSmartDispatch && teamRoles.length > 0
+            ? formatContentDispatchInstruction(agent.name, teamRoles, producerName)
             : isDispatcherTurn
               ? (() => {
                   const roster = channelAgents
@@ -302,12 +308,13 @@ export function useGroupChat() {
           maxTokens: agent.maxTokens ?? getResponseSettings().maxTokens,
           systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock + dispatchInstruction,
           enabledSkillIds: agent.enabledSkillIds ?? [],
-          // 配图师 gets generate_image / search_images so hired agents pick up the system
+          // Image-family roles get generate_image / search_images so hired agents pick up the system
           // Provider image API without waiting for a catalog resync.
           enabledInternalTools: mergeRuntimeInternalTools(agent.enabledInternalTools ?? [], {
             bridgedSkillCount: (agent.enabledSkillIds ?? []).length,
             agentName: agent.name,
             agentRole: agent.role,
+            imageRoleNames: imageRoleNames(teamRoles),
           }),
         };
 
@@ -431,8 +438,8 @@ export function useGroupChat() {
           const routeMatch = fullContent.match(/ROUTE:\s*@([^\s\n]+)/i);
           if (routeMatch) {
             let routedAgent: AgentDefinition | undefined;
-            if (isContentTeam) {
-              routedAgent = resolveContentRouteTarget(agent.name, routeMatch[1], channelAgents) ?? undefined;
+            if (teamRoles.length > 0) {
+              routedAgent = resolveContentRouteTarget(agent.name, routeMatch[1], channelAgents, producerName) ?? undefined;
             } else if (isDispatcherTurn) {
               const routedName = routeMatch[1].toLowerCase().replace(/[^\w\u4e00-\u9fff]/g, "");
               routedAgent = channelAgents

@@ -1,17 +1,8 @@
 ---
 name: 营养顾问
 description: 负责饮食记录分析、营养素评估、饮食习惯建议，结合本地饮食历史数据提供个性化建议。
-avatar: 🥗
-role: 营养饮食顾问
-providerId: ""
-modelId: ""
-enabledSkillIds: []
-enabledMcpServerIds: []
-enabledInternalTools: []
-sandboxMode: read-only
-temperature: 0.5
-maxTokens: 2048
-workspacePath: ""
+emoji: 🥗
+sandbox: read-only
 ---
 
 # 营养饮食顾问

@@ -1,5 +1,6 @@
 /** In-progress WeChat drafts that were confirmed but not published yet. */
 
+import type { ContentRosterCopy } from "@/lib/content/roster-workflow";
 import { isManuscriptArticlePath, isOpenableDraftMarkdown, toDraftArticlePath } from "./drafts";
 import { draftFolderFromFilePath } from "./draft-workspace";
 
@@ -126,6 +127,7 @@ export function formatUnpublishedDraftsContext(
   drafts: UnpublishedDraft[],
   query = "",
   intent: UnpublishedDraftsIntent | LegacyUnpublishedDraftsIntent = "continue",
+  copy?: Partial<ContentRosterCopy>,
 ): string {
   const mode = normalizeUnpublishedDraftsIntent(intent);
   const matched = matchUnpublishedDrafts(query, drafts);
@@ -133,6 +135,11 @@ export function formatUnpublishedDraftsContext(
     mode === "continue" &&
     (matched.length === 1 || (!query.trim() && drafts.length === 1));
   const continueTarget = continueMatch ? (matched[0] ?? drafts[0]) : undefined;
+  const draft = (copy?.draftCommand ?? "article").replace(/^\//, "");
+  const format = (copy?.formatCommand ?? "format").replace(/^\//, "");
+  const publish = (copy?.publishCommand ?? "publish").replace(/^\//, "");
+  const specialists = (copy?.specialistNames ?? []).filter(Boolean);
+  const ping = specialists.length ? `然后点名${specialists.join(" / ")}。` : "然后点名职责表里的其他角色。";
   const lines = [
     "[未推送草稿]",
     `status: ${drafts.length > 0 ? "ok" : "empty"}`,
@@ -140,19 +147,19 @@ export function formatUnpublishedDraftsContext(
     "",
     "规则：",
     mode === "create"
-      ? "- 本次是 /article create 开新题。禁止续写下列旧稿，禁止 `open_article` 旧路径，禁止改旧 `article.md`。圆桌结束、用户确认后才 mkdir。"
-      : "- 本次是 /article edit <target> 继续已定题稿。下列目录还没推送到公众号。直接共创，不要再 mkdir，不要再开会定同一篇。",
+      ? `- 本次是 /${draft} create 开新题。禁止续写下列旧稿，禁止 \`open_article\` 旧路径，禁止改旧 \`article.md\`。圆桌结束、用户确认后才 mkdir。`
+      : `- 本次是 /${draft} edit <target> 继续已定题稿。下列目录还没推送到公众号。直接共创，不要再 mkdir，不要再开会定同一篇。`,
     mode === "continue"
-      ? "- 继续时用 `open_article` 把该篇 `article.md` 定位为当前文稿（没有就定位 `topic.md`），不要替用户切换到编辑栏。用户自己点「编辑」就会看到这篇。然后点名写手 / 配图师 / 主编 / 发行。"
-      : "- 用户要继续旧稿时请用 /article edit <关键词>，不要在 /article create 里续写。",
+      ? `- 继续时用 \`open_article\` 把该篇 \`article.md\` 定位为当前文稿（没有就定位 \`topic.md\`），不要替用户切换到编辑栏。用户自己点「编辑」就会看到这篇。${ping}`
+      : `- 用户要继续旧稿时请用 /${draft} edit <关键词>，不要在 /${draft} create 里续写。`,
     "- 审稿只写该目录 `review.md`，不要创建 `.niuma-article/` 或另一篇 drafts。",
     mode === "create"
-      ? "- 排版用 /format，推草稿箱用 /publish。仅切编辑栏用 /article edit（无 target）。"
-      : "- 没有未推送草稿时，请用户改用 /article create。排版用 /format，推草稿箱用 /publish。",
+      ? `- 排版用 /${format}，推草稿箱用 /${publish}。仅切编辑栏用 /${draft} edit（无 target）。`
+      : `- 没有未推送草稿时，请用户改用 /${draft} create。排版用 /${format}，推草稿箱用 /${publish}。`,
     drafts.length === 0
       ? mode === "create"
         ? "- 当前没有未推送草稿，按新选题开会。"
-        : "- 当前没有未推送草稿，不要 mkdir，请用户改用 /article create。"
+        : `- 当前没有未推送草稿，不要 mkdir，请用户改用 /${draft} create。`
       : "",
     mode === "continue" && continueTarget
       ? `- 本次请直接继续：《${continueTarget.title}》`

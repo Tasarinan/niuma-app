@@ -1,5 +1,10 @@
 /** Slash commands that start a content workflow, not a pipeline step. */
 
+import {
+  hasFamilyCommand,
+  type ContentWorkflowCommands,
+} from "@/lib/content/roster-workflow";
+
 export type ContentPlatform = "wechat" | "xhs" | "zhihu";
 
 /** Sub-actions for `/article`, similar to `/record` types or `/profile` actions. */
@@ -9,8 +14,8 @@ export function normalizeCommandName(name: string): string {
   return name.trim().toLowerCase();
 }
 
-export function isArticleCommand(name: string): boolean {
-  return normalizeCommandName(name) === "article";
+export function isArticleCommand(name: string, commands?: ContentWorkflowCommands): boolean {
+  return hasFamilyCommand(commands, "draft", name);
 }
 
 const ARTICLE_ACTION_ALIASES: Record<string, ArticleCommandAction> = {
@@ -44,11 +49,12 @@ export type ArticleDraftWorkflowIntent = "create" | "continue";
 export function resolveArticleDraftWorkflow(
   command: string,
   args: string,
+  commands?: ContentWorkflowCommands,
 ): { intent: ArticleDraftWorkflowIntent; query: string } | null {
   const name = normalizeCommandName(command);
   if (name === "new") return { intent: "create", query: args.trim() };
   if (name === "resume") return { intent: "continue", query: args.trim() };
-  if (!isArticleCommand(name)) return null;
+  if (!isArticleCommand(name, commands)) return null;
 
   const { action, rest } = parseArticleCommandArgs(args);
   if (action === "create") return { intent: "create", query: rest.trim() };
@@ -57,10 +63,14 @@ export function resolveArticleDraftWorkflow(
 }
 
 /** UI-only: open workbench editor bar (no agent turn). */
-export function isArticleEditUiCommand(command: string, args: string): boolean {
+export function isArticleEditUiCommand(
+  command: string,
+  args: string,
+  commands?: ContentWorkflowCommands,
+): boolean {
   const name = normalizeCommandName(command);
   if (name === "edit" && !args.trim()) return true;
-  if (!isArticleCommand(name)) return false;
+  if (!isArticleCommand(name, commands)) return false;
   const { action, rest } = parseArticleCommandArgs(args);
   return action === "edit" && !rest.trim();
 }
@@ -80,12 +90,12 @@ export function isEditArticleCommand(name: string, args = ""): boolean {
   return isArticleEditUiCommand(name, args);
 }
 
-export function isFormatCommand(name: string): boolean {
-  return normalizeCommandName(name) === "format";
+export function isFormatCommand(name: string, commands?: ContentWorkflowCommands): boolean {
+  return hasFamilyCommand(commands, "format", name);
 }
 
-export function isImageCommand(name: string): boolean {
-  return normalizeCommandName(name) === "image";
+export function isImageCommand(name: string, commands?: ContentWorkflowCommands): boolean {
+  return hasFamilyCommand(commands, "image", name);
 }
 
 /** @deprecated Use isNewArticleCommand. Kept so old tests/callers compile during rename. */
@@ -102,13 +112,17 @@ export function isXhsStubCommand(_name: string): boolean {
   return false;
 }
 
-export function isContentWorkflowCommand(name: string, args = ""): boolean {
-  return resolveArticleDraftWorkflow(name, args) !== null;
+export function isContentWorkflowCommand(
+  name: string,
+  args = "",
+  commands?: ContentWorkflowCommands,
+): boolean {
+  return resolveArticleDraftWorkflow(name, args, commands) !== null;
 }
 
-/** Slash command that 发行 owns: push to a platform draft box. */
-export function isPublishWorkflowCommand(name: string): boolean {
-  return normalizeCommandName(name) === "publish";
+/** Slash command owned by the publish-skill role: push to a platform draft box. */
+export function isPublishWorkflowCommand(name: string, commands?: ContentWorkflowCommands): boolean {
+  return hasFamilyCommand(commands, "publish", name);
 }
 
 export function parseContentPlatform(args: string): ContentPlatform | undefined {
@@ -129,27 +143,37 @@ export function splitPlatformAndRest(args: string): { platform?: ContentPlatform
 }
 
 /**
- * Free-text or slash format/publish requests that must skip 主理人
- * and go straight to 发行.
+ * Free-text or slash format/publish/image requests that skip the host
+ * and go to the role that owns that command family.
  */
-export function isAssistantPublishRequest(text: string): boolean {
+export function isAssistantPublishRequest(text: string, commands?: ContentWorkflowCommands): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
   const slash = trimmed.match(/^\/([A-Za-z0-9_-]+)\b(?:\s+([\s\S]*))?$/);
   if (slash) {
     const cmd = slash[1];
     const args = slash[2] ?? "";
-    if (isContentWorkflowCommand(cmd, args) || isArticleEditUiCommand(cmd, args)) return false;
-    if (isArticleCommand(cmd)) {
+    if (isContentWorkflowCommand(cmd, args, commands) || isArticleEditUiCommand(cmd, args, commands)) {
+      return false;
+    }
+    if (isArticleCommand(cmd, commands)) {
       const { action } = parseArticleCommandArgs(args);
       if (action === "delete" || action === "update") return false;
     }
-    return isPublishWorkflowCommand(cmd) || isFormatCommand(cmd) || isImageCommand(cmd);
+    return (
+      isPublishWorkflowCommand(cmd, commands) ||
+      isFormatCommand(cmd, commands) ||
+      isImageCommand(cmd, commands)
+    );
   }
   return /(发布|排版|发到公众号|推送到公众号|生成\s*html|转\s*html)/i.test(trimmed);
 }
 
-export function shouldInjectWechatSlots(command: string | undefined, args: string): boolean {
-  if (!command || !isPublishWorkflowCommand(command)) return false;
+export function shouldInjectWechatSlots(
+  command: string | undefined,
+  args: string,
+  commands?: ContentWorkflowCommands,
+): boolean {
+  if (!command || !isPublishWorkflowCommand(command, commands)) return false;
   return parseContentPlatform(args) === "wechat";
 }

@@ -8,6 +8,13 @@ import {
 import { getPlatform } from "@/lib";
 
 /**
+ * Global hotkeys are process-wide. Hidden dashboard/agent-chat windows
+ * must not register them at startup or they race the main overlay.
+ */
+export const shouldSyncShortcutsFromWindow = (windowLabel: string): boolean =>
+  windowLabel === "main";
+
+/**
  * Get platform-specific default key for a shortcut action
  */
 export const getPlatformDefaultKey = (action: ShortcutAction): string => {

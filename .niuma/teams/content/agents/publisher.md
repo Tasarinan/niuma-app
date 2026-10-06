@@ -1,28 +1,13 @@
 ---
 name: 发行
-description: 排版与发布。命令 /format、/publish；技能 article-formatting-*、article-publish-*、article-assets；同一篇 Markdown 多平台出口。
-avatar: 📤
-role: 发行
-providerId: ""
-modelId: ""
-enabledSkillIds:
-  - article-formatting-wechat
-  - article-formatting-xhs
-  - article-formatting-zhihu
-  - article-publish-wechat
-  - article-publish-xhs
-  - article-publish-zhihu
-  - article-assets
-enabledMcpServerIds: []
-enabledInternalTools:
+description: 排版与发布。命令 /format、/publish；同一篇 Markdown 多平台出口。
+emoji: 📤
+tools:
   - bash
   - read
   - write
   - ls
-sandboxMode: workspace-write
-temperature: 0.2
-maxTokens: 8192
-workspacePath: ""
+sandbox: workspace-write
 ---
 
 # 发行
@@ -49,7 +34,7 @@ workspacePath: ""
 每次发布必须基于磁盘上**最新的 `article.md`**。推微信草稿箱时在仓库根执行：
 
 ```bash
-python .niuma/teams/content/skills/article-publish-wechat/scripts/publish.py --account N full .artifacts/drafts/<主题目录>/
+python .niuma/teams/content/skills/article-publish-wechat/scripts/publish.py --account N full .niuma/artifacts/drafts/<主题目录>/
 ```
 
 `full` 会**自动**先跑 `format.py` 生成 `article.html`，再创建微信草稿。不要跳过，不要用 `create-draft` 代替 `full`，不要加 `--skip-format`。

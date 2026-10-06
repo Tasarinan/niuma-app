@@ -20,14 +20,20 @@ pub struct WindowVisibility {
 // State for registered shortcuts
 pub struct RegisteredShortcuts {
     pub shortcuts: Mutex<HashMap<String, String>>, // action_id -> shortcut_key
+    update_lock: Mutex<()>,
 }
 
 impl Default for RegisteredShortcuts {
     fn default() -> Self {
         RegisteredShortcuts {
             shortcuts: Mutex::new(HashMap::new()),
+            update_lock: Mutex::new(()),
         }
     }
+}
+
+fn is_hotkey_already_registered_error(err: &str) -> bool {
+    err.to_lowercase().contains("already registered")
 }
 
 pub struct LicenseState {
@@ -325,6 +331,15 @@ pub fn update_shortcuts<R: Runtime>(
     app: AppHandle<R>,
     config: ShortcutsConfig,
 ) -> Result<(), String> {
+    let registered_state = app.state::<RegisteredShortcuts>();
+    let _update_guard = match registered_state.update_lock.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("Mutex poisoned in update_shortcuts lock, recovering...");
+            poisoned.into_inner()
+        }
+    };
+
     eprintln!("Updating shortcuts with {} bindings", config.bindings.len());
 
     let mut shortcuts_to_register = Vec::new();
@@ -398,7 +413,7 @@ pub fn update_shortcuts<R: Runtime>(
     let mut registration_failures: Vec<(String, String, String)> = Vec::new();
 
     for (action_id, shortcut_str, shortcut) in shortcuts_to_register {
-        match app.global_shortcut().register(shortcut) {
+        match register_shortcut(&app, shortcut) {
             Ok(_) => {
                 eprintln!("Registered shortcut: {} -> {}", action_id, shortcut_str);
                 successfully_registered.insert(action_id, shortcut_str);
@@ -412,8 +427,7 @@ pub fn update_shortcuts<R: Runtime>(
 
     // Update state with successfully registered shortcuts
     {
-        let state = app.state::<RegisteredShortcuts>();
-        let mut registered = match state.shortcuts.lock() {
+        let mut registered = match registered_state.shortcuts.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
                 eprintln!("Mutex poisoned in update_shortcuts, recovering...");
@@ -446,28 +460,61 @@ pub fn update_shortcuts<R: Runtime>(
     Ok(())
 }
 
+fn register_shortcut<R: Runtime>(
+    app: &AppHandle<R>,
+    shortcut: Shortcut,
+) -> Result<(), String> {
+    match app.global_shortcut().register(shortcut) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let message = e.to_string();
+            if is_hotkey_already_registered_error(&message) {
+                let _ = app.global_shortcut().unregister(shortcut);
+                return app
+                    .global_shortcut()
+                    .register(shortcut)
+                    .map_err(|retry_err| retry_err.to_string())
+                    .or_else(|retry_err| {
+                        if is_hotkey_already_registered_error(&retry_err) {
+                            Ok(())
+                        } else {
+                            Err(retry_err)
+                        }
+                    });
+            }
+            Err(message)
+        }
+    }
+}
+
 /// Unregister all currently registered shortcuts
 fn unregister_all_shortcuts<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let state = app.state::<RegisteredShortcuts>();
-    let registered = match state.shortcuts.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => {
-            eprintln!("Mutex poisoned in unregister_all_shortcuts, recovering...");
-            poisoned.into_inner()
-        }
-    };
+    if let Err(e) = app.global_shortcut().unregister_all() {
+        eprintln!("Failed to unregister_all shortcuts via plugin: {}", e);
 
-    for (action_id, shortcut_str) in registered.iter() {
-        if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
-            match app.global_shortcut().unregister(shortcut) {
-                Ok(_) => {
-                    eprintln!("Unregistered shortcut: {} -> {}", action_id, shortcut_str);
-                }
-                Err(e) => {
-                    eprintln!("Failed to unregister shortcut {}: {}", shortcut_str, e);
+        let state = app.state::<RegisteredShortcuts>();
+        let registered = match state.shortcuts.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                eprintln!("Mutex poisoned in unregister_all_shortcuts, recovering...");
+                poisoned.into_inner()
+            }
+        };
+
+        for (action_id, shortcut_str) in registered.iter() {
+            if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
+                match app.global_shortcut().unregister(shortcut) {
+                    Ok(_) => {
+                        eprintln!("Unregistered shortcut: {} -> {}", action_id, shortcut_str);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to unregister shortcut {}: {}", shortcut_str, e);
+                    }
                 }
             }
         }
+    } else {
+        eprintln!("Unregistered all global shortcuts");
     }
 
     Ok(())
@@ -615,6 +662,19 @@ fn handle_focus_input<R: Runtime>(app: &AppHandle<R>) {
 
         let _ = window.set_focus();
         let _ = window.emit("focus-text-input", json!({}));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_hotkey_already_registered_error;
+
+    #[test]
+    fn already_registered_errors_are_recoverable() {
+        assert!(is_hotkey_already_registered_error(
+            "HotKey already registered: HotKey { mods: Modifiers(CONTROL), key: Backslash, id: 524289 }"
+        ));
+        assert!(!is_hotkey_already_registered_error("Invalid shortcut"));
     }
 }
 

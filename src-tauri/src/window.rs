@@ -72,13 +72,21 @@ pub fn center_window_completely(window: &WebviewWindow) -> Result<(), Box<dyn st
 
 #[tauri::command]
 pub fn set_window_height(window: tauri::WebviewWindow, height: u32) -> Result<(), String> {
-    use tauri::{LogicalSize, Size};
+    use tauri::{LogicalSize, PhysicalPosition, Position, Size};
 
-    // Simply set the window size with fixed width and new height
-    let new_size = LogicalSize::new(600.0, height as f64);
+    // Keep the top-left corner. Growing the toolbar must not recenter it.
+    let origin = window
+        .outer_position()
+        .map_err(|e| format!("Failed to read window position: {}", e))?;
     window
-        .set_size(Size::Logical(new_size))
+        .set_size(Size::Logical(LogicalSize::new(600.0, height as f64)))
         .map_err(|e| format!("Failed to resize window: {}", e))?;
+    window
+        .set_position(Position::Physical(PhysicalPosition {
+            x: origin.x,
+            y: origin.y,
+        }))
+        .map_err(|e| format!("Failed to keep window position: {}", e))?;
 
     Ok(())
 }

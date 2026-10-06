@@ -1,16 +1,6 @@
 ---
 description: 快速记录日常健康数据（症状/饮食/睡眠/情绪/用药），存入本地数据库
-agent: 健康向导
-arguments:
-  - name: type
-    description: 记录类型：symptom(症状)/diet(饮食)/sleep(睡眠)/mood(情绪)/medication(用药)/note(备注)
-    required: true
-  - name: content
-    description: 记录内容（自然语言描述）
-    required: false
-  - name: member
-    description: 记录对象（默认本人，可指定家庭成员姓名）
-    required: false
+argument-hint: [symptom|diet|sleep|mood|medication|note] [content]
 ---
 
 # 快速健康记录

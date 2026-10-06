@@ -27,7 +27,7 @@ const App = () => {
       resetKeys={["app-error"]}
     >
       <div
-        className={`w-screen h-screen flex overflow-visible justify-center items-center px-2 bg-transparent ${
+        className={`toolbar-stage w-screen h-screen flex overflow-visible justify-center items-center px-2 bg-transparent ${
           isHidden ? "hidden pointer-events-none" : ""
         }`}
       >

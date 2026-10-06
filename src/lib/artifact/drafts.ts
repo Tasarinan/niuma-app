@@ -1,6 +1,8 @@
 /** Shared on-disk layout for content-team drafts. Humans and agents both edit article.md. */
 
-export const CONTENT_DRAFTS_DIR = ".artifacts/drafts";
+import { topicNotConfirmedMessage } from "@/lib/content/roster-workflow";
+
+export const CONTENT_DRAFTS_DIR = ".niuma/artifacts/drafts";
 export const DRAFT_ARTICLE_FILENAME = "article.md";
 
 const DATED_PREFIX = /^(\d{8})-(.+)$/;
@@ -15,7 +17,7 @@ export function toDraftDatePrefix(date: Date = new Date()): string {
 /** Hidden agent context: real local date, so models do not copy skill examples. */
 export function formatDraftTodayContext(date: Date = new Date()): string {
   const yyyymmdd = toDraftDatePrefix(date);
-  return `[今天] ${yyyymmdd}\n新建草稿目录必须用这个日期前缀：.artifacts/drafts/${yyyymmdd}-主题/。禁止抄技能示例或其它日期。`;
+  return `[今天] ${yyyymmdd}\n新建草稿目录必须用这个日期前缀：${CONTENT_DRAFTS_DIR}/${yyyymmdd}-主题/。禁止抄技能示例或其它日期。`;
 }
 
 export function injectDraftTodayContext(agentInput: string, date: Date = new Date()): string {
@@ -54,15 +56,18 @@ export function isDraftArticleFile(relativeOrAbsolutePath: string): boolean {
   );
 }
 
-/** Editor/app may only write into a folder that the 主理人 already created after topic confirm. */
-export function requireConfirmedDraftPath(existingPath?: string): string {
+/** Editor/app may only write into a folder that already exists after topic confirm. */
+export function requireConfirmedDraftPath(
+  existingPath?: string,
+  copy?: { draftCommand?: string; hostName?: string },
+): string {
   if (!existingPath) {
-    throw new Error("选题尚未确认，不能创建草稿目录。请先在聊天里用 /article create 让主理人正式定题。");
+    throw new Error(topicNotConfirmedMessage(copy));
   }
   return existingPath;
 }
 
-/** Strip Windows `\\?\` prefixes and repair `.artifacts` if a separator was eaten. */
+/** Strip Windows `\\?\` prefixes and repair a missing slash before `.niuma/artifacts`. */
 export function normalizeDraftPath(path: string): string {
   let value = path.trim();
   if (!value) return value;
@@ -71,22 +76,22 @@ export function normalizeDraftPath(path: string): string {
   else if (value.startsWith("//?/")) value = value.slice(4);
   else if (value.startsWith("\\?\\")) value = value.slice(3);
   value = value.replace(/\\/g, "/");
-  value = value.replace(/([A-Za-z0-9_-])\.artifacts\//gi, "$1/.artifacts/");
+  value = value.replace(/([A-Za-z0-9_-])\.niuma\/artifacts\//gi, "$1/.niuma/artifacts/");
   value = value.replace(/\/+/g, "/");
   return value;
 }
 
 export function isOpenableDraftMarkdown(path: string): boolean {
   const normalized = normalizeDraftPath(path).toLowerCase();
-  if (!normalized.includes(".artifacts/drafts/")) return false;
+  if (!normalized.includes(`${CONTENT_DRAFTS_DIR}/`)) return false;
   return normalized.endsWith(".md");
 }
 
-/** Folder + filename under `.artifacts/drafts/`, e.g. `20260903-topic/article.md`. */
+/** Folder + filename under `.niuma/artifacts/drafts/`, e.g. `20260903-topic/article.md`. */
 export function displayPathUnderDrafts(filePath?: string): string | null {
   if (!filePath) return null;
   const normalized = normalizeDraftPath(filePath);
-  const marker = ".artifacts/drafts/";
+  const marker = `${CONTENT_DRAFTS_DIR}/`;
   const index = normalized.toLowerCase().indexOf(marker);
   if (index < 0) return null;
   const relative = normalized.slice(index + marker.length).replace(/^\/+/, "");
@@ -95,7 +100,7 @@ export function displayPathUnderDrafts(filePath?: string): string | null {
 
 export function toDraftArticlePath(path: string): string {
   const normalized = normalizeDraftPath(path);
-  const marker = ".artifacts/drafts/";
+  const marker = `${CONTENT_DRAFTS_DIR}/`;
   const index = normalized.toLowerCase().indexOf(marker);
   if (index < 0) return normalized;
   const after = normalized.slice(index + marker.length);

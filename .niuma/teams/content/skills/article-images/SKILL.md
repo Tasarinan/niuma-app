@@ -45,7 +45,7 @@ homepage: https://github.com/Tasarinan/niuma-app
 
 ## 流程
 
-1. 确认 `.artifacts/drafts/<YYYYMMDD-主题>/article.md` 已存在。没有就停止，不要 mkdir
+1. 确认 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/article.md` 已存在。没有就停止，不要 mkdir
 2. `read` 该 `article.md`
 3. 按正文结构决定每张图走搜还是生。每一张图单独一个 prompt 文件，文件名与 PNG 相同：`imgs/prompts/cover.md` 对 `imgs/cover.png`
 4. 生图：调用 `generate_image`，`path` 必须是 PNG。搜图：调用 `search_images`，再 `save_web_image`

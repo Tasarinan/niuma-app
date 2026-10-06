@@ -1,0 +1,67 @@
+id: study
+defaultAgent: tutor.md
+
+roles:
+  - agentFile: tutor.md
+    name: 学习导师
+    skills:
+      - eword
+      - explain
+      - grammar
+      - vocab
+      - gt-free-ask
+      - gt-how-to-say
+      - gt-translate
+      - gt-further-explain
+    commands:
+      - ask
+  - agentFile: grammar-coach.md
+    name: 语法教练
+    skills:
+      - gt-grammar-hub
+      - gt-grammar-explain
+      - gt-grammar-check
+      - gt-grammar-extension
+  - agentFile: vocab-coach.md
+    name: 词汇教练
+    skills:
+      - gt-vocab-hub
+      - gt-word-explain
+      - gt-word-usage
+      - gt-word-in-sentence
+      - gt-word-knowledge
+      - gt-collocations
+      - gt-compounds
+      - gt-derivatives
+      - gt-etymology
+      - gt-hypernyms-hyponyms
+      - gt-synonyms-antonyms
+      - gt-replacements
+      - gt-topic-vocab
+      - gt-pronunciation
+      - gt-common-expressions
+      - gt-expression-explain
+      - gt-compare-differences
+  - agentFile: reader.md
+    name: 阅读教练
+    skills:
+      - gt-reading-hub
+      - gt-article-summary
+      - gt-argument-analysis
+      - gt-sentence-hub
+      - gt-sentence-content
+      - gt-sentence-role
+      - gt-sentence-json
+      - gt-split-complex-sentence
+      - gt-ielts-topic-analysis
+      - gt-related-knowledge
+      - gt-explain-code
+  - agentFile: writer.md
+    name: 写作教练
+    skills:
+      - gt-writing-hub
+      - gt-writing-guidance
+      - gt-check-revise
+      - gt-exercise-create
+      - gt-inquiry-questions
+      - gt-ielts-sample

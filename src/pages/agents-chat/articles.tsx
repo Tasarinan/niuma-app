@@ -67,6 +67,8 @@ import { BlockStylePanel } from "@/components/article-editor/BlockStylePanel";
 import { loadArticleMarkdown } from "@/components/article-editor/set-markdown";
 import { DraftImagePanel } from "@/components/article-editor/DraftImagePanel";
 import { fillArticleBlockPlaceholders, type ArticleBlockPreset } from "@/lib/content/article-block-presets";
+import { topicNotConfirmedMessage, type ContentRosterCopy } from "@/lib/content/roster-workflow";
+import type { TeamRoleDefinition } from "@/lib/agent/team-manifest";
 import { WechatThemePreview } from "@/components/article-editor/WechatThemePreview";
 
 import {
@@ -140,6 +142,9 @@ const RIGHT_PANEL_TITLE: Record<EditorRightPanel, string> = {
 interface ArticlesPageProps {
   activeView?: WorkbenchView;
   onOpenFileChange?: (path?: string) => void;
+  teamId?: string;
+  roles?: TeamRoleDefinition[];
+  rosterCopy?: ContentRosterCopy;
 }
 
 function createArticle(partial?: Partial<ArticleRecord>): ArticleRecord {
@@ -185,6 +190,7 @@ function initialActiveId(stored: ArticleRecord[]): string {
 export default function ArticlesPage({
   activeView = "editor",
   onOpenFileChange,
+  rosterCopy,
 }: ArticlesPageProps = {}) {
   const { refreshTree } = useArticleArtifactTree();
   const coverPanelRef = useRef<HTMLDivElement>(null);
@@ -684,7 +690,7 @@ export default function ArticlesPage({
   const handleSave = async () => {
     if (!activeArticle) return;
     if (!activeArticle.filePath) {
-      toast.message("请先在聊天里用 /article create 让主理人确认选题。讨论阶段不创建文档。");
+      toast.message(topicNotConfirmedMessage(rosterCopy));
       return;
     }
     setIsSaving(true);
@@ -1021,7 +1027,7 @@ export default function ArticlesPage({
   const needsDefaultDraft = (article: ArticleRecord | null) => {
     if (!article?.filePath) return true;
     const path = article.filePath.replace(/\\/g, "/").toLowerCase();
-    if (!path.includes(".artifacts/drafts/") || !path.endsWith("/article.md")) return true;
+    if (!path.includes(".niuma/artifacts/drafts/") || !path.endsWith("/article.md")) return true;
     return isPlaceholderArticleTitle(article.title) || !article.content.trim();
   };
 
@@ -1170,7 +1176,7 @@ export default function ArticlesPage({
 
         {!activeArticle ? (
           <div className="flex min-h-0 flex-1 items-center justify-center px-8 text-center text-sm leading-relaxed text-slate-400">
-            还没有打开一篇已定题的稿。切到对话用 /article create 确认选题。
+            还没有打开一篇已定题的稿。切到对话用 /{rosterCopy?.draftCommand ?? "article"} create 确认选题。
           </div>
         ) : (
           <>
@@ -1556,7 +1562,7 @@ export default function ArticlesPage({
                 </SelectContent>
               </Select>
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-                写入本篇 article.yaml。分栏/预览按此样式显示，排版时发行也用同一套。
+                写入本篇 article.yaml。分栏/预览按此样式显示，排版时{rosterCopy?.publisherName ?? "出口角色"}也用同一套。
               </p>
             </div>
 
@@ -1641,7 +1647,7 @@ export default function ArticlesPage({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="w-96 rounded-xl bg-white p-5 shadow-xl">
             <p className="mb-1 text-sm font-semibold text-slate-800">按参考 Prompt 生成配图</p>
-            <p className="mb-3 text-xs text-slate-500">用设置里选中的图片模型生成。可用配图师写好的提示词，也可自己改一版。</p>
+            <p className="mb-3 text-xs text-slate-500">用设置里选中的图片模型生成。可用{rosterCopy?.imageName ?? "配图角色"}写好的提示词，也可自己改一版。</p>
             <label className="mb-1 block text-xs font-medium text-slate-600">文件名</label>
             <input
               type="text"

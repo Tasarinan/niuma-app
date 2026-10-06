@@ -4,7 +4,7 @@
  * Reads agent definitions from the local filesystem via Tauri invoke commands.
  * Mirrors the approach used by niuma (Vue) for skills/loader.ts.
  *
- * The single source of truth is `.niuma/agents/*.md`.
+ * Agents are discovered under `.niuma/teams/<teamId>/agents/` (including `main`).
  *
  * Filesystem discovery requires the Tauri runtime.
  */
@@ -149,6 +149,23 @@ function parseListField(value: unknown): string[] {
     .filter(Boolean);
 }
 
+/** OpenClaw / Claude agent `tools` / `allowed-tools` → niuma internal tool ids. */
+function normalizeToolId(raw: string): string {
+  const name = raw.trim().replace(/^['"]|['"]$/g, "").split("(")[0]?.trim() ?? "";
+  const lower = name.toLowerCase();
+  if (lower === "glob") return "ls";
+  if (lower === "edit") return "write";
+  return lower;
+}
+
+function pickFrontmatter(frontmatter: Record<string, string>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = frontmatter[key]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function extractTitle(content: string, fallbackName: string): string {
   const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
   if (heading) {
@@ -180,11 +197,14 @@ function markdownToAgent(entry: DirEntry, raw: string, context: AgentScanContext
   const withoutExt = entry.name.replace(/\.md$/i, "");
   const frontmatter = parseFrontmatter(raw);
   const content = stripFrontmatter(raw).trim();
-  const title = frontmatter.name?.trim() || extractTitle(content, withoutExt);
-  const description = frontmatter.description?.trim() || extractDescription(content);
-  const identity = buildIdentity(frontmatter.id, entry.name, context);
+  const title = pickFrontmatter(frontmatter, "name") || extractTitle(content, withoutExt);
+  const description = pickFrontmatter(frontmatter, "description") || extractDescription(content);
+  const identity = buildIdentity(pickFrontmatter(frontmatter, "id"), entry.name, context);
   const temperature = Number(frontmatter.temperature);
-  const maxTokens = Number(frontmatter.maxTokens);
+  const maxTokens = Number(frontmatter.maxTokens ?? frontmatter.max_tokens);
+  const toolRaw =
+    pickFrontmatter(frontmatter, "tools", "allowed-tools", "enabledInternalTools") ?? "";
+  const skillRaw = pickFrontmatter(frontmatter, "skills", "enabledSkillIds");
 
   return {
     id: identity.id,
@@ -194,21 +214,23 @@ function markdownToAgent(entry: DirEntry, raw: string, context: AgentScanContext
     sourcePath: entry.path,
     file: entry.name,
     name: title,
-    role: frontmatter.role?.trim() || (context.teamId ? title : "Specialist"),
-    avatar: frontmatter.avatar?.trim() || "",
+    role: pickFrontmatter(frontmatter, "role") || (context.teamId ? title : "Specialist"),
+    avatar: pickFrontmatter(frontmatter, "emoji", "avatar") || "",
     description,
-    providerId: frontmatter.providerId?.trim() || "",
-    modelId: frontmatter.modelId?.trim() || "",
+    providerId: pickFrontmatter(frontmatter, "providerId") || "",
+    modelId: pickFrontmatter(frontmatter, "model", "modelId") || "",
     temperature: Number.isFinite(temperature) ? temperature : undefined,
     maxTokens: Number.isFinite(maxTokens) ? maxTokens : undefined,
-    sandboxMode: frontmatter.sandboxMode?.trim() || undefined,
-    enabledInternalTools: parseListField(frontmatter.enabledInternalTools),
+    sandboxMode: pickFrontmatter(frontmatter, "sandbox", "sandboxMode") || undefined,
+    enabledInternalTools: parseListField(toolRaw).map(normalizeToolId).filter(Boolean),
     enabledSkillIds:
-      "enabledSkillIds" in frontmatter
-        ? parseListField(frontmatter.enabledSkillIds)
-        : undefined,
+      skillRaw !== undefined
+        ? parseListField(skillRaw)
+        : "enabledSkillIds" in frontmatter
+          ? parseListField(frontmatter.enabledSkillIds)
+          : undefined,
     enabledMcpServerIds: parseListField(frontmatter.enabledMcpServerIds),
-    workspacePath: frontmatter.workspacePath?.trim() || "",
+    workspacePath: pickFrontmatter(frontmatter, "workspace", "workspacePath") || "",
     systemPrompt: content,
     fromTeams: !!context.teamId,
   };
@@ -222,6 +244,15 @@ const CACHE_TTL_MS = 30_000;
 
 export function invalidateAgentCatalogCache(): void {
   cache = null;
+}
+
+/** Parse one OpenClaw / Claude-style agent markdown file (for tests and tools). */
+export function parseCatalogAgentMarkdown(
+  file: string,
+  raw: string,
+  teamId?: string,
+): CatalogAgent {
+  return markdownToAgent({ name: file, path: file, isDir: false }, raw, { teamId });
 }
 
 // ─── Filesystem scan ─────────────────────────────────────────────────────────
@@ -299,13 +330,11 @@ export async function loadAgentCatalog(): Promise<CatalogAgent[]> {
     return cache;
   }
 
-  const agentsDir = await invoke<string>("get_niuma_agents_dir").catch(() => "");
   const rootDir = await invoke<string>("get_niuma_root_dir").catch(() => "");
-  const builtinAgents = await scanAgentsDir(agentsDir);
   const teamAgents = await scanTeamAgentDirs(rootDir);
 
   const map = new Map<string, CatalogAgent>();
-  for (const a of [...builtinAgents, ...teamAgents]) {
+  for (const a of teamAgents) {
     map.set(a.id, a);
     map.set(`name:${a.name.toLowerCase()}`, a);
   }

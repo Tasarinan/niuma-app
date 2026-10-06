@@ -1,12 +1,13 @@
 /**
- * Team roster lives at `.niuma/teams/<id>/config.yaml` (replaces TEAM.md).
- * The content team file also holds editorial fields that used to live in
- * `.aws-article/config.yaml`.
+ * Team roster lives at `.niuma/teams/<id>/config.yaml`.
+ * UI / workflow chrome lives at `.niuma/teams/<id>/presets/team.yaml`.
+ * Content editorial voice lives at `.niuma/teams/<id>/presets/editorial.yaml`.
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { editorialConfigRel } from "@/lib/content/roster-workflow";
 
-export const CONTENT_TEAM_CONFIG_REL = ".niuma/teams/content/config.yaml";
+export const CONTENT_TEAM_CONFIG_REL = editorialConfigRel("content");
 
 export interface ContentTeamManifest {
   id?: string;
@@ -21,10 +22,10 @@ export interface ContentTeamManifest {
   defaultAgent?: string;
   dataDomain?: string;
   surface?: string;
+  channelName?: string;
   agentFiles: string[];
+  defaultHired: string[];
   skillSlugs: string[];
-  legacyNames: string[];
-  legacyAgentFiles: string[];
   starterPrompts: string[];
 }
 
@@ -74,33 +75,37 @@ export function parseContentTeamManifest(raw: string): ContentTeamManifest {
     defaultAgent: meta.defaultAgent,
     dataDomain: meta.dataDomain,
     surface: meta.surface,
+    channelName: meta.channelName,
     agentFiles: parseYamlBlockList(raw, "agentFiles"),
+    defaultHired: parseYamlBlockList(raw, "defaultHired"),
     skillSlugs: parseYamlBlockList(raw, "skillSlugs"),
-    legacyNames: parseYamlBlockList(raw, "legacyNames"),
-    legacyAgentFiles: parseYamlBlockList(raw, "legacyAgentFiles"),
     starterPrompts: parseYamlBlockList(raw, "starterPrompts"),
   };
 }
 
-export function formatContentTeamConfigContext(raw: string): string {
+export function formatContentTeamConfigContext(raw: string, teamId?: string): string {
+  const id = teamId?.trim() || "content";
   const text = raw.trim();
+  const editorial = editorialConfigRel(id);
   return [
     "[内容团队配置]",
-    `path: ${CONTENT_TEAM_CONFIG_REL}`,
+    `path: ${editorial}`,
     "",
     "规则：",
-    "- 这是编辑部唯一配置。不要读 `.aws-article/config.yaml`，不要读 `aws.env` 里的 WRITING_MODEL / IMAGE_MODEL。",
+    `- 账号、文风、审稿规则在 \`${editorial}\`。不要读 \`.aws-article/config.yaml\`，不要读 \`aws.env\` 里的 WRITING_MODEL / IMAGE_MODEL。`,
+    `- 人员/技能/命令名录在 \`.niuma/teams/${id}/config.yaml\`。`,
     "- 不要创建 `.niuma-article/` 或新的 drafts 目录。审稿写当前稿同目录的 `review.md`。",
-    "- 本篇标题/作者/摘要只改 `.artifacts/drafts/<YYYYMMDD-主题>/article.yaml`。",
+    "- 本篇标题/作者/摘要只改 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/article.yaml`。",
     "- 写稿/配图走设置 → API 提供商。",
     "",
     text || "(配置文件为空)",
   ].join("\n");
 }
 
-export async function loadContentTeamConfigRaw(): Promise<string> {
+export async function loadContentTeamConfigRaw(teamId?: string): Promise<string> {
+  const id = teamId?.trim() || "content";
   const root = await invoke<string>("get_niuma_root_dir").catch(() => "");
   if (!root) return "";
-  const path = `${root.replace(/\\/g, "/")}/${CONTENT_TEAM_CONFIG_REL}`;
+  const path = `${root.replace(/\\/g, "/")}/${editorialConfigRel(id)}`;
   return invoke<string>("read_text_file", { path }).catch(() => "");
 }

@@ -1,4 +1,4 @@
-/** Search and download public web images for the 配图师. */
+/** Search and download public web images for the image-skill role. */
 
 export const MAX_WEB_IMAGE_BYTES = 8 * 1024 * 1024;
 const SEARCH_UA =

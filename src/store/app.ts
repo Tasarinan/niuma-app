@@ -9,7 +9,7 @@ import {
   DEFAULT_TRANSLATION_LANGUAGE,
 } from "@/config";
 import { getPlatform, safeLocalStorage, trackAppStart } from "@/lib";
-import { getShortcutsConfig } from "@/lib/storage";
+import { getShortcutsConfig, shouldSyncShortcutsFromWindow } from "@/lib/storage";
 import {
   getCustomizableState,
   setCustomizableState,
@@ -408,8 +408,10 @@ export function initAppStore(): void {
     await store.getActiveLicenseStatus();
     try {
       await invoke("set_license_status", { hasLicense: useAppStore.getState().hasActiveLicense });
-      const config = getShortcutsConfig();
-      await invoke("update_shortcuts", { config });
+      if (shouldSyncShortcutsFromWindow(getCurrentWindow().label)) {
+        const config = getShortcutsConfig();
+        await invoke("update_shortcuts", { config });
+      }
     } catch (error) {
       console.error("Failed to synchronize license state:", error);
     }

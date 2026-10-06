@@ -169,128 +169,79 @@ fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
     String::new()
 }
 
-/// Return the absolute path to `.niuma/commands`.
-#[tauri::command]
-fn get_niuma_commands_dir(app: tauri::AppHandle) -> String {
+fn yaml_scalar(raw: &str, key: &str) -> Option<String> {
+    let prefix = format!("{key}:");
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix(&prefix) {
+            let value = rest.trim().trim_matches('"').trim_matches('\'').trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn is_catalog_team_yaml(raw: &str) -> bool {
+    yaml_scalar(raw, "surface").as_deref() == Some("catalog")
+        || yaml_scalar(raw, "workbench").as_deref() == Some("false")
+}
+
+fn catalog_team_dir(root: &std::path::Path) -> Option<std::path::PathBuf> {
+    let teams = root.join(".niuma").join("teams");
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(&teams)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
+    dirs.sort();
+    for dir in dirs {
+        let Ok(raw) = std::fs::read_to_string(dir.join("config.yaml")) else {
+            continue;
+        };
+        if is_catalog_team_yaml(&raw) {
+            return Some(dir);
+        }
+    }
+    None
+}
+
+fn niuma_catalog_subdir(root: &str, sub: &str) -> Option<std::path::PathBuf> {
+    catalog_team_dir(std::path::Path::new(root)).map(|dir| dir.join(sub))
+}
+
+fn resolve_catalog_subdir(app: tauri::AppHandle, sub: &str) -> String {
     let root = get_niuma_root_dir(app);
     if root.is_empty() {
         return String::new();
     }
-    let candidate = std::path::PathBuf::from(root)
-        .join(".niuma")
-        .join("commands");
-    if candidate.exists() {
-        return candidate
-            .canonicalize()
-            .unwrap_or(candidate)
-            .to_string_lossy()
-            .to_string();
-    }
-    String::new()
+    let Some(dir) = niuma_catalog_subdir(&root, sub) else {
+        return String::new();
+    };
+    resolve_existing_dir(vec![dir])
 }
 
-/// Return the absolute path to `.niuma/agents`.
+/// Return the catalog pack's commands directory (`commandDir` team folder).
+#[tauri::command]
+fn get_niuma_commands_dir(app: tauri::AppHandle) -> String {
+    resolve_catalog_subdir(app, "commands")
+}
+
+/// Return the catalog pack's agents directory.
 #[tauri::command]
 fn get_niuma_agents_dir(app: tauri::AppHandle) -> String {
-    if let Some(configured) =
-        runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
-    {
-        let configured_path = std::path::PathBuf::from(configured);
-        let candidates = vec![
-            configured_path.join(".niuma").join("agents"),
-            configured_path.join("agents"),
-        ];
-        let resolved = resolve_existing_dir(candidates);
-        if !resolved.is_empty() {
-            return resolved;
-        }
-    }
-
-    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let dev_niuma_agents = manifest_dir.join("..").join(".niuma").join("agents");
-    if dev_niuma_agents.exists() {
-        return dev_niuma_agents
-            .canonicalize()
-            .unwrap_or(dev_niuma_agents)
-            .to_string_lossy()
-            .to_string();
-    }
-
-    if let Ok(cwd) = std::env::current_dir() {
-        let cwd_niuma_agents = cwd.join(".niuma").join("agents");
-        if cwd_niuma_agents.exists() {
-            return cwd_niuma_agents
-                .canonicalize()
-                .unwrap_or(cwd_niuma_agents)
-                .to_string_lossy()
-                .to_string();
-        }
-    }
-
-    if let Ok(res) = app.path().resource_dir() {
-        let res_niuma_agents = res.join(".niuma").join("agents");
-        if res_niuma_agents.exists() {
-            return res_niuma_agents
-                .canonicalize()
-                .unwrap_or(res_niuma_agents)
-                .to_string_lossy()
-                .to_string();
-        }
-    }
-
-    String::new()
+    resolve_catalog_subdir(app, "agents")
 }
 
-/// Return the absolute path to `.niuma/skills`.
+/// Return the catalog pack's skills directory.
 #[tauri::command]
 fn get_niuma_skills_dir(app: tauri::AppHandle) -> String {
-    if let Some(configured) =
-        runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
-    {
-        let configured_path = std::path::PathBuf::from(configured);
-        let candidates = vec![
-            configured_path.join(".niuma").join("skills"),
-            configured_path.join("skills"),
-        ];
-        let resolved = resolve_existing_dir(candidates);
-        if !resolved.is_empty() {
-            return resolved;
-        }
-    }
-
-    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let dev_niuma_skills = manifest_dir.join("..").join(".niuma").join("skills");
-    if dev_niuma_skills.exists() {
-        return dev_niuma_skills
-            .canonicalize()
-            .unwrap_or(dev_niuma_skills)
-            .to_string_lossy()
-            .to_string();
-    }
-
-    if let Ok(cwd) = std::env::current_dir() {
-        let cwd_niuma_skills = cwd.join(".niuma").join("skills");
-        if cwd_niuma_skills.exists() {
-            return cwd_niuma_skills
-                .canonicalize()
-                .unwrap_or(cwd_niuma_skills)
-                .to_string_lossy()
-                .to_string();
-        }
-    }
-
-    if let Ok(res) = app.path().resource_dir() {
-        let res_niuma_skills = res.join(".niuma").join("skills");
-        if res_niuma_skills.exists() {
-            return res_niuma_skills
-                .canonicalize()
-                .unwrap_or(res_niuma_skills)
-                .to_string_lossy()
-                .to_string();
-        }
-    }
-
-    String::new()
+    resolve_catalog_subdir(app, "skills")
 }
 
 /// Return candidate artifact directories.
@@ -319,11 +270,12 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
         }
     };
 
-    // Content team co-edit root: <niuma_root>/.artifacts/drafts
+    // Content team co-edit root: <niuma_root>/.niuma/artifacts/drafts
     let niuma_root = get_niuma_root_dir(app.clone());
     if !niuma_root.is_empty() {
         let drafts = std::path::PathBuf::from(&niuma_root)
-            .join(".artifacts")
+            .join(".niuma")
+            .join("artifacts")
             .join("drafts");
         let _ = std::fs::create_dir_all(&drafts);
         push_unique(&mut results, normalize(drafts));
@@ -337,31 +289,26 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
     }
 
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    push_if_exists(&mut results, manifest_dir.join("..").join("artifact"));
+    push_if_exists(
+        &mut results,
+        manifest_dir.join("..").join(".niuma").join("artifacts"),
+    );
 
     if let Ok(cwd) = std::env::current_dir() {
-        push_if_exists(&mut results, cwd.join("artifact"));
+        push_if_exists(&mut results, cwd.join(".niuma").join("artifacts"));
     }
 
     if let Ok(res) = app.path().resource_dir() {
-        push_if_exists(&mut results, res.join("artifact"));
-    }
-
-    push_if_exists(&mut results, manifest_dir.join("..").join("articles"));
-    if let Ok(cwd) = std::env::current_dir() {
-        push_if_exists(&mut results, cwd.join("articles"));
-    }
-    if let Ok(res) = app.path().resource_dir() {
-        push_if_exists(&mut results, res.join("articles"));
+        push_if_exists(&mut results, res.join(".niuma").join("artifacts"));
     }
 
     if let Ok(doc) = app.path().document_dir() {
-        push_if_exists(&mut results, doc.join("niuma").join("artifact"));
+        push_if_exists(&mut results, doc.join(".niuma").join("artifacts"));
     }
 
     if results.is_empty() {
         if let Ok(doc) = app.path().document_dir() {
-            let candidate = doc.join("niuma").join("artifact");
+            let candidate = doc.join(".niuma").join("artifacts");
             push_unique(&mut results, normalize(candidate));
         }
     }
@@ -486,6 +433,7 @@ pub fn run() {
             fs_tools::list_directory,
             fs_tools::remove_file,
             search_tools::search_local_files,
+            search_tools::quick_search_local,
             search_tools::web_search,
             http_tools::http_request,
             get_niuma_agents_dir,

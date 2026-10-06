@@ -792,7 +792,7 @@ function consolidateDraftImagesTool(deps: InternalToolDeps): AgentTool {
     parameters: Type.Object({
       goal: goalParam(),
       path: Type.String({
-        description: "Path to article.md or the draft folder under .artifacts/drafts/.",
+        description: "Path to article.md or the draft folder under .niuma/artifacts/drafts/.",
       }),
     }),
     execute: async (_id, params) => {
@@ -835,7 +835,7 @@ function openArticleTool(deps: InternalToolDeps): AgentTool {
     description:
       "Locate a confirmed draft Markdown file as the current manuscript. " +
       "Does not switch the workbench to 编辑 — the human clicks 编辑 to see it. " +
-      "Use after the 主理人 has created topic.md. Do not call during roundtable discussion " +
+      "Use after topic.md exists in the draft folder. Do not call during roundtable discussion " +
       "before the topic folder exists.",
     parameters: Type.Object({
       goal: goalParam(),

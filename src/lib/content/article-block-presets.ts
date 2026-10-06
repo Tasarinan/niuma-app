@@ -1,4 +1,6 @@
-export const ARTICLE_BLOCK_PRESET_DIR = ".niuma/teams/content/presets/article-blocks";
+import { articleBlockPresetDir } from "@/lib/content/roster-workflow";
+
+export const ARTICLE_BLOCK_PRESET_DIR = articleBlockPresetDir("content");
 export const ARTICLE_BLOCK_INDEX_REL = `${ARTICLE_BLOCK_PRESET_DIR}/index.yaml`;
 
 export type ArticleBlockPresetMeta = {

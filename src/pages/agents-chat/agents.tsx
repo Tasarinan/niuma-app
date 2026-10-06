@@ -1,7 +1,7 @@
 /**
  * Workstation › Agents (file-based)
  *
- * Full-width catalog grid loaded from `.niuma/agents/*.md`.
+ * Full-width catalog grid loaded from .niuma/teams/.../agents/ (including main).
  * Each card has a 雇佣 / 取消雇佣 toggle.
  * Hired agent files persisted in localStorage under "niuma-hired-agents"
  * (see @/lib/storage/hired-agents.storage.ts).

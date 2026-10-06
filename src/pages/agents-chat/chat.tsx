@@ -16,7 +16,7 @@
  *   Center – Window toolbar (对话/编辑 stays here). 对话 = messages; 编辑 = manuscript.
  *   Right  – Members (对话) or 稿件信息 + 配图 (编辑)
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, cloneElement, isValidElement, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -45,17 +45,25 @@ import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
 import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
 import { loadHiredAgentFiles, loadDisabledSkillSlugs } from "@/lib/storage";
 import { getImaKbConfig } from "@/lib/storage/ima.storage";
+import { safeLocalStorage } from "@/lib/storage";
+import { formatWebSearchHits, searchQueryFromComposerInput } from "@/lib/chat/composer-search";
+import { ComposerMicButton } from "./components/ComposerMicButton";
 import { normalizeTauriPath } from "@/lib/agent/tools/shared";
 import {
   ensureWorkbenchDefaultTeams,
   getWorkbenchTeamPreset,
-  getWorkbenchTeamPresetById,
   loadWorkbenchTeamPresets,
   syncWorkbenchTeamChannel,
   WORKBENCH_TEAM_PRESETS,
   type WorkbenchTeamAccent,
   type WorkbenchTeamPreset,
 } from "@/lib/agent/workbench-defaults";
+import { discoverCatalogTeamPresets } from "@/lib/agent/team-discovery";
+import { findRoleByCommand } from "@/lib/agent/team-manifest";
+import {
+  resolveContentRosterCopy,
+  resolveContentWorkflowCommands,
+} from "@/lib/content/roster-workflow";
 import {
   getSeedSlashCommands,
   getSlashArgumentCompletion,
@@ -63,6 +71,7 @@ import {
   parseSlashInvocation,
   parseSlashQuery,
   rankSlashCommands,
+  rankSlashSkills,
   resolveSlashInvocation,
   type SlashCommandDefinition,
 } from "@/lib/slash-commands";
@@ -88,7 +97,7 @@ import { requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-artic
 import { runImaApi } from "@/lib/functions/ima.api";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, SandboxMode } from "@/types";
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { MAX_FILES } from "@/config";
+import { MAX_FILES, STORAGE_KEYS } from "@/config";
 import {
   AtSign,
   BookOpen,
@@ -102,7 +111,6 @@ import {
   Maximize2,
   MessageSquarePlus,
   MessageSquareText,
-  Mic,
   MoreVertical,
   Trash2,
   Paperclip,
@@ -149,51 +157,6 @@ function isIconUrl(s: string) {
     s.startsWith("data:") ||
     s.includes("assets/")
   );
-}
-
-const HEALTH_AGENT_MARKERS = [
-  "心内科",
-  "心血管",
-  "会诊协调",
-  "皮肤科",
-  "内分泌",
-  "消化科",
-  "全科",
-  "老年科",
-  "妇科",
-  "血液科",
-  "肾内科",
-  "神经内科",
-  "肿瘤科",
-  "骨科",
-  "儿科",
-  "精神科",
-  "心理科",
-  "呼吸科",
-  "泌尿科",
-  "cardiology",
-  "consultation",
-  "dermatology",
-  "endocrinology",
-  "gastroenterology",
-  "general",
-  "geriatrics",
-  "gynecology",
-  "hematology",
-  "nephrology",
-  "neurology",
-  "oncology",
-  "orthopedics",
-  "pediatrics",
-  "psychiatry",
-  "respiratory",
-  "urology",
-];
-
-function looksLikeHealthAgent(agent: Pick<AgentDefinition, "name" | "role"> | null | undefined) {
-  if (!agent) return false;
-  const text = `${agent.name} ${agent.role ?? ""}`.toLowerCase();
-  return HEALTH_AGENT_MARKERS.some((marker) => text.includes(marker.toLowerCase()));
 }
 
 function AvatarTile({
@@ -790,9 +753,14 @@ export default function ChatPage({
   const [showMembers, setShowMembers] = useState(false);
   const [meetingParticipants, setMeetingParticipants] = useState<MeetingParticipant[]>([]);
   const meetingAssignSpeakerRef = useRef<(speakerId: string, label: string, profileId?: string) => void>(() => {});
-  const [imaEnabled, setImaEnabled] = useState(false);
-  const [webEnabled, setWebEnabled] = useState(false);
+  const [imaEnabled, setImaEnabled] = useState(
+    () => safeLocalStorage.getItem(STORAGE_KEYS.CHAT_COMPOSER_IMA) === "true"
+  );
+  const [webEnabled, setWebEnabled] = useState(
+    () => safeLocalStorage.getItem(STORAGE_KEYS.CHAT_COMPOSER_WEB) === "true"
+  );
   const [isAugmenting, setIsAugmenting] = useState(false);
+  const [composerHint, setComposerHint] = useState<string | null>(null);
   const [workbenchTeamPresets, setWorkbenchTeamPresets] = useState(() => WORKBENCH_TEAM_PRESETS);
   const defaultTeamsSeedStartedRef = useRef(false);
   const activeTeamSyncKeyRef = useRef("");
@@ -808,19 +776,27 @@ export default function ChatPage({
     [agents]
   );
   const activeTeamPreset = useMemo(
-    () => {
-      const preset = getWorkbenchTeamPreset(activeChannel, workbenchTeamPresets);
-      if (preset) return preset;
-
-      const channelAgents = activeChannel?.agentIds.map((id) => agentMap[id]).filter(Boolean) ?? [];
-      return channelAgents.some(looksLikeHealthAgent)
-        ? getWorkbenchTeamPresetById("health", workbenchTeamPresets)
-        : null;
-    },
-    [activeChannel, agentMap, workbenchTeamPresets],
+    () => getWorkbenchTeamPreset(activeChannel, workbenchTeamPresets),
+    [activeChannel, workbenchTeamPresets],
   );
   const activeTeamStyle = activeTeamPreset ? TEAM_STYLES[activeTeamPreset.accent] : null;
-  const isHealthChannel = activeTeamPreset?.id === "health";
+  const isHealthChannel = activeTeamPreset?.dataDomain === "healthbook";
+  const workflowCommands = useMemo(
+    () =>
+      resolveContentWorkflowCommands(
+        activeTeamPreset?.roles ?? [],
+        activeTeamPreset?.defaultCommand,
+      ),
+    [activeTeamPreset],
+  );
+  const rosterCopy = useMemo(
+    () =>
+      resolveContentRosterCopy(activeTeamPreset?.roles ?? [], {
+        defaultAgent: activeTeamPreset?.defaultAgent,
+        defaultCommand: activeTeamPreset?.defaultCommand,
+      }),
+    [activeTeamPreset],
+  );
   const activeAgents = useMemo<MemberDisplayAgent[]>(() => {
     return activeChannel?.agentIds.map((id) => {
       const agent = agentMap[id];
@@ -844,9 +820,7 @@ export default function ChatPage({
     async (channel: GroupChannel) => {
       const presets = await loadWorkbenchTeamPresets();
       setWorkbenchTeamPresets(presets);
-      const channelAgents = channel.agentIds.map((id) => agentMap[id]).filter(Boolean);
-      const preset = getWorkbenchTeamPreset(channel, presets)
-        ?? (channelAgents.some(looksLikeHealthAgent) ? getWorkbenchTeamPresetById("health", presets) : null);
+      const preset = getWorkbenchTeamPreset(channel, presets);
       if (!preset) return;
 
       activeTeamSyncKeyRef.current = "";
@@ -859,7 +833,7 @@ export default function ChatPage({
         refreshAgents,
       });
     },
-    [agentMap, createAgent, updateAgent, hookEditChannel, refreshAgents],
+    [createAgent, updateAgent, hookEditChannel, refreshAgents],
   );
 
   const activateChannel = useCallback(
@@ -916,7 +890,6 @@ export default function ChatPage({
       activeTeamPreset.kind,
       activeTeamPreset.commandDir ?? "",
       activeTeamPreset.agentFiles.join(","),
-      (activeTeamPreset.legacyAgentFiles ?? []).join(","),
       activeTeamPreset.skillSlugs.join(","),
       activeChannel.agentIds.join(","),
     ].join(":");
@@ -1004,6 +977,17 @@ export default function ChatPage({
         : rankSlashCommands(slashCommands, slashQuery),
     [slashCommands, slashQuery]
   );
+  const slashSkillSuggestions = useMemo(() => {
+    if (slashQuery === null) return [];
+    const disabledSlugs = loadDisabledSkillSlugs();
+    const enabled = niumaSkills.filter(
+      (skill) => skill.enabled !== false && !disabledSlugs.has(skill.slug),
+    );
+    return rankSlashSkills(enabled, slashQuery, {
+      teamSlugs: activeTeamPreset?.skillSlugs,
+      excludeCommands: slashCommandSuggestions.map((command) => command.name),
+    });
+  }, [activeTeamPreset?.skillSlugs, niumaSkills, slashCommandSuggestions, slashQuery]);
   const slashArgumentCompletion = useMemo(
     () => getSlashArgumentCompletion(input, slashCommands),
     [input, slashCommands]
@@ -1030,7 +1014,10 @@ export default function ChatPage({
   }, [niumaSkills, skillsQuery]);
 
   const isCommandMenuOpen =
-    !slashMenuDismissed && slashQuery !== null && skillsQuery === null && slashCommandSuggestions.length > 0;
+    !slashMenuDismissed &&
+    slashQuery !== null &&
+    skillsQuery === null &&
+    (slashCommandSuggestions.length > 0 || slashSkillSuggestions.length > 0);
   const isArgumentMenuOpen =
     !slashMenuDismissed &&
     slashArgumentCompletion !== null &&
@@ -1214,13 +1201,12 @@ export default function ChatPage({
   };
 
   const searchWeb = async (query: string): Promise<string> => {
-    const skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
-    const sep = skillsDir.includes("/") ? "/" : "\\";
-    const skillDir = `${skillsDir}${sep}web-access`;
-
     // Detect Xiaohongshu intent → route to xiaohongshu_search.mjs (requires CDP)
     const isXhsQuery = /小红书|xhs|xiaohongshu/i.test(query);
     if (isXhsQuery) {
+      const skillsDir = normalizeTauriPath(await invoke<string>("get_niuma_skills_dir"));
+      const sep = skillsDir.includes("/") ? "/" : "\\";
+      const skillDir = `${skillsDir}${sep}web-access`;
       // Extract keywords: strip "小红书上" / "小红书" / "调研" etc., keep subject nouns
       const keywords = query
         .replace(/调研|小红书(?:上)?|风评|口碑|评价|评论|怎么样|怎样|如何|搜索|查询|找|看看/g, " ")
@@ -1255,28 +1241,12 @@ export default function ChatPage({
       return sections.join("\n\n");
     }
 
-    // Default: Bing general web search
-    const result = await invoke<SandboxRunResponse>("run_sandboxed_command", {
-      req: {
-        command: "node",
-        args: [`scripts${sep}web_search.mjs`, query, "6"],
-        cwd: skillDir,
-        sandboxMode: "read-only",
-        timeoutMs: 30000,
-      },
-    });
-    if (result.timedOut) throw new Error("Web 搜索超时");
-    if (result.exitCode !== 0) {
-      const stderr = result.stderr.trim();
-      let msg = "";
-      try { msg = (JSON.parse(stderr) as { msg?: string }).msg ?? ""; } catch { msg = ""; }
-      throw new Error(msg || stderr || result.stdout.trim() || "Web 搜索失败");
-    }
-    interface WebSearchItem { title: string; url: string; snippet: string }
-    const parsed = JSON.parse(result.stdout || "{}") as { results?: WebSearchItem[] };
-    return (parsed.results ?? [])
-      .map((r, i) => `${i + 1}. ${r.title}${r.snippet ? `\n   ${r.snippet}` : ""}\n   ${r.url}`)
-      .join("\n\n");
+    // Default: in-app DuckDuckGo search (no Node sandbox / skill scripts)
+    const res = await invoke<{ results?: Array<{ title: string; url: string; snippet: string }> }>(
+      "web_search",
+      { req: { query, maxResults: 6 } }
+    );
+    return formatWebSearchHits(res.results ?? []);
   };
 
   const gatherImaResults = async (query: string): Promise<string> => {
@@ -1331,6 +1301,7 @@ export default function ChatPage({
     setInput("");
     setAttachedImages([]);
     setSlashMenuDismissed(true);
+    setComposerHint(null);
 
     let agentInput = resolution?.kind === "prompt" ? resolution.text : text;
     // Visible bubble stays as the user's typed text. Hidden draft/platform
@@ -1343,9 +1314,9 @@ export default function ChatPage({
 
     const _slashForRouting = parseSlashInvocation(text);
     const _articleDraftWorkflow = _slashForRouting
-      ? resolveArticleDraftWorkflow(_slashForRouting.command, _slashForRouting.args)
+      ? resolveArticleDraftWorkflow(_slashForRouting.command, _slashForRouting.args, workflowCommands)
       : null;
-    if (_slashForRouting && isArticleEditUiCommand(_slashForRouting.command, _slashForRouting.args)) {
+    if (_slashForRouting && isArticleEditUiCommand(_slashForRouting.command, _slashForRouting.args, workflowCommands)) {
       let path = openFilePath || readLastOpenDraftPath();
       if (!path) {
         try {
@@ -1361,13 +1332,22 @@ export default function ChatPage({
       activateEditor();
       return;
     }
-    const publishRequested = isAssistantPublishRequest(text);
+    const publishRequested = isAssistantPublishRequest(text, workflowCommands);
     const commandAgentNames: string[] | undefined = (() => {
+      const roles = activeTeamPreset?.roles ?? [];
       if (_slashForRouting) {
         const cmd = slashCommands.find((c) => c.name === _slashForRouting.command);
+        const role = findRoleByCommand(roles, _slashForRouting.command);
+        if (role) return [role.name];
         if (cmd?.agent) return [cmd.agent];
       }
-      if (publishRequested) return ["发行"];
+      if (publishRequested) {
+        const outlet = [...workflowCommands.publish, ...workflowCommands.format, ...workflowCommands.image];
+        for (const name of outlet) {
+          const role = findRoleByCommand(roles, name);
+          if (role) return [role.name];
+        }
+      }
       return undefined;
     })();
 
@@ -1401,15 +1381,15 @@ export default function ChatPage({
         }
         try {
           const drafts = await loadUnpublishedDrafts();
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, topicQuery, "create")}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, topicQuery, "create", rosterCopy)}`;
         } catch (err) {
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], topicQuery, "create")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], topicQuery, "create", rosterCopy)}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
         }
         try {
-          const configRaw = await loadContentTeamConfigRaw();
-          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext(configRaw)}`;
+          const configRaw = await loadContentTeamConfigRaw(activeTeamPreset?.id);
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext(configRaw, activeTeamPreset?.id)}`;
         } catch (err) {
-          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext("")}\n- 读取团队配置失败：${err instanceof Error ? err.message : String(err)}`;
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext("", activeTeamPreset?.id)}\n- 读取团队配置失败：${err instanceof Error ? err.message : String(err)}`;
         }
       } finally {
         setIsAugmenting(false);
@@ -1422,15 +1402,15 @@ export default function ChatPage({
       try {
         try {
           const drafts = await loadUnpublishedDrafts();
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, whichQuery, "continue")}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext(drafts, whichQuery, "continue", rosterCopy)}`;
         } catch (err) {
-          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], whichQuery, "continue")}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
+          agentInput = `${agentInput}\n\n${formatUnpublishedDraftsContext([], whichQuery, "continue", rosterCopy)}\n- 列举草稿失败：${err instanceof Error ? err.message : String(err)}`;
         }
         try {
-          const configRaw = await loadContentTeamConfigRaw();
-          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext(configRaw)}`;
+          const configRaw = await loadContentTeamConfigRaw(activeTeamPreset?.id);
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext(configRaw, activeTeamPreset?.id)}`;
         } catch (err) {
-          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext("")}\n- 读取团队配置失败：${err instanceof Error ? err.message : String(err)}`;
+          agentInput = `${agentInput}\n\n${formatContentTeamConfigContext("", activeTeamPreset?.id)}\n- 读取团队配置失败：${err instanceof Error ? err.message : String(err)}`;
         }
       } finally {
         setIsAugmenting(false);
@@ -1439,14 +1419,14 @@ export default function ChatPage({
 
     if (
       _slashForRouting &&
-      (isFormatCommand(_slashForRouting.command) ||
-        isPublishWorkflowCommand(_slashForRouting.command) ||
-        isImageCommand(_slashForRouting.command))
+      (isFormatCommand(_slashForRouting.command, workflowCommands) ||
+        isPublishWorkflowCommand(_slashForRouting.command, workflowCommands) ||
+        isImageCommand(_slashForRouting.command, workflowCommands))
     ) {
       const { platform, rest } = splitPlatformAndRest(_slashForRouting.args);
-      const isFormat = isFormatCommand(_slashForRouting.command);
-      const isImage = isImageCommand(_slashForRouting.command);
-      const isPublish = isPublishWorkflowCommand(_slashForRouting.command);
+      const isFormat = isFormatCommand(_slashForRouting.command, workflowCommands);
+      const isImage = isImageCommand(_slashForRouting.command, workflowCommands);
+      const isPublish = isPublishWorkflowCommand(_slashForRouting.command, workflowCommands);
       agentInput = [
         agentInput,
         "",
@@ -1480,7 +1460,7 @@ export default function ChatPage({
     }
 
     const injectWechatSlots =
-      (_slashForRouting && shouldInjectWechatSlots(_slashForRouting.command, _slashForRouting.args))
+      (_slashForRouting && shouldInjectWechatSlots(_slashForRouting.command, _slashForRouting.args, workflowCommands))
       || (!_slashForRouting && /(发到公众号|推送到公众号|发布到微信)/i.test(text));
     if (injectWechatSlots) {
       setIsAugmenting(true);
@@ -1488,14 +1468,14 @@ export default function ChatPage({
         const pack = await loadWechatReadyPack({
           args: _slashForRouting ? splitPlatformAndRest(_slashForRouting.args).rest : "",
         });
-        agentInput = `${agentInput}\n\n${formatReadyWechatContext(pack)}`;
+        agentInput = `${agentInput}\n\n${formatReadyWechatContext(pack, rosterCopy)}`;
       } catch (err) {
         agentInput = `${agentInput}\n\n${formatReadyWechatContext({
           status: "error",
           slots: [],
           sources: [],
           errors: [err instanceof Error ? err.message : String(err)],
-        })}`;
+        }, rosterCopy)}`;
       } finally {
         setIsAugmenting(false);
       }
@@ -1535,36 +1515,37 @@ export default function ChatPage({
     }
 
     // Augment with web/IMA search results when toggles are on
-    if ((webEnabled || imaEnabled) && agentInput.trim()) {
+    const searchQuery = searchQueryFromComposerInput(text);
+    if ((webEnabled || imaEnabled) && searchQuery) {
       setIsAugmenting(true);
-      const parts: string[] = [];
       const searchDate = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
       try {
-        if (webEnabled) {
-          try {
-            const webResults = await searchWeb(text);
-            if (webResults.trim()) {
-              parts.push(`[实时网络搜索结果 · ${searchDate}]\n请优先参考以下搜索结果回答用户问题，这是最新的网络信息：\n\n${webResults}`);
-            }
-          } catch (e) {
-            parts.push(`[Web 搜索失败: ${compactImaError(e)}]`);
-          }
-        }
-        if (imaEnabled && _articleDraftWorkflow?.intent !== "create") {
-          try {
-            const imaResults = await gatherImaResults(text);
-            if (imaResults.trim()) {
-              parts.push(
-                `[IMA 文章资产参考内容]\n请优先参考以下文章资料回答，并在回复中标注「《文章标题》 \u00b7 IMA文章资产」格式的来源：\n\n${imaResults}`
-              );
-            }
-          } catch (e) {
-            parts.push(`[Ima 搜索失败: ${compactImaError(e)}]`);
-          }
-        }
+        const [webPart, imaPart] = await Promise.all([
+          webEnabled
+            ? searchWeb(searchQuery)
+                .then((webResults) =>
+                  webResults.trim()
+                    ? `[实时网络搜索结果 · ${searchDate}]\n请优先参考以下搜索结果回答用户问题，这是最新的网络信息：\n\n${webResults}`
+                    : ""
+                )
+                .catch((e) => `[Web 搜索失败: ${compactImaError(e)}]`)
+            : Promise.resolve(""),
+          imaEnabled && _articleDraftWorkflow?.intent !== "create"
+            ? gatherImaResults(searchQuery)
+                .then((imaResults) =>
+                  imaResults.trim()
+                    ? `[IMA 文章资产参考内容]\n请优先参考以下文章资料回答，并在回复中标注「《文章标题》 · IMA文章资产」格式的来源：\n\n${imaResults}`
+                    : ""
+                )
+                .catch((e) => `[Ima 搜索失败: ${compactImaError(e)}]`)
+            : Promise.resolve(""),
+        ]);
+        const parts = [webPart, imaPart].filter(Boolean);
         if (parts.length > 0) {
           agentInput = `${agentInput}\n\n${parts.join("\n\n")}`;
         }
+        const failures = parts.filter((p) => p.startsWith("[Web 搜索失败") || p.startsWith("[Ima 搜索失败"));
+        setComposerHint(failures.length ? failures.map((p) => p.replace(/^\[|\]$/g, "")).join("；") : null);
       } finally {
         setIsAugmenting(false);
       }
@@ -1646,26 +1627,38 @@ export default function ChatPage({
   );
 
   /**
-   * Finds (or lazily creates) the single-agent "main chat" channel used by the
-   * main toolbar's "Ask me anything" input, and sends `text` into it.
-  * Default agent = the built-in "Assistant" (assistant.md), falling back
-   * to the first hired agent, then the first catalog agent, if it's missing.
+   * Finds (or lazily creates) the toolbar "main chat" channel and sends `text`.
+   * Default sit-in, channel name, and team id come from the catalog pack
+   * (`surface: catalog` in `.niuma/teams/<id>/config.yaml`).
    */
   const ensureMainChannelAndSend = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
-      const mainName = t("chatPage.mainChannelName");
-      let channel = channels.find((c) => c.name === mainName);
+      const catalogPacks = await discoverCatalogTeamPresets();
+      const catalogPreset = catalogPacks[0];
+      const configuredName = catalogPreset?.channelName?.trim();
+      const i18nName = t("chatPage.mainChannelName");
+      const mainName = configuredName || i18nName;
+      let channel = channels.find((c) => c.name === mainName)
+        || (configuredName && configuredName !== i18nName
+          ? channels.find((c) => c.name === i18nName)
+          : undefined)
+        || (catalogPreset ? channels.find((c) => c.teamId === catalogPreset.id) : undefined);
 
       if (!channel) {
         const hiredSet = loadHiredAgentFiles();
         const all = await loadAgentCatalog();
         const hired = all.filter((a) => hiredSet.has(a.file));
-        // Default agent for the main chat is always the built-in "Assistant"
-        // (general Q&A + local/web search), regardless of what's hired.
-        const defaultAgent = all.find((a) => a.file === "assistant.md");
+        const defaultFile = catalogPreset?.defaultAgent?.trim();
+        const teamAgentSuffix = defaultFile && catalogPreset
+          ? `/.niuma/teams/${catalogPreset.id}/agents/${defaultFile}`.replace(/\\/g, "/")
+          : "";
+        const defaultAgent = defaultFile
+          ? all.find((a) => a.file === defaultFile && a.sourcePath.replace(/\\/g, "/").endsWith(teamAgentSuffix))
+            ?? all.find((a) => a.file === defaultFile)
+          : undefined;
         const candidate = defaultAgent ?? hired[0] ?? all[0];
 
         const agentIds: string[] = [];
@@ -1673,7 +1666,14 @@ export default function ChatPage({
           const id = await bridgeCatalogAgent(candidate, agents, createAgent);
           agentIds.push(id);
         }
-        channel = createChannel(mainName, agentIds, randomIcon(), "chat");
+        channel = createChannel(
+          mainName,
+          agentIds,
+          catalogPreset?.avatar || randomIcon(),
+          catalogPreset?.kind ?? "chat",
+          undefined,
+          catalogPreset?.id,
+        );
       } else {
         selectChannel(channel.id);
       }
@@ -1757,7 +1757,7 @@ export default function ChatPage({
           style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
         >
           <div className="flex min-w-0 items-center gap-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-            {activeTeamPreset?.id === "content" && (
+            {activeTeamPreset?.workspaceRoot && (
             <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
               <button
                 type="button"
@@ -1906,7 +1906,13 @@ export default function ChatPage({
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className={cn("min-h-0 min-w-0 flex-1", sidecar ? "flex" : "hidden")}>
-            {children}
+            {isValidElement(children)
+              ? cloneElement(children, {
+                  teamId: activeTeamPreset?.id,
+                  roles: activeTeamPreset?.roles,
+                  rosterCopy,
+                } as never)
+              : children}
           </div>
           <div
             className={cn(
@@ -2081,7 +2087,11 @@ export default function ChatPage({
                         <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
                           <span>
                             {isCommandMenuOpen
-                              ? "Command"
+                              ? slashCommandSuggestions.length > 0 && slashSkillSuggestions.length > 0
+                                ? "Command / Skills"
+                                : slashSkillSuggestions.length > 0
+                                  ? "Skills"
+                                  : "Command"
                               : slashArgumentCompletion
                                 ? `${slashArgumentCompletion.argument.required ? "Required" : "Optional"} · ${slashArgumentCompletion.argument.name}`
                                 : "Argument"}
@@ -2135,7 +2145,9 @@ export default function ChatPage({
                               {skill.category && <span className="mt-0.5 block text-[9px] uppercase text-slate-300">{skill.category}</span>}
                             </span>
                           </button>
-                        )) : isCommandMenuOpen ? slashCommandSuggestions.map((command, idx) => (
+                        )) : isCommandMenuOpen ? (
+                          <>
+                            {slashCommandSuggestions.map((command, idx) => (
                           <button
                             key={command.name}
                             type="button"
@@ -2158,7 +2170,35 @@ export default function ChatPage({
                               <span className="mt-0.5 block text-[9px] uppercase text-slate-300">{command.sourceLabel}</span>
                             </span>
                           </button>
-                        )) : slashArgumentCompletion?.choices.map((choice, idx) => (
+                            ))}
+                            {slashSkillSuggestions.map((skill, idx) => {
+                              const index = slashCommandSuggestions.length + idx;
+                              return (
+                          <button
+                            key={skill.slug}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); selectSkillFromPicker(skill); }}
+                            className={cn(
+                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                              index === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
+                            )}
+                          >
+                            <span className="min-w-0 flex items-center gap-1.5">
+                              {skill.icon && <span className="text-sm leading-none">{skill.icon}</span>}
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium text-slate-800">{skill.name}</span>
+                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">/{skill.command}</span>
+                              </span>
+                            </span>
+                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
+                              <span className="line-clamp-2">{skill.description || "No description"}</span>
+                              <span className="mt-0.5 block text-[9px] uppercase text-slate-300">skill</span>
+                            </span>
+                          </button>
+                              );
+                            })}
+                          </>
+                        ) : slashArgumentCompletion?.choices.map((choice, idx) => (
                           <button
                             key={choice.value}
                             type="button"
@@ -2246,7 +2286,7 @@ export default function ChatPage({
                               const suggestionCount = isSkillPickerOpen
                                 ? skillPickerItems.length
                                 : isCommandMenuOpen
-                                  ? slashCommandSuggestions.length
+                                  ? slashCommandSuggestions.length + slashSkillSuggestions.length
                                   : slashArgumentCompletion?.choices.length ?? 0;
                               if (e.key === "ArrowDown") {
                                 e.preventDefault();
@@ -2268,7 +2308,12 @@ export default function ChatPage({
                                 if (isSkillPickerOpen && skillPickerItems[slashMenuIndex]) {
                                   selectSkillFromPicker(skillPickerItems[slashMenuIndex]);
                                 } else if (isCommandMenuOpen) {
-                                  selectSlashCommand(slashCommandSuggestions[slashMenuIndex]);
+                                  if (slashMenuIndex < slashCommandSuggestions.length) {
+                                    selectSlashCommand(slashCommandSuggestions[slashMenuIndex]);
+                                  } else {
+                                    const skill = slashSkillSuggestions[slashMenuIndex - slashCommandSuggestions.length];
+                                    if (skill) selectSkillFromPicker(skill);
+                                  }
                                 } else if (slashArgumentCompletion) {
                                   selectSlashArgument(
                                     slashArgumentCompletion.choices[slashMenuIndex].value
@@ -2293,7 +2338,16 @@ export default function ChatPage({
                         />
                         <button
                           type="button"
-                          onClick={() => setImaEnabled((v) => !v)}
+                          onClick={() => {
+                            const next = !imaEnabled;
+                            setImaEnabled(next);
+                            safeLocalStorage.setItem(STORAGE_KEYS.CHAT_COMPOSER_IMA, String(next));
+                            setComposerHint(
+                              next && !getImaKbConfig().kbId.trim()
+                                ? "未配置文章资产知识库，将搜索全部可访问 IMA 知识库"
+                                : null
+                            );
+                          }}
                           disabled={isAugmenting}
                           title={imaEnabled ? "禁用 Ima 知识库" : "启用 Ima 知识库"}
                           className={cn(
@@ -2308,7 +2362,11 @@ export default function ChatPage({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setWebEnabled((v) => !v)}
+                          onClick={() => {
+                            const next = !webEnabled;
+                            setWebEnabled(next);
+                            safeLocalStorage.setItem(STORAGE_KEYS.CHAT_COMPOSER_WEB, String(next));
+                          }}
                           disabled={isAugmenting}
                           title={webEnabled ? "禁用网络搜索" : "启用网络搜索"}
                           className={cn(
@@ -2320,13 +2378,20 @@ export default function ChatPage({
                         >
                           {isAugmenting && webEnabled ? <Loader2 className="size-4 animate-spin" /> : <Globe2 className="size-4" />}
                         </button>
-                        <button
-                          type="button"
-                          title="Mic"
-                          className="flex size-8 flex-shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                        >
-                          <Mic className="size-4" />
-                        </button>
+                        <ComposerMicButton
+                          onTranscript={(speech) => {
+                            const piece = speech.trim();
+                            if (!piece) return;
+                            setInput((prev) => {
+                              const prefix = prev.trimEnd();
+                              return prefix ? `${prefix} ${piece}` : piece;
+                            });
+                            setComposerHint(null);
+                          }}
+                          onError={(error) => {
+                            setComposerHint(compactImaError(error));
+                          }}
+                        />
                         {isSending ? (
                           <button
                             type="button"
@@ -2349,6 +2414,9 @@ export default function ChatPage({
                           </button>
                         )}
                       </div>
+                      {composerHint ? (
+                        <p className="px-1 pt-1.5 text-[11px] leading-4 text-amber-600">{composerHint}</p>
+                      ) : null}
 
             </div>
           </div>

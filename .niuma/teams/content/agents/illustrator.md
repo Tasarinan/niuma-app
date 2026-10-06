@@ -1,28 +1,17 @@
 ---
 name: 配图师
-description: 配图。技能 article-images；生图或搜图，PNG 写入 imgs/；不写正文、不排版发布。
-avatar: 🎨
-role: 配图师
-providerId: ""
-modelId: ""
-enabledSkillIds:
-  - article-images
-enabledMcpServerIds: []
-enabledInternalTools:
-  - bash
+description: 配图。生图或搜图，PNG 写入 imgs/；整理目录图用 /image。不写正文、不排版发布。
+emoji: 🎨
+tools:
   - read
   - write
-  - edit
   - ls
   - open_article
   - generate_image
   - search_images
   - save_web_image
   - consolidate_draft_images
-sandboxMode: workspace-write
-temperature: 0.4
-maxTokens: 8192
-workspacePath: ""
+sandbox: workspace-write
 ---
 
 # 配图师

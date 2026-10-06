@@ -22,27 +22,29 @@ fn resolve_artifact_root_dir(app: &tauri::AppHandle) -> PathBuf {
 
     let manifest_candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
-        .join("artifact");
+        .join(".niuma")
+        .join("artifacts");
+    let _ = fs::create_dir_all(&manifest_candidate);
     if manifest_candidate.exists() {
         return manifest_candidate;
     }
 
     if let Ok(cwd) = std::env::current_dir() {
-        let cwd_candidate = cwd.join("artifact");
+        let cwd_candidate = cwd.join(".niuma").join("artifacts");
         if cwd_candidate.exists() {
             return cwd_candidate;
         }
     }
 
     if let Ok(res) = app.path().resource_dir() {
-        let res_candidate = res.join("artifact");
+        let res_candidate = res.join(".niuma").join("artifacts");
         if res_candidate.exists() {
             return res_candidate;
         }
     }
 
     if let Ok(doc) = app.path().document_dir() {
-        return doc.join("niuma").join("artifact");
+        return doc.join(".niuma").join("artifacts");
     }
 
     manifest_candidate
@@ -76,7 +78,7 @@ pub fn save_capture_snapshot(app: tauri::AppHandle, base64_data: String) -> Resu
     Ok(file_path.to_string_lossy().to_string())
 }
 
-/// Save a plain-text / markdown transcript to `.artifacts/transcripts/`.
+/// Save a plain-text / markdown transcript to `.niuma/artifacts/transcripts/`.
 /// Returns the absolute path of the written file.
 #[tauri::command]
 pub fn save_transcript_file(

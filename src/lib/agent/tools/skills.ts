@@ -12,7 +12,7 @@ import type { Static, TSchema } from "@earendil-works/pi-ai";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Skill } from "@/types";
 import { invoke, text, normalizeTauriPath } from "./shared";
-import { canonicalNiumaSkillSlug, expandNiumaSkillSlug } from "../skill-slugs";
+import { canonicalNiumaSkillSlug } from "../skill-slugs";
 
 /** Identity helper that preserves TypeBox param inference for `execute`. */
 function defineTool<P extends TSchema>(def: {
@@ -61,7 +61,7 @@ export function formatSkillsPrompt(skills: Skill[]): string {
       "If a source image is not PNG, convert it to imgs/<name>.png first. WeChat 公众号 does not accept jfif/webp. " +
       "Do not run image_create.py and do not use IMAGE_MODEL_API_KEY.",
     "IMPORTANT: Never call `bash` to run a skill's node/python script. Always use `run_skill`.",
-    "When speaking to the user, name the skill you are using (canonical ids like article-main / article-writing / article-formatting-wechat; never aws-wechat-*). Do not list files you read or wrote.",
+    "When speaking to the user, name the skill you are using. Do not list files you read or wrote.",
     items,
     "</available_skills>",
   ].join("\n");
@@ -76,10 +76,6 @@ export function buildLoadSkillTool(skills: Skill[]): AgentTool {
     const keys = new Set<string>();
     for (const key of [s.id, s.name, s.source, canonical]) {
       if (key) keys.add(key);
-    }
-    for (const alias of expandNiumaSkillSlug(canonical)) keys.add(alias);
-    if (s.source) {
-      for (const alias of expandNiumaSkillSlug(s.source)) keys.add(alias);
     }
     for (const key of keys) byName.set(key, skill);
   }

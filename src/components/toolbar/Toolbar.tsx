@@ -30,8 +30,6 @@ import {
 import { MAX_FILES } from "@/config";
 import { useQuickSearch } from "@/hooks/useQuickSearch";
 import { QuickSearchPanel } from "./QuickSearchPanel";
-import { getActiveProvider } from "@/lib/providers/storage";
-import { getProvider } from "@/lib/providers/registry";
 import { usePomodoroTimer, type PomodoroRound } from "@/hooks/usePomodoroTimer";
 
 // Toolbar strip height in logical pixels (matches tauri.conf.json initial height)
@@ -143,18 +141,10 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
         return;
       }
 
-      // Non-empty, non-slash:
-      // • Web zero-token active → quick search panel (inline AI summary)
-      // • API provider or no provider → forward to agent-chat channel
+      // Plain text: gather local excerpts and web links, then summarize with zero-web AI.
       e.preventDefault();
       completion.setInput("");
-      const activeStored = getActiveProvider();
-      const activeDef = activeStored ? getProvider(activeStored.providerId) : null;
-      if (activeDef?.type === "web") {
-        void qs.runSearch(text);
-      } else {
-        void completion.sendToMainChat(text);
-      }
+      void qs.runSearch(text);
     },
     [completion, qs]
   );
@@ -334,7 +324,8 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
         isOpen={qs.isOpen}
         query={qs.query}
         localResults={qs.localResults}
-        webResults={qs.webResults}
+        imaResults={qs.imaResults}
+        imaHint={qs.imaHint}
         aiSummary={qs.aiSummary}
         status={qs.status}
         error={qs.error}
