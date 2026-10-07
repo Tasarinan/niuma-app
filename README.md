@@ -19,7 +19,7 @@ In Chinese workplaces, people often call themselves **牛马** (*niuma*) — a w
 
 ## Default teams
 
-On first launch the app provisions four channels from `.niuma/teams/`. Each team has its own agents, slash commands, and skills. Extra team folders are discovered automatically.
+On first launch the app provisions four channels from `.teams/`. Each team has its own agents, slash commands, and skills. Extra team folders are discovered automatically.
 
 
 | Team        | What you ask them to do                                            | Default roles                                                              |
@@ -46,7 +46,7 @@ A separate **floating workbench** (`/agent-chat`) holds the team channels: conve
 
 Teams run as group channels. You send a message or a `/command`; the matching agents respond with their roles and skills. Agents can be hired from a catalog. Skills are Markdown `SKILL.md` files, loaded on demand with `load_skill`. MCP servers are supported.
 
-To add a team, put `config.yaml`, `agents/`, `commands/`, and `skills/` under `.niuma/teams/<slug>/`. The app picks them up and syncs them into the workbench.
+To add a team, put `team.yaml`, `agents/`, `commands/`, and `skills/` under `.teams/<slug>/`. Seat skills/commands live in agent frontmatter; the app syncs packs into the workbench.
 
 ### Meetings you can hear and keep
 

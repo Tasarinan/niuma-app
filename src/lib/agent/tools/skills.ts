@@ -130,7 +130,7 @@ function extractNodeScript(markdown: string): string | null {
   while ((match = CURL_BLOCK_RE.exec(markdown)) !== null) {
     const block = match[1];
     // Match: node [anything/]<script.cjs|.js|.mjs>
-    const m = block.match(/\bnode\b[\s\S]*?[/\\"']([A-Za-z0-9_\-]+\.(?:cjs|mjs|js))/);
+    const m = block.match(/\bnode\b[\s\S]*?[/\\"']([A-Za-z0-9_-]+\.(?:cjs|mjs|js))/);
     if (m) return m[1];
   }
   return null;

@@ -1,0 +1,15 @@
+{
+  "name": "article-assets",
+  "version": "0.2.0",
+  "author": "niuma.skills",
+  "description": "团队素材：`.teams/content/editor/` 预设包导入（import_presets_aws.py）、`.teams/content/products/` 业务图库（product_image_ingest.py）、IMA 落盘。不再使用 `.aws-article`。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["assets", "products", "business-assets", "presets"],
+  "permissions": ["filesystem", "shell"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  },
+  "dependencies": []
+}

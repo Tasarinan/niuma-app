@@ -4,7 +4,7 @@
  * Reads agent definitions from the local filesystem via Tauri invoke commands.
  * Mirrors the approach used by niuma (Vue) for skills/loader.ts.
  *
- * Agents are discovered under `.niuma/teams/<teamId>/agents/` (including `main`).
+ * Agents are discovered under `.teams/<teamId>/agents/` (including `main`).
  *
  * Filesystem discovery requires the Tauri runtime.
  */
@@ -37,9 +37,11 @@ export interface CatalogAgent {
   sandboxMode?: string;
   enabledInternalTools?: string[];
   enabledSkillIds?: string[];
+  /** Slash commands this seat owns (routing), from frontmatter `commands`. */
+  commands?: string[];
   enabledMcpServerIds?: string[];
   workspacePath?: string;
-  /** True when the agent was loaded from .niuma/teams/<teamId>/agents/. */
+  /** True when the agent was loaded from .teams/<teamId>/agents/. */
   fromTeams?: boolean;
 }
 
@@ -205,6 +207,7 @@ function markdownToAgent(entry: DirEntry, raw: string, context: AgentScanContext
   const toolRaw =
     pickFrontmatter(frontmatter, "tools", "allowed-tools", "enabledInternalTools") ?? "";
   const skillRaw = pickFrontmatter(frontmatter, "skills", "enabledSkillIds");
+  const commandRaw = pickFrontmatter(frontmatter, "commands");
 
   return {
     id: identity.id,
@@ -229,6 +232,7 @@ function markdownToAgent(entry: DirEntry, raw: string, context: AgentScanContext
         : "enabledSkillIds" in frontmatter
           ? parseListField(frontmatter.enabledSkillIds)
           : undefined,
+    commands: commandRaw !== undefined ? parseListField(commandRaw) : undefined,
     enabledMcpServerIds: parseListField(frontmatter.enabledMcpServerIds),
     workspacePath: pickFrontmatter(frontmatter, "workspace", "workspacePath") || "",
     systemPrompt: content,
@@ -292,7 +296,7 @@ async function scanAgentsDir(dir: string, context: AgentScanContext = {}): Promi
 async function scanTeamAgentDirs(rootDir: string): Promise<CatalogAgent[]> {
   if (!rootDir) return [];
   const separator = rootDir.includes("/") ? "/" : "\\";
-  const teamsDir = `${rootDir}${separator}.niuma${separator}teams`;
+  const teamsDir = `${rootDir}${separator}.teams`;
   let teamEntries: DirEntry[];
   try {
     teamEntries = await invoke<DirEntry[]>("list_directory", { path: teamsDir });

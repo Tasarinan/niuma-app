@@ -1,7 +1,7 @@
 /**
- * Team roster lives at `.niuma/teams/<id>/config.yaml`.
- * UI / workflow chrome lives at `.niuma/teams/<id>/presets/team.yaml`.
- * Content editorial voice lives at `.niuma/teams/<id>/presets/editorial.yaml`.
+ * Team pack lives at `.teams/<id>/team.yaml`.
+ * Seat skills/commands live in `agents/*.md` frontmatter.
+ * Editor assets: `editor/editorial.yaml`, `editor/blocks/`, `editor/themes/`.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -93,9 +93,9 @@ export function formatContentTeamConfigContext(raw: string, teamId?: string): st
     "",
     "规则：",
     `- 账号、文风、审稿规则在 \`${editorial}\`。不要读 \`.aws-article/config.yaml\`，不要读 \`aws.env\` 里的 WRITING_MODEL / IMAGE_MODEL。`,
-    `- 人员/技能/命令名录在 \`.niuma/teams/${id}/config.yaml\`。`,
+    `- 坐席技能与命令在各 \`.teams/${id}/agents/*.md\` frontmatter。`,
     "- 不要创建 `.niuma-article/` 或新的 drafts 目录。审稿写当前稿同目录的 `review.md`。",
-    "- 本篇标题/作者/摘要只改 `.niuma/artifacts/drafts/<YYYYMMDD-主题>/article.yaml`。",
+    "- 本篇标题/作者/摘要只改 `.artifacts/drafts/<YYYYMMDD-主题>/article.yaml`。",
     "- 写稿/配图走设置 → API 提供商。",
     "",
     text || "(配置文件为空)",

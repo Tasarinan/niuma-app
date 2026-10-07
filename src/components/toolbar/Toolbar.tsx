@@ -273,7 +273,11 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
                 <span className="opacity-80 text-[9px]">{POMODORO_LABELS[pomodoro.currentRound]}</span>
                 <span>{pomodoro.formattedTime}</span>
                 <button
-                  onMouseDown={(e) => { e.preventDefault(); pomodoro.isRunning ? pomodoro.pauseTimer() : pomodoro.resumeTimer(); }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (pomodoro.isRunning) pomodoro.pauseTimer();
+                    else pomodoro.resumeTimer();
+                  }}
                   className="opacity-75 hover:opacity-100 ml-0.5"
                   title={pomodoro.isRunning ? "暂停 (Alt+Space)" : "继续 (Alt+Space)"}
                 >

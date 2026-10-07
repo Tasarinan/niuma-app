@@ -101,11 +101,11 @@ fn resolve_existing_dir(candidates: Vec<std::path::PathBuf>) -> String {
     String::new()
 }
 
-/// Return the base project root that contains `.niuma`.
+/// Return the base project root that contains `.teams`.
 /// Priority: env override -> dev manifest parent -> CWD -> resource dir.
 #[tauri::command]
 fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
-    // If env points directly at .niuma, return its parent.
+    // If env points directly at `.teams`, return its parent.
     if let Some(configured) =
         runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
     {
@@ -113,7 +113,7 @@ fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
         let file_name = configured_path
             .file_name()
             .and_then(|s| s.to_str())
-            .map(|s| s.eq_ignore_ascii_case(".niuma"))
+            .map(|s| s.eq_ignore_ascii_case(".teams"))
             .unwrap_or(false);
 
         if file_name {
@@ -127,7 +127,7 @@ fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
         }
 
         // If env points at project root, accept it as-is.
-        if configured_path.join(".niuma").exists() {
+        if configured_path.join(".teams").is_dir() {
             return configured_path
                 .canonicalize()
                 .unwrap_or(configured_path)
@@ -138,7 +138,7 @@ fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
 
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let dev_root = manifest_dir.join("..");
-    if dev_root.join(".niuma").exists() {
+    if dev_root.join(".teams").is_dir() {
         return dev_root
             .canonicalize()
             .unwrap_or(dev_root)
@@ -147,7 +147,7 @@ fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
     }
 
     if let Ok(cwd) = std::env::current_dir() {
-        if cwd.join(".niuma").exists() {
+        if cwd.join(".teams").is_dir() {
             return cwd
                 .canonicalize()
                 .unwrap_or(cwd)
@@ -157,7 +157,7 @@ fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
     }
 
     if let Ok(res) = app.path().resource_dir() {
-        if res.join(".niuma").exists() {
+        if res.join(".teams").is_dir() {
             return res
                 .canonicalize()
                 .unwrap_or(res)
@@ -192,7 +192,7 @@ fn is_catalog_team_yaml(raw: &str) -> bool {
 }
 
 fn catalog_team_dir(root: &std::path::Path) -> Option<std::path::PathBuf> {
-    let teams = root.join(".niuma").join("teams");
+    let teams = root.join(".teams");
     let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(&teams)
         .ok()?
         .flatten()
@@ -201,7 +201,14 @@ fn catalog_team_dir(root: &std::path::Path) -> Option<std::path::PathBuf> {
         .collect();
     dirs.sort();
     for dir in dirs {
-        let Ok(raw) = std::fs::read_to_string(dir.join("config.yaml")) else {
+        let team_yaml = dir.join("team.yaml");
+        let config_yaml = dir.join("config.yaml");
+        let path = if team_yaml.is_file() {
+            team_yaml
+        } else {
+            config_yaml
+        };
+        let Ok(raw) = std::fs::read_to_string(path) else {
             continue;
         };
         if is_catalog_team_yaml(&raw) {
@@ -245,7 +252,7 @@ fn get_niuma_skills_dir(app: tauri::AppHandle) -> String {
 }
 
 /// Return candidate artifact directories.
-/// Priority: configured env dir -> artifact in dev/cwd/resources -> document_dir/niuma/artifact.
+/// Priority: `<root>/.artifacts/drafts` -> configured env dir -> dev/cwd/resources -> document_dir/.artifacts.
 #[tauri::command]
 fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
     let mut results: Vec<String> = Vec::new();
@@ -270,12 +277,11 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
         }
     };
 
-    // Content team co-edit root: <niuma_root>/.niuma/artifacts/drafts
+    // Content team co-edit root: <niuma_root>/.artifacts/drafts
     let niuma_root = get_niuma_root_dir(app.clone());
     if !niuma_root.is_empty() {
         let drafts = std::path::PathBuf::from(&niuma_root)
-            .join(".niuma")
-            .join("artifacts")
+            .join(".artifacts")
             .join("drafts");
         let _ = std::fs::create_dir_all(&drafts);
         push_unique(&mut results, normalize(drafts));
@@ -291,24 +297,24 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     push_if_exists(
         &mut results,
-        manifest_dir.join("..").join(".niuma").join("artifacts"),
+        manifest_dir.join("..").join(".artifacts"),
     );
 
     if let Ok(cwd) = std::env::current_dir() {
-        push_if_exists(&mut results, cwd.join(".niuma").join("artifacts"));
+        push_if_exists(&mut results, cwd.join(".artifacts"));
     }
 
     if let Ok(res) = app.path().resource_dir() {
-        push_if_exists(&mut results, res.join(".niuma").join("artifacts"));
+        push_if_exists(&mut results, res.join(".artifacts"));
     }
 
     if let Ok(doc) = app.path().document_dir() {
-        push_if_exists(&mut results, doc.join(".niuma").join("artifacts"));
+        push_if_exists(&mut results, doc.join(".artifacts"));
     }
 
     if results.is_empty() {
         if let Ok(doc) = app.path().document_dir() {
-            let candidate = doc.join(".niuma").join("artifacts");
+            let candidate = doc.join(".artifacts");
             push_unique(&mut results, normalize(candidate));
         }
     }

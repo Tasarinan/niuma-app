@@ -21,15 +21,15 @@ import {
 describe("draft workspace", () => {
   it("finds the confirmed draft folder from an open file", () => {
     expect(
-      draftFolderFromFilePath("C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由/article.md"),
-    ).toBe("C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由");
-    expect(draftFolderFromFilePath("C:/niuma/.niuma/artifacts/drafts/foo/imgs/01.png")).toBe(
-      "C:/niuma/.niuma/artifacts/drafts/foo",
+      draftFolderFromFilePath("C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由/article.md"),
+    ).toBe("C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由");
+    expect(draftFolderFromFilePath("C:/niuma/.artifacts/drafts/foo/imgs/01.png")).toBe(
+      "C:/niuma/.artifacts/drafts/foo",
     );
     expect(draftFolderFromFilePath("notes.md")).toBeNull();
     expect(
-      draftFolderFromFilePath("\\\\?\\C:\\niuma\\.niuma/artifacts\\drafts\\foo\\article.md"),
-    ).toBe("C:/niuma/.niuma/artifacts/drafts/foo");
+      draftFolderFromFilePath("\\\\?\\C:\\niuma\\.artifacts\\drafts\\foo\\article.md"),
+    ).toBe("C:/niuma/.artifacts/drafts/foo");
   });
 
   it("applies agent disk writes when the human has not typed", () => {
@@ -115,15 +115,15 @@ describe("draft workspace", () => {
   });
 
   it("tells the agent the open file is the bound co-creation manuscript", () => {
-    const text = formatOpenDraftContext("/niuma/.niuma/artifacts/drafts/foo/article.md");
+    const text = formatOpenDraftContext("/niuma/.artifacts/drafts/foo/article.md");
     expect(text).toContain("[当前共创目录]");
-    expect(text).toContain("/niuma/.niuma/artifacts/drafts/foo/article.md");
+    expect(text).toContain("/niuma/.artifacts/drafts/foo/article.md");
     expect(text).toContain("open_article");
   });
 
   it("injects the open file into agent input, not the visible bubble", () => {
     expect(injectOpenDraftContext("改第二段", {})).toBe("改第二段");
-    const draft = "C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由/article.md";
+    const draft = "C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由/article.md";
     const leftover = String.raw`C:\N-5CG2150YY9-Data\dvkx47\Documents\niuma\artifact\untitled-article.md`;
     expect(injectOpenDraftContext("改第二段", { openFilePath: leftover })).toBe("改第二段");
     const injected = injectOpenDraftContext("改第二段", {
@@ -194,8 +194,8 @@ infographic, three cards
       formatDraftImagePromptMarkdown({ title: "封面", filename: "cover.png", prompt: "左右对比" }),
       "cover.md",
     )).toEqual({ title: "封面", filename: "cover.png", prompt: "左右对比" });
-    expect(promptMarkdownAbsPath("C:/niuma/.niuma/artifacts/drafts/foo/imgs/cover.png")).toBe(
-      "C:/niuma/.niuma/artifacts/drafts/foo/imgs/prompts/cover.md",
+    expect(promptMarkdownAbsPath("C:/niuma/.artifacts/drafts/foo/imgs/cover.png")).toBe(
+      "C:/niuma/.artifacts/drafts/foo/imgs/prompts/cover.md",
     );
     expect(formatDraftImagePromptMarkdown({
       title: "封面",

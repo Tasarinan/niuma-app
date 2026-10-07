@@ -17,7 +17,7 @@ describe("consolidate draft images", () => {
   });
 
   it("moves root screenshots into themed imgs and fixes bare src", async () => {
-    const folder = "C:/niuma/.niuma/artifacts/drafts/20260918-workbuddy-办公搭子还是付费陷阱";
+    const folder = "C:/niuma/.artifacts/drafts/20260918-workbuddy-办公搭子还是付费陷阱";
     const articlePath = `${folder}/article.md`;
     const files = new Map<string, Uint8Array | string>([
       [

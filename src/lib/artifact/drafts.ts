@@ -2,7 +2,7 @@
 
 import { topicNotConfirmedMessage } from "@/lib/content/roster-workflow";
 
-export const CONTENT_DRAFTS_DIR = ".niuma/artifacts/drafts";
+export const CONTENT_DRAFTS_DIR = ".artifacts/drafts";
 export const DRAFT_ARTICLE_FILENAME = "article.md";
 
 const DATED_PREFIX = /^(\d{8})-(.+)$/;
@@ -67,7 +67,7 @@ export function requireConfirmedDraftPath(
   return existingPath;
 }
 
-/** Strip Windows `\\?\` prefixes and repair a missing slash before `.niuma/artifacts`. */
+/** Strip Windows `\\?\` prefixes and repair a missing slash before `.artifacts`. */
 export function normalizeDraftPath(path: string): string {
   let value = path.trim();
   if (!value) return value;
@@ -76,7 +76,7 @@ export function normalizeDraftPath(path: string): string {
   else if (value.startsWith("//?/")) value = value.slice(4);
   else if (value.startsWith("\\?\\")) value = value.slice(3);
   value = value.replace(/\\/g, "/");
-  value = value.replace(/([A-Za-z0-9_-])\.niuma\/artifacts\//gi, "$1/.niuma/artifacts/");
+  value = value.replace(/([A-Za-z0-9_-])\.artifacts\//gi, "$1/.artifacts/");
   value = value.replace(/\/+/g, "/");
   return value;
 }
@@ -87,7 +87,7 @@ export function isOpenableDraftMarkdown(path: string): boolean {
   return normalized.endsWith(".md");
 }
 
-/** Folder + filename under `.niuma/artifacts/drafts/`, e.g. `20260903-topic/article.md`. */
+/** Folder + filename under `.artifacts/drafts/`, e.g. `20260903-topic/article.md`. */
 export function displayPathUnderDrafts(filePath?: string): string | null {
   if (!filePath) return null;
   const normalized = normalizeDraftPath(filePath);

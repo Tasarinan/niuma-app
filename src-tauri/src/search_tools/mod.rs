@@ -254,7 +254,7 @@ fn user_file_roots() -> Vec<PathBuf> {
     }
     if let Ok(cwd) = std::env::current_dir() {
         for base in [cwd.clone(), cwd.join("..")] {
-            let artifacts = base.join(".niuma").join("artifacts");
+            let artifacts = base.join(".artifacts");
             if artifacts.is_dir() {
                 roots.push(artifacts);
             }

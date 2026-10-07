@@ -130,24 +130,24 @@ export function resolveContentRosterCopy(
 
 export function teamPackPath(teamId: string, rest: string): string {
   const id = teamId.trim() || "content";
-  return `.niuma/teams/${id}/${rest.replace(/^\/+/, "")}`;
+  return `.teams/${id}/${rest.replace(/^\/+/, "")}`;
 }
 
 export function editorialConfigRel(teamId: string): string {
-  return teamPackPath(teamId, "presets/editorial.yaml");
+  return teamPackPath(teamId, "editor/editorial.yaml");
 }
 
 export function articleBlockPresetDir(teamId: string): string {
-  return teamPackPath(teamId, "presets/article-blocks");
+  return teamPackPath(teamId, "editor/blocks");
 }
 
 export function formatThemeUserDir(teamId: string): string {
-  return teamPackPath(teamId, "presets/formatting");
+  return teamPackPath(teamId, "editor/themes/custom");
 }
 
-export function formatThemeBuiltinDir(teamId: string, formattingSkill: string): string {
-  const slug = formattingSkill.trim() || "article-formatting-wechat";
-  return teamPackPath(teamId, `skills/${slug}/references/presets/themes`);
+export function formatThemeBuiltinDir(_teamId: string, _formattingSkill?: string): string {
+  const teamId = _teamId.trim() || "content";
+  return teamPackPath(teamId, "editor/themes/builtin");
 }
 
 export function firstFormattingSkill(roles: TeamRoleDefinition[]): string | undefined {

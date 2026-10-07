@@ -1,6 +1,6 @@
 /**
  * Predefined channel UIs live in the app. A team opts in via
- * `.niuma/teams/<id>/presets/team.yaml` `view:`.
+ * `.teams/<id>/team.yaml` `view:`.
  *
  * Binding: channel.teamId → team pack → view → this registry.
  */

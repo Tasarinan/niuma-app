@@ -22,6 +22,7 @@ import {
   ListOrdered,
   ListTree,
   LoaderCircle,
+  MessageSquareWarning,
   Palette,
   PencilLine,
   Quote,
@@ -66,6 +67,8 @@ import { ArticleOutline } from "@/components/article-editor/ArticleOutline";
 import { BlockStylePanel } from "@/components/article-editor/BlockStylePanel";
 import { loadArticleMarkdown } from "@/components/article-editor/set-markdown";
 import { DraftImagePanel } from "@/components/article-editor/DraftImagePanel";
+import { ArticleReviewPanel } from "@/components/article-editor/ArticleReviewPanel";
+import { draftFolderFromArticlePath } from "@/lib/content/article-review";
 import { fillArticleBlockPlaceholders, type ArticleBlockPreset } from "@/lib/content/article-block-presets";
 import { topicNotConfirmedMessage, type ContentRosterCopy } from "@/lib/content/roster-workflow";
 import type { TeamRoleDefinition } from "@/lib/agent/team-manifest";
@@ -128,7 +131,7 @@ type ArticleRecord = {
 };
 
 type EditorMode = "write" | "split" | "preview";
-type EditorRightPanel = "outline" | "templates" | "images" | "style" | "meta";
+type EditorRightPanel = "outline" | "templates" | "images" | "style" | "meta" | "review";
 type WorkbenchView = "chat" | "editor";
 
 const RIGHT_PANEL_TITLE: Record<EditorRightPanel, string> = {
@@ -137,6 +140,7 @@ const RIGHT_PANEL_TITLE: Record<EditorRightPanel, string> = {
   images: "配图",
   style: "样式",
   meta: "稿件信息",
+  review: "审稿",
 };
 
 interface ArticlesPageProps {
@@ -219,6 +223,7 @@ export default function ArticlesPage({
   const [generateName, setGenerateName] = useState("cover.png");
   const [generateTargetId, setGenerateTargetId] = useState<string | null>(null);
   const [rightPanel, setRightPanel] = useState<EditorRightPanel | null>(null);
+  const [reviewRefreshToken, setReviewRefreshToken] = useState(0);
   const [formatThemeId, setFormatThemeId] = useState(DEFAULT_FORMAT_THEME_ID);
   const [themeStyles, setThemeStyles] = useState<Record<string, string> | null>(null);
   const [conflictDisk, setConflictDisk] = useState<string | null>(null);
@@ -1027,7 +1032,7 @@ export default function ArticlesPage({
   const needsDefaultDraft = (article: ArticleRecord | null) => {
     if (!article?.filePath) return true;
     const path = article.filePath.replace(/\\/g, "/").toLowerCase();
-    if (!path.includes(".niuma/artifacts/drafts/") || !path.endsWith("/article.md")) return true;
+    if (!path.includes(".artifacts/drafts/") || !path.endsWith("/article.md")) return true;
     return isPlaceholderArticleTitle(article.title) || !article.content.trim();
   };
 
@@ -1085,14 +1090,26 @@ export default function ArticlesPage({
       if (detail.focus === "images") {
         setRightPanel("images");
       }
+      if (detail.focus === "review") {
+        setRightPanel("review");
+      }
     });
   }), [activeView, openArticleFromPath, refreshCoCreationDrafts]);
 
   useEffect(() => subscribeDraftFileChanged((detail) => {
     const open = activeArticleRef.current?.filePath;
     if (!open || !sameManuscriptPath(open, detail.filePath)) return;
+    const base = detail.filePath.replace(/\\/g, "/").split("/").pop() ?? "";
+    if (/^(review\.md|review\.meta\.yaml|review\.suggestions\.json)$/i.test(base)) {
+      setReviewRefreshToken((n) => n + 1);
+    }
     void syncOpenFileFromDisk();
   }), [syncOpenFileFromDisk]);
+
+  const activeDraftFolder = useMemo(
+    () => draftFolderFromArticlePath(activeArticle?.filePath),
+    [activeArticle?.filePath],
+  );
 
   useEffect(() => {
     if (!activeArticle?.filePath) return;
@@ -1354,6 +1371,9 @@ export default function ArticlesPage({
           <button type="button" title="稿件信息" className={tb(rightPanel === "meta")} onClick={() => setRightPanel((current) => current === "meta" ? null : "meta")}>
             <FileText className="size-4" />
           </button>
+          <button type="button" title="审稿" className={tb(rightPanel === "review")} onClick={() => setRightPanel((current) => current === "review" ? null : "review")}>
+            <MessageSquareWarning className="size-4" />
+          </button>
         </div>
 
         {/* 飞鸟 KB ID setup dialog — collect KB ID and folder ID */}
@@ -1499,6 +1519,15 @@ export default function ArticlesPage({
                 onUpload={(file) => void handleUploadGalleryImage(file)}
                 onGenerate={openGenerateDialog}
                 onInsert={handleInsertGalleryImage}
+              />
+            ) : null}
+            {rightPanel === "review" ? (
+              <ArticleReviewPanel
+                embedded
+                draftFolder={activeDraftFolder}
+                editor={editor}
+                liveMarkdown={markdownSource}
+                refreshToken={reviewRefreshToken}
               />
             ) : null}
             {rightPanel === "meta" ? (

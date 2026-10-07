@@ -16,6 +16,11 @@ describe("searchQueryFromComposerInput", () => {
   it("returns empty when a slash command has no arguments", () => {
     expect(searchQueryFromComposerInput("/draft")).toBe("");
   });
+
+  it("strips a /skill citation so search uses the task text", () => {
+    expect(searchQueryFromComposerInput("/ak-rss-digest 最近一周 RSS")).toBe("最近一周 RSS");
+    expect(searchQueryFromComposerInput("/weather")).toBe("");
+  });
 });
 
 describe("formatWebSearchHits", () => {

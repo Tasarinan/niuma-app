@@ -12,28 +12,28 @@ describe("current co-creation draft", () => {
     expect(
       locateDraftMarkdownPath(
         "C:/niuma",
-        ".niuma/artifacts/drafts/20260917-workbuddy-本地配置/article.md",
+        ".artifacts/drafts/20260917-workbuddy-本地配置/article.md",
       ),
-    ).toBe("C:/niuma/.niuma/artifacts/drafts/20260917-workbuddy-本地配置/article.md");
+    ).toBe("C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/article.md");
   });
 
   it("keeps an already-absolute draft path", () => {
-    const abs = "C:/niuma/.niuma/artifacts/drafts/20260917-workbuddy-本地配置/topic.md";
+    const abs = "C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/topic.md";
     expect(locateDraftMarkdownPath("C:/niuma", abs)).toBe(
-      "C:/niuma/.niuma/artifacts/drafts/20260917-workbuddy-本地配置/topic.md",
+      "C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/topic.md",
     );
   });
 
   it("binds article.md and topic.md under drafts, not prompt dumps", () => {
-    expect(isBindableDraftMarkdown(".niuma/artifacts/drafts/20260917-x/article.md")).toBe(true);
-    expect(isBindableDraftMarkdown(".niuma/artifacts/drafts/20260917-x/topic.md")).toBe(true);
-    expect(isBindableDraftMarkdown(".niuma/artifacts/drafts/20260917-x/review.md")).toBe(true);
-    expect(isBindableDraftMarkdown(".niuma/artifacts/drafts/20260917-x/imgs/prompts/01.md")).toBe(false);
+    expect(isBindableDraftMarkdown(".artifacts/drafts/20260917-x/article.md")).toBe(true);
+    expect(isBindableDraftMarkdown(".artifacts/drafts/20260917-x/topic.md")).toBe(true);
+    expect(isBindableDraftMarkdown(".artifacts/drafts/20260917-x/review.md")).toBe(true);
+    expect(isBindableDraftMarkdown(".artifacts/drafts/20260917-x/imgs/prompts/01.md")).toBe(false);
   });
 
   it("tells the agent the bound folder is what 编辑 will open", () => {
     const text = formatCurrentDraftContext(
-      "C:/niuma/.niuma/artifacts/drafts/20260917-workbuddy-本地配置/article.md",
+      "C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/article.md",
     );
     expect(text).toContain("[当前共创目录]");
     expect(text).toContain("20260917-workbuddy-本地配置/article.md");
@@ -43,17 +43,17 @@ describe("current co-creation draft", () => {
   it("reopens the editor only when the bound manuscript changes", () => {
     expect(
       shouldOpenBoundDraft(
-        "C:/niuma/.niuma/artifacts/drafts/a/article.md",
-        "C:/niuma/.niuma/artifacts/drafts/a/topic.md",
+        "C:/niuma/.artifacts/drafts/a/article.md",
+        "C:/niuma/.artifacts/drafts/a/topic.md",
       ),
     ).toBe(false);
     expect(
       shouldOpenBoundDraft(
-        "C:/niuma/.niuma/artifacts/drafts/a/article.md",
-        "C:/niuma/.niuma/artifacts/drafts/b/article.md",
+        "C:/niuma/.artifacts/drafts/a/article.md",
+        "C:/niuma/.artifacts/drafts/b/article.md",
       ),
     ).toBe(true);
-    expect(shouldOpenBoundDraft(undefined, "C:/niuma/.niuma/artifacts/drafts/b/article.md")).toBe(true);
+    expect(shouldOpenBoundDraft(undefined, "C:/niuma/.artifacts/drafts/b/article.md")).toBe(true);
   });
 
   it("lists unpublished drafts for the editor switcher", () => {

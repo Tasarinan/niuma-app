@@ -17,34 +17,36 @@ fn resolve_artifact_root_dir(app: &tauri::AppHandle) -> PathBuf {
     if let Some(configured) =
         option_env!("NIUMA_ARTIFACT_DIR").or(option_env!("NIUMA_ARTICLES_DIR"))
     {
-        return PathBuf::from(configured);
+        let configured_path = PathBuf::from(configured);
+        if configured_path.exists() {
+            return configured_path;
+        }
     }
 
     let manifest_candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
-        .join(".niuma")
-        .join("artifacts");
+        .join(".artifacts");
     let _ = fs::create_dir_all(&manifest_candidate);
     if manifest_candidate.exists() {
         return manifest_candidate;
     }
 
     if let Ok(cwd) = std::env::current_dir() {
-        let cwd_candidate = cwd.join(".niuma").join("artifacts");
+        let cwd_candidate = cwd.join(".artifacts");
         if cwd_candidate.exists() {
             return cwd_candidate;
         }
     }
 
     if let Ok(res) = app.path().resource_dir() {
-        let res_candidate = res.join(".niuma").join("artifacts");
+        let res_candidate = res.join(".artifacts");
         if res_candidate.exists() {
             return res_candidate;
         }
     }
 
     if let Ok(doc) = app.path().document_dir() {
-        return doc.join(".niuma").join("artifacts");
+        return doc.join(".artifacts");
     }
 
     manifest_candidate
@@ -78,7 +80,7 @@ pub fn save_capture_snapshot(app: tauri::AppHandle, base64_data: String) -> Resu
     Ok(file_path.to_string_lossy().to_string())
 }
 
-/// Save a plain-text / markdown transcript to `.niuma/artifacts/transcripts/`.
+/// Save a plain-text / markdown transcript to `.artifacts/transcripts/`.
 /// Returns the absolute path of the written file.
 #[tauri::command]
 pub fn save_transcript_file(

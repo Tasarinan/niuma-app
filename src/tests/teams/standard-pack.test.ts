@@ -1,17 +1,34 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseCatalogAgentMarkdown } from "@/lib/data/agent-loader";
 import { parseArgumentHint } from "@/lib/slash-commands";
 import { parseTeamPackManifest } from "@/lib/agent/team-manifest";
+import { teamRolesFromAgentMarkdown } from "@/lib/agent/team-roles-from-agents";
 
-const TEAMS_ROOT = ".niuma/teams";
-const CONFIG_KEYS = new Set([
+const TEAMS_ROOT = ".teams";
+const TEAM_YAML_KEYS = new Set([
   "id",
   "defaultAgent",
   "defaultHired",
   "surface",
   "workbench",
+  "name",
+  "description",
+  "eyebrow",
+  "avatar",
+  "accent",
+  "view",
+  "workflow",
+  "workspaceRoot",
+  "dataDomain",
+  "channelName",
+  "starterPrompts",
+  "commandDir",
+  "defaultCommand",
+  "kind",
+  "agentFiles",
+  "skillSlugs",
   "roles",
 ]);
 
@@ -29,15 +46,29 @@ function scalarKeys(raw: string): string[] {
 }
 
 describe("standard team packs", () => {
-  it("keeps config.yaml as a roster-only registry", () => {
+  it("keeps team.yaml as the single pack manifest", () => {
     for (const id of teamDirs()) {
-      const raw = readFileSync(join(TEAMS_ROOT, id, "config.yaml"), "utf8");
+      const raw = readFileSync(join(TEAMS_ROOT, id, "team.yaml"), "utf8");
       for (const key of scalarKeys(raw)) {
-        expect(CONFIG_KEYS.has(key), `${id}/config.yaml unexpected key ${key}`).toBe(true);
+        expect(TEAM_YAML_KEYS.has(key), `${id}/team.yaml unexpected key ${key}`).toBe(true);
       }
       const pack = parseTeamPackManifest(raw);
       expect(pack.id).toBe(id);
-      expect(pack.roles.length).toBeGreaterThan(0);
+      expect(existsSync(join(TEAMS_ROOT, id, "team.yaml"))).toBe(true);
+    }
+  });
+
+  it("derives at least one role from agents", () => {
+    for (const id of teamDirs()) {
+      const agentsDir = join(TEAMS_ROOT, id, "agents");
+      const files = readdirSync(agentsDir)
+        .filter((name) => name.endsWith(".md") && !name.startsWith("_"))
+        .map((file) => ({
+          file,
+          raw: readFileSync(join(agentsDir, file), "utf8"),
+        }));
+      const roles = teamRolesFromAgentMarkdown(files, id);
+      expect(roles.length).toBeGreaterThan(0);
     }
   });
 

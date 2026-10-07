@@ -25,6 +25,7 @@ import { describeAgentToolProgress } from "@/lib/agent/tool-progress";
 import { agentMatchesRole, resolveDefaultRole } from "@/lib/agent/team-manifest";
 import { resolveTeamChannelMode } from "@/lib/agent/team-channel-mode";
 import { imageRoleNames } from "@/lib/content/roster-workflow";
+import { appendTeamSession } from "@/lib/agent/memory/file-memory";
 import {
   formatContentDispatchInstruction,
   resolveContentRouteTarget,
@@ -32,6 +33,19 @@ import {
 import { stripHiddenDraftContext } from "@/lib/artifact/draft-workspace";
 
 // ─── Helper: build LLM history for one agent ─────────────────────────────────
+
+function skillIdsForSlugs(slugs: string[]): string[] {
+  const wanted = new Set(slugs.map((slug) => slug.trim().toLowerCase()).filter(Boolean));
+  const ids: string[] = [];
+  for (const skill of useSkillStore.getState().items) {
+    if (skill.sourceType !== "niuma") continue;
+    const keys = [skill.source, skill.name]
+      .map((value) => (value ?? "").trim().toLowerCase())
+      .filter(Boolean);
+    if (keys.some((key) => wanted.has(key))) ids.push(skill.id);
+  }
+  return [...new Set(ids)];
+}
 
 function buildHistory(
   msgs: GroupMessage[],
@@ -121,7 +135,14 @@ export function useGroupChat() {
   // ─── Send message ──────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (content: string, images?: ImageContent[], channelIdOverride?: string, targetAgentNames?: string[], displayContent?: string) => {
+    async (
+      content: string,
+      images?: ImageContent[],
+      channelIdOverride?: string,
+      targetAgentNames?: string[],
+      displayContent?: string,
+      extraSkillSlugs?: string[],
+    ) => {
       const targetId = channelIdOverride ?? selectedId;
       if (!targetId || !content.trim() || isSending) return;
 
@@ -183,11 +204,14 @@ export function useGroupChat() {
         : allChannelAgents;
       const MAX_CONTENT_AGENT_RUNS = 4;
 
-      const useSmartDispatch = shouldSmartDispatch({
-        channelAgents: channelAgents,
-        targetAgentNames,
-        mentionCount: mentions.length,
-      });
+      const citedSkillSlugs = (extraSkillSlugs ?? []).map((slug) => slug.trim()).filter(Boolean);
+      const useSmartDispatch = citedSkillSlugs.length > 0
+        ? false
+        : shouldSmartDispatch({
+            channelAgents: channelAgents,
+            targetAgentNames,
+            mentionCount: mentions.length,
+          });
 
       const initialAgents: AgentDefinition[] = useSmartDispatch
         ? [channelAgents[0]]
@@ -218,10 +242,13 @@ export function useGroupChat() {
 
       // Register file-based .niuma skills in the Skill store so load_skill
       // can resolve them. Keep each agent's own enabledSkillIds — dumping the
-      // Role skills stay per-agent from config.yaml roles.
+      // Role skills stay per-agent from agents/*.md frontmatter.
       if (initialAgents.length > 0) {
         await bridgeEnabledNiumaSkills().catch(() => []);
       }
+      const citedSkillIds = citedSkillSlugs.length > 0
+        ? skillIdsForSlugs(citedSkillSlugs)
+        : [];
 
       // Call agents sequentially; smart-dispatch may add routed agent after dispatcher runs
       const agentsToRun: AgentDefinition[] = [...initialAgents];
@@ -282,7 +309,7 @@ export function useGroupChat() {
           ? `\n\nYou are in a group chat channel named "${channel.name}". Other participants: ${otherMembers}. Respond as ${agent.name} (${agent.role ?? "AI assistant"}). Be concise and in-character.`
           : `\n\nYou are in a channel named "${channel.name}". Respond as ${agent.name}.`;
 
-        // Smart-dispatch: default agent from config.yaml routes; specialists escalate back.
+        // Smart-dispatch: default agent from team.yaml routes; specialists escalate back.
         const dispatchInstruction =
           useSmartDispatch && teamRoles.length > 0 && teamMode !== "chat"
             ? formatContentDispatchInstruction(agent.name, teamRoles, producerName)
@@ -295,6 +322,9 @@ export function useGroupChat() {
                   return `\n\n[团队协调] 职责表：\n${roster}\n\n请先用1-2句话接住问题，然后另起一行写：\nROUTE: @成员名称\n只 ROUTE 给职责表里拥有该技能或命令的角色。不要 load_skill 别人的技能，不要 bash 跑别人的脚本。你自己最合适时写 ROUTE: @${agent.name}。`;
                 })()
               : "";
+        const skillCiteInstruction = citedSkillSlugs.length > 0
+          ? `\n\n[技能引用] 用户用 /技能名 指定：${citedSkillSlugs.join("、")}。本轮调用 load_skill 加载后亲自执行。不要 ROUTE，不要换技能。`
+          : "";
 
         const transcript = history
           .map((h) => (h.role === "assistant" ? `${agent.name}: ${h.content}` : h.content))
@@ -308,8 +338,8 @@ export function useGroupChat() {
           // Apply the global response-length setting as fallback when the agent
           // has no explicit maxTokens set in its definition.
           maxTokens: agent.maxTokens ?? getResponseSettings().maxTokens,
-          systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock + dispatchInstruction,
-          enabledSkillIds: agent.enabledSkillIds ?? [],
+          systemPrompt: (agent.systemPrompt ?? "") + groupCtx + historyBlock + dispatchInstruction + skillCiteInstruction,
+          enabledSkillIds: [...new Set([...(agent.enabledSkillIds ?? []), ...citedSkillIds])],
           // Image-family roles get generate_image / search_images so hired agents pick up the system
           // Provider image API without waiting for a catalog resync.
           enabledInternalTools: mergeRuntimeInternalTools(agent.enabledInternalTools ?? [], {
@@ -459,6 +489,27 @@ export function useGroupChat() {
               agentsToRun.push(routedAgent);
             }
           }
+        }
+      }
+
+      const teamId = channel.teamId?.trim();
+      if (teamId) {
+        const userIndex = currentMsgs.findIndex((msg) => msg.id === userMsg.id);
+        const replies = currentMsgs.slice(userIndex + 1).flatMap((msg) => {
+          if (msg.role !== "agent" || !msg.content.trim()) return [];
+          return [{ agentName: msg.agentName ?? "坐席", content: msg.content }];
+        });
+        const imageNote = userMsg.images?.length ? `（附带 ${userMsg.images.length} 张图片）` : "";
+        const userText = [userMsg.content.trim(), imageNote].filter(Boolean).join("\n");
+        if (userText || replies.length > 0) {
+          await appendTeamSession(teamId, {
+            at: new Date(userMsg.timestamp),
+            channelName: channel.name,
+            userText,
+            replies,
+          }).catch((error) => {
+            console.warn("Failed to save team session:", error);
+          });
         }
       }
 

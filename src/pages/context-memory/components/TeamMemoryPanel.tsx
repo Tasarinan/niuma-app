@@ -14,6 +14,8 @@ import {
   readMemoryIndex,
   listTopicFiles,
   readTopicFile,
+  listSessionFiles,
+  readSessionFile,
   addMemoryEntry,
   deleteAllTeamMemory,
 } from "@/lib/agent/memory/file-memory";
@@ -31,6 +33,7 @@ export function TeamMemoryPanel() {
   }, []);
   const [memoryIndex, setMemoryIndex] = useState("");
   const [topics, setTopics] = useState<string[]>([]);
+  const [sessions, setSessions] = useState<string[]>([]);
   const [topicContent, setTopicContent] = useState<Record<string, string>>({});
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -47,12 +50,14 @@ export function TeamMemoryPanel() {
     if (!teamId) return;
     setLoading(true);
     try {
-      const [idx, tList] = await Promise.all([
+      const [idx, tList, sessionFiles] = await Promise.all([
         readMemoryIndex(teamId),
         listTopicFiles(teamId),
+        listSessionFiles(teamId),
       ]);
       setMemoryIndex(idx);
       setTopics(tList);
+      setSessions(sessionFiles);
       setTopicContent({});
       setExpandedTopics(new Set());
     } catch (e) {
@@ -71,7 +76,9 @@ export function TeamMemoryPanel() {
     } else {
       next.add(topic);
       if (!topicContent[topic]) {
-        const content = await readTopicFile(selectedTeam, topic).catch(() => "");
+        const content = topic.startsWith("session:")
+          ? await readSessionFile(selectedTeam, topic.slice("session:".length)).catch(() => "")
+          : await readTopicFile(selectedTeam, topic).catch(() => "");
         setTopicContent((prev) => ({ ...prev, [topic]: content }));
       }
     }
@@ -79,7 +86,7 @@ export function TeamMemoryPanel() {
   };
 
   const handleClear = async () => {
-    if (!window.confirm(`清除团队「${selectedTeam}」的全部记忆？`)) return;
+    if (!window.confirm(`清除团队「${selectedTeam}」的主题记忆？按日期保存的会话记录会保留。`)) return;
     setIsClearing(true);
     try {
       await deleteAllTeamMemory(selectedTeam);
@@ -192,11 +199,11 @@ export function TeamMemoryPanel() {
         <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> 加载中...
         </div>
-      ) : topics.length === 0 ? (
+      ) : topics.length === 0 && sessions.length === 0 ? (
         <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
           <Brain className="size-8 opacity-20 mx-auto mb-2" />
           <p>团队「{selectedTeam}」暂无记忆</p>
-          <p className="text-xs mt-1 opacity-70">智能体在对话中使用 <code>memory(add)</code> 工具会自动创建记忆</p>
+          <p className="text-xs mt-1 opacity-70">对话会写入 .artifacts/memory/{selectedTeam}/sessions/，智能体也可使用 memory(add)</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -208,8 +215,39 @@ export function TeamMemoryPanel() {
             </div>
           )}
 
-          {/* Topic files */}
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">主题文件 ({topics.length})</p>
+          {sessions.length > 0 && (
+            <>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">会话记录 ({sessions.length})</p>
+              {sessions.map((file) => {
+                const key = `session:${file}`;
+                return (
+                  <div key={key} className="rounded-lg border bg-card overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => void toggleTopic(key)}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium hover:bg-muted/40 transition-colors"
+                    >
+                      {expandedTopics.has(key)
+                        ? <ChevronDown className="size-3.5 text-muted-foreground" />
+                        : <ChevronRight className="size-3.5 text-muted-foreground" />}
+                      <span className="font-mono">{file}</span>
+                    </button>
+                    {expandedTopics.has(key) && (
+                      <div className="border-t bg-muted/20 px-3 py-2">
+                        <pre className="text-xs text-muted-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {topicContent[key] || "加载中..."}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {topics.length > 0 && (
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">主题文件 ({topics.length})</p>
+          )}
           {topics.map((topic) => (
             <div key={topic} className="rounded-lg border bg-card overflow-hidden">
               <button

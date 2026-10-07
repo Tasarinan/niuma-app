@@ -1,0 +1,14 @@
+id: meeting
+defaultAgent: facilitator.md
+name: 会议
+description: 会前准备、会中记录、会后纪要与行动项、同步消息。
+eyebrow: 准备 · 记录 · 跟进
+avatar: "🎯"
+accent: sky
+view: meeting
+workflow: meeting
+
+starterPrompts:
+  - 把这次会议整理成纪要和行动项
+  - 根据会议内容提炼决策、风险和下一步
+  - 生成会后给团队的同步消息

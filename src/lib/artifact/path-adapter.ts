@@ -2,25 +2,24 @@ import { invoke } from "@tauri-apps/api/core";
 import { documentDir, join } from "@tauri-apps/api/path";
 import { normalizeFsPath } from "./workspace-path";
 
-const ROOT_DIR = "niuma";
-const ARTIFACT_DIR = "artifact";
+function isDraftsDir(dir: string): boolean {
+  const normalized = dir.replace(/\\/g, "/").replace(/\/$/, "");
+  return normalized === ".artifacts/drafts" || normalized.endsWith("/.artifacts/drafts");
+}
 
 export async function getArtifactRootDir(): Promise<string> {
   const docDir = await documentDir();
-  return join(docDir, ROOT_DIR);
+  return join(docDir, ".artifacts");
 }
 
 export async function getArtifactDir(): Promise<string> {
   const dirs = await getArtifactDirs();
-  const drafts = dirs.find((dir) => {
-    const normalized = dir.replace(/\\/g, "/").replace(/\/$/, "");
-    return normalized.endsWith("/.niuma/artifacts/drafts") || normalized.endsWith(".niuma/artifacts/drafts");
-  });
+  const drafts = dirs.find((dir) => isDraftsDir(dir));
   if (drafts) return drafts;
   if (dirs[0]) return dirs[0];
 
   const root = await getArtifactRootDir();
-  return join(root, ARTIFACT_DIR);
+  return join(root, "drafts");
 }
 
 export async function getArtifactDirs(): Promise<string[]> {

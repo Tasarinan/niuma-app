@@ -12,7 +12,7 @@ export interface GroupChannel {
   tags?: string[];
   /** Deprecated: kept in storage for old channels. UI follows the bound team. */
   kind?: "chat" | "meeting";
-  /** Slug of the bound team in .niuma/teams/<teamId>/. When set, the channel auto-loads that team's agents, skills, and commands. */
+  /** Slug of the bound team in .teams/<teamId>/. When set, the channel auto-loads that team's agents, skills, and commands. */
   teamId?: string;
   createdAt: string;
   updatedAt: string;

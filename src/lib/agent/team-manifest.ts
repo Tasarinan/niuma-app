@@ -16,7 +16,7 @@ export type TeamPackManifest = ContentTeamManifest & {
   workflow?: string;
   workspaceRoot?: boolean;
   workbench?: boolean;
-  /** Predefined channel UI from presets/team.yaml: chat | editor | meeting | health. */
+  /** Predefined channel UI from team.yaml `view`: chat | editor | meeting | health. */
   view?: string;
   roles: TeamRoleDefinition[];
 };
@@ -215,35 +215,8 @@ export function listDefaultCommandFromManifest(manifest: TeamPackManifest): stri
   return command ? command.replace(/^\//, "") : undefined;
 }
 
-/** Overlay `presets/team.yaml` chrome onto the roster in `config.yaml`. */
-export function mergeTeamPackManifest(
-  roster: TeamPackManifest,
-  extra?: TeamPackManifest,
-): TeamPackManifest {
+/** @deprecated Single `team.yaml` replaces config + presets merge. */
+export function mergeTeamPackManifest(roster: TeamPackManifest, extra?: TeamPackManifest): TeamPackManifest {
   if (!extra) return roster;
-  const pick = (primary?: string, fallback?: string) =>
-    primary?.trim() ? primary : fallback;
-  const extraByFile = new Map(extra.roles.map((role) => [role.agentFile, role]));
-  const roles = roster.roles.map((role) => {
-    const overlay = extraByFile.get(role.agentFile);
-    if (!overlay?.summary) return role;
-    return { ...role, summary: overlay.summary };
-  });
-  return {
-    ...roster,
-    name: pick(extra.name, roster.name),
-    description: pick(extra.description, roster.description),
-    eyebrow: pick(extra.eyebrow, roster.eyebrow),
-    avatar: pick(extra.avatar, roster.avatar),
-    accent: pick(extra.accent, roster.accent),
-    kind: pick(extra.kind, roster.kind),
-    dataDomain: pick(extra.dataDomain, roster.dataDomain),
-    channelName: pick(extra.channelName, roster.channelName),
-    starterPrompts: extra.starterPrompts.length ? extra.starterPrompts : roster.starterPrompts,
-    defaultHired: extra.defaultHired.length ? extra.defaultHired : roster.defaultHired,
-    workflow: pick(extra.workflow, roster.workflow),
-    view: pick(extra.view, roster.view),
-    workspaceRoot: extra.workspaceRoot || roster.workspaceRoot,
-    roles,
-  };
+  return { ...roster, ...extra, roles: roster.roles.length ? roster.roles : extra.roles };
 }

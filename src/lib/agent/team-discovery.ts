@@ -8,14 +8,37 @@ import {
   listSkillSlugsFromManifest,
   manifestToCommandDir,
   parseTeamPackManifest,
-  mergeTeamPackManifest,
   type TeamPackManifest,
 } from "./team-manifest";
+import { sortRolesWithDefaultFirst, teamRolesFromAgentMarkdown } from "./team-roles-from-agents";
 import type { WorkbenchTeamAccent, WorkbenchTeamPreset } from "./workbench-defaults";
 import { channelKindFromTeam } from "./team-channel-mode";
 
 function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/** Top-level folders under `.teams/<teamId>/skills` that contain SKILL.md. */
+export async function listSkillSlugsFromTeamSkillsDir(teamId: string): Promise<string[]> {
+  if (!isTauri() || !teamId.trim()) return [];
+
+  const root = await invoke<string>("get_niuma_root_dir").catch(() => "");
+  if (!root) return [];
+
+  const separator = root.includes("/") ? "/" : "\\";
+  const skillsDir = [root, ".teams", teamId, "skills"].join(separator);
+  const entries = await invoke<Array<{ name: string; path: string; isDir: boolean }>>("list_directory", {
+    path: skillsDir,
+  }).catch(() => [] as Array<{ name: string; path: string; isDir: boolean }>);
+
+  const slugs: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDir) continue;
+    const skillPath = [entry.path, "SKILL.md"].join(separator);
+    const raw = await invoke<string>("read_text_file", { path: skillPath }).catch(() => "");
+    if (raw.trim()) slugs.push(entry.name);
+  }
+  return slugs.sort((a, b) => a.localeCompare(b));
 }
 
 function isWorkbenchTeamAccent(value: string | undefined): value is WorkbenchTeamAccent {
@@ -55,7 +78,7 @@ export async function discoverTeamPacks(): Promise<TeamPackManifest[]> {
   if (!root) return [];
 
   const separator = root.includes("/") ? "/" : "\\";
-  const teamsDir = [root, ".niuma", "teams"].join(separator);
+  const teamsDir = [root, ".teams"].join(separator);
   const entries = await invoke<Array<{ path: string; isDir: boolean }>>("list_directory", {
     path: teamsDir,
   }).catch(() => [] as Array<{ path: string; isDir: boolean }>);
@@ -63,13 +86,32 @@ export async function discoverTeamPacks(): Promise<TeamPackManifest[]> {
   const packs: TeamPackManifest[] = [];
   for (const entry of entries) {
     if (!entry.isDir) continue;
-    const configPath = [entry.path, "config.yaml"].join(separator);
-    const raw = await invoke<string>("read_text_file", { path: configPath }).catch(() => "");
+    const teamPath = [entry.path, "team.yaml"].join(separator);
+    const legacyConfigPath = [entry.path, "config.yaml"].join(separator);
+    let raw = await invoke<string>("read_text_file", { path: teamPath }).catch(() => "");
+    if (!raw.trim()) {
+      raw = await invoke<string>("read_text_file", { path: legacyConfigPath }).catch(() => "");
+    }
     if (!raw.trim()) continue;
-    const presetPath = [entry.path, "presets", "team.yaml"].join(separator);
-    const extraRaw = await invoke<string>("read_text_file", { path: presetPath }).catch(() => "");
-    const extra = extraRaw.trim() ? parseTeamPackManifest(extraRaw) : undefined;
-    packs.push(mergeTeamPackManifest(parseTeamPackManifest(raw), extra));
+
+    const manifest = parseTeamPackManifest(raw);
+    const agentsDir = [entry.path, "agents"].join(separator);
+    const agentEntries = await invoke<Array<{ name: string; path: string; isDir: boolean }>>(
+      "list_directory",
+      { path: agentsDir },
+    ).catch(() => [] as Array<{ name: string; path: string; isDir: boolean }>);
+    const agentFiles: Array<{ file: string; raw: string }> = [];
+    for (const agentEntry of agentEntries) {
+      if (agentEntry.isDir || !agentEntry.name.endsWith(".md")) continue;
+      const agentRaw = await invoke<string>("read_text_file", { path: agentEntry.path }).catch(() => "");
+      if (!agentRaw.trim()) continue;
+      agentFiles.push({ file: agentEntry.name, raw: agentRaw });
+    }
+    const roles = sortRolesWithDefaultFirst(
+      teamRolesFromAgentMarkdown(agentFiles, manifest.id ?? ""),
+      manifest.defaultAgent,
+    );
+    packs.push({ ...manifest, roles });
   }
 
   return packs.sort((a, b) => (a.id ?? "").localeCompare(b.id ?? ""));
@@ -85,9 +127,24 @@ export async function discoverWorkbenchTeamPresets(): Promise<WorkbenchTeamPrese
 /** Shared talent pool / toolbar chat. Not a workbench channel. */
 export async function discoverCatalogTeamPresets(): Promise<WorkbenchTeamPreset[]> {
   const packs = await discoverTeamPacks();
-  return packs
-    .filter(isCatalogTeamPack)
-    .map(manifestToWorkbenchPreset);
+  const presets: WorkbenchTeamPreset[] = [];
+  for (const pack of packs.filter(isCatalogTeamPack)) {
+    const preset = manifestToWorkbenchPreset(pack);
+    const diskSlugs = pack.id ? await listSkillSlugsFromTeamSkillsDir(pack.id) : [];
+    if (diskSlugs.length > 0) preset.skillSlugs = diskSlugs;
+    presets.push(preset);
+  }
+  return presets;
+}
+
+/** Workbench channels plus catalog packs (e.g. 主对话 / `teams/main`). */
+export async function loadChannelTeamPresets(): Promise<WorkbenchTeamPreset[]> {
+  if (!isTauri()) return [];
+  const [catalog, workbench] = await Promise.all([
+    discoverCatalogTeamPresets(),
+    discoverWorkbenchTeamPresets(),
+  ]);
+  return [...catalog, ...workbench];
 }
 
 export function getTeamPackByChannel(

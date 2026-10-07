@@ -1,0 +1,18 @@
+id: main
+surface: catalog
+workbench: false
+defaultAgent: assistant.md
+defaultHired:
+  - assistant.md
+name: 共享库
+description: 可雇佣的通用代理与跨团队技能。主对话用 defaultAgent；人才页可再雇专家。
+eyebrow: 主对话 · 可雇佣
+avatar: "💬"
+accent: violet
+view: chat
+channelName: 主对话
+
+starterPrompts:
+  - 帮我查一下这件事
+  - 先搜知识库再回答
+  - 今天天气怎么样

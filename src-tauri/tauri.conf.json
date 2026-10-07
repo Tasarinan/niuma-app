@@ -46,12 +46,12 @@
     "resources": [
       "info.plist",
       "niuma.desktop",
-      "../.niuma/teams/**/*.md",
-      "../.niuma/teams/**/*.yaml",
-      "../.niuma/teams/**/*.json",
-      "../.niuma/teams/**/*.cjs",
-      "../.niuma/teams/**/*.mjs",
-      "../.niuma/teams/**/*.py"
+      "../.teams/**/*.md",
+      "../.teams/**/*.yaml",
+      "../.teams/**/*.json",
+      "../.teams/**/*.cjs",
+      "../.teams/**/*.mjs",
+      "../.teams/**/*.py"
     ],
     "macOS": { "minimumSystemVersion": "10.13" }
   },

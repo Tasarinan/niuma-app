@@ -9,18 +9,17 @@ const skillsBySlug = new Map([
 ]);
 
 describe("resolvePresetSkillIds", () => {
-  it("prefers config.yaml roles[].skills over catalog and team-wide slugs", () => {
+  it("prefers agent frontmatter skills over team-wide slugs", () => {
     expect(
       resolvePresetSkillIds(
         ["article-writing"],
         ["article-main", "article-writing", "article-images"],
         skillsBySlug,
-        ["article-main"],
       ),
-    ).toEqual(["id-main"]);
+    ).toEqual(["id-writing"]);
   });
 
-  it("keeps only the agent's declared skills when no role list is given", () => {
+  it("keeps only the agent's declared skills when set", () => {
     expect(
       resolvePresetSkillIds(
         ["article-writing"],

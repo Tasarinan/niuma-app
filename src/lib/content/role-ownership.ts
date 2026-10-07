@@ -1,4 +1,4 @@
-/** One workflow role owns a skill or command. Loaded from team `config.yaml` `roles:`. */
+/** One workflow role owns a skill or command. Derived from `agents/*.md` at runtime. */
 
 import {
   agentMatchesRole,

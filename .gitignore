@@ -31,10 +31,7 @@ create-shortcut.ps1
 
 # Documentation - Ignore all documentation files
 docs/*
-# Generated drafts, screenshots, and transcripts
-.niuma/artifacts/*
+# Generated drafts, screenshots, and transcripts. Team packs in .teams/ stay tracked.
+.artifacts/
 
-# Built-in packs live under .niuma/teams. Ignore other .niuma contents.
-.niuma/*
-!.niuma/teams/
-!.niuma/teams/**
+

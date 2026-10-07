@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   findRoleByCommand,
@@ -7,24 +7,31 @@ import {
   listAgentFilesFromManifest,
   listDefaultCommandFromManifest,
   listSkillSlugsFromManifest,
-  mergeTeamPackManifest,
   parseTeamPackManifest,
   parseTeamRoles,
   resolveDefaultRole,
 } from "@/lib/agent/team-manifest";
+import { sortRolesWithDefaultFirst, teamRolesFromAgentMarkdown } from "@/lib/agent/team-roles-from-agents";
 
 function loadTeamPack(id: string) {
-  const roster = parseTeamPackManifest(
-    readFileSync(resolve(`.niuma/teams/${id}/config.yaml`), "utf8"),
+  const raw = readFileSync(resolve(`.teams/${id}/team.yaml`), "utf8");
+  const manifest = parseTeamPackManifest(raw);
+  const agentsDir = resolve(`.teams/${id}/agents`);
+  const agentFiles = readdirSync(agentsDir)
+    .filter((name) => name.endsWith(".md") && !name.startsWith("_"))
+    .map((file) => ({
+      file,
+      raw: readFileSync(resolve(agentsDir, file), "utf8"),
+    }));
+  const roles = sortRolesWithDefaultFirst(
+    teamRolesFromAgentMarkdown(agentFiles, id),
+    manifest.defaultAgent,
   );
-  const extra = parseTeamPackManifest(
-    readFileSync(resolve(`.niuma/teams/${id}/presets/team.yaml`), "utf8"),
-  );
-  return mergeTeamPackManifest(roster, extra);
+  return { ...manifest, roles };
 }
 
 describe("team manifest", () => {
-  it("parses workflow roles from config yaml", () => {
+  it("parses legacy roles blocks in team yaml", () => {
     const yaml = `
 id: content
 workflow: content
@@ -70,7 +77,7 @@ surface: default
     expect(isCatalogTeamPack(pack)).toBe(false);
   });
 
-  it("reads catalog roster from config.yaml and chrome from presets/team.yaml", () => {
+  it("reads catalog team.yaml and agent-derived roles", () => {
     const pack = loadTeamPack("main");
     expect(pack.surface).toBe("catalog");
     expect(pack.workbench).toBe(false);
@@ -87,9 +94,17 @@ surface: default
     for (const file of agentFiles) {
       expect(pack.roles.some((role) => role.agentFile === file)).toBe(true);
     }
+    const assistant = pack.roles.find((role) => role.agentFile === "assistant.md");
+    expect(assistant?.skills ?? []).toEqual([]);
+    const skillsDir = resolve(".teams/main/skills");
+    const diskSlugs = readdirSync(skillsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((slug) => existsSync(resolve(skillsDir, slug, "SKILL.md")));
+    expect(diskSlugs.length).toBeGreaterThan(3);
   });
 
-  it("reads content team agents, skills, and commands from config.yaml", () => {
+  it("reads content team agents, skills, and commands from agent frontmatter", () => {
     const pack = loadTeamPack("content");
     expect(pack.id).toBe("content");
     expect(pack.name).toBe("内容创作");
@@ -118,7 +133,7 @@ surface: default
     }
   });
 
-  it("reads health, meeting, and study rosters from their config.yaml", () => {
+  it("reads health, meeting, and study rosters from agents", () => {
     const views = { health: "health", meeting: "meeting", study: "chat" } as const;
     for (const id of ["health", "meeting", "study"] as const) {
       const pack = loadTeamPack(id);

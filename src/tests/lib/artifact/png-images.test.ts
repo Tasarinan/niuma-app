@@ -21,10 +21,10 @@ describe("wechat png images", () => {
       "ai-native-01.png",
     );
     expect(
-      toDraftImgsAbsPath("C:/niuma/.niuma/artifacts/drafts/20260903-ai-native-编辑部/HRSh1uMboAAPsIX.jfif"),
-    ).toBe("C:/niuma/.niuma/artifacts/drafts/20260903-ai-native-编辑部/imgs/ai-native-01.png");
-    expect(toDraftImgsAbsPath("C:/niuma/.niuma/artifacts/drafts/foo/imgs/cover.jpg")).toBe(
-      "C:/niuma/.niuma/artifacts/drafts/foo/imgs/cover.png",
+      toDraftImgsAbsPath("C:/niuma/.artifacts/drafts/20260903-ai-native-编辑部/HRSh1uMboAAPsIX.jfif"),
+    ).toBe("C:/niuma/.artifacts/drafts/20260903-ai-native-编辑部/imgs/ai-native-01.png");
+    expect(toDraftImgsAbsPath("C:/niuma/.artifacts/drafts/foo/imgs/cover.jpg")).toBe(
+      "C:/niuma/.artifacts/drafts/foo/imgs/cover.png",
     );
   });
 
@@ -33,7 +33,7 @@ describe("wechat png images", () => {
     expect(
       rewriteMarkdownLocalImagesToPng(
         markdown,
-        "C:/niuma/.niuma/artifacts/drafts/20260903-ai-native-编辑部/article.md",
+        "C:/niuma/.artifacts/drafts/20260903-ai-native-编辑部/article.md",
       ),
     ).toBe(
       "![封面](imgs/ai-native-01.png)\n\n![图](imgs/01.png)\n\n![网](https://cdn/a.jpg)\n",
@@ -64,7 +64,7 @@ describe("wechat png images", () => {
     const written = new Map<string, Uint8Array>();
     const jpegB64 = btoa(String.fromCharCode(...JPEG_HEADER));
     const result = await materializeLocalImagesAsPng({
-      articlePath: "C:/niuma/.niuma/artifacts/drafts/20260903-ai-native-编辑部/article.md",
+      articlePath: "C:/niuma/.artifacts/drafts/20260903-ai-native-编辑部/article.md",
       markdown: "![截图](HRSh1uMboAAPsIX.jfif)\n",
       readBase64: async () => jpegB64,
       writeBytes: async (path, bytes) => {
@@ -74,11 +74,11 @@ describe("wechat png images", () => {
     });
     expect(result.markdown).toBe("![截图](imgs/ai-native-01.png)\n");
     expect([...written.keys()]).toEqual([
-      "C:/niuma/.niuma/artifacts/drafts/20260903-ai-native-编辑部/imgs/ai-native-01.png",
+      "C:/niuma/.artifacts/drafts/20260903-ai-native-编辑部/imgs/ai-native-01.png",
     ]);
     expect(
       isPngBytes(
-        written.get("C:/niuma/.niuma/artifacts/drafts/20260903-ai-native-编辑部/imgs/ai-native-01.png")!,
+        written.get("C:/niuma/.artifacts/drafts/20260903-ai-native-编辑部/imgs/ai-native-01.png")!,
       ),
     ).toBe(true);
   });
@@ -86,9 +86,9 @@ describe("wechat png images", () => {
   it("converts a jfif sibling when markdown already points at png", async () => {
     const written = new Map<string, Uint8Array>();
     const jpegB64 = btoa(String.fromCharCode(...JPEG_HEADER));
-    const files = new Map([["C:/niuma/.niuma/artifacts/drafts/foo/HRSh1uMboAAPsIX.jfif", jpegB64]]);
+    const files = new Map([["C:/niuma/.artifacts/drafts/foo/HRSh1uMboAAPsIX.jfif", jpegB64]]);
     const result = await materializeLocalImagesAsPng({
-      articlePath: "C:/niuma/.niuma/artifacts/drafts/foo/article.md",
+      articlePath: "C:/niuma/.artifacts/drafts/foo/article.md",
       markdown: "![封面](HRSh1uMboAAPsIX.png)\n",
       readBase64: async (path) => files.get(path) ?? "",
       writeBytes: async (path, bytes) => {
@@ -97,7 +97,7 @@ describe("wechat png images", () => {
       encodePng: async () => PNG_HEADER,
     });
     expect(result.markdown).toBe("![封面](imgs/foo-01.png)\n");
-    expect([...written.keys()]).toEqual(["C:/niuma/.niuma/artifacts/drafts/foo/imgs/foo-01.png"]);
+    expect([...written.keys()]).toEqual(["C:/niuma/.artifacts/drafts/foo/imgs/foo-01.png"]);
   });
 
   it("hides jpeg/jfif when a png with the same stem exists", () => {

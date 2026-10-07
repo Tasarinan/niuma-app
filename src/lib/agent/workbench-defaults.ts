@@ -9,7 +9,12 @@ import { bridgeEnabledNiumaSkills } from "./skill-bridge";
 import { catalogAgentAliases } from "./command-target";
 import { canonicalNiumaSkillSlug } from "./skill-slugs";
 import { resolvePresetSkillIds } from "./preset-skill-ids";
-import { discoverCatalogTeamPresets, discoverWorkbenchTeamPresets, getTeamPackByChannel } from "./team-discovery";
+import {
+  discoverCatalogTeamPresets,
+  discoverWorkbenchTeamPresets,
+  getTeamPackByChannel,
+  loadChannelTeamPresets as discoverChannelTeamPresets,
+} from "./team-discovery";
 import { findRoleByAgentFile, type TeamRoleDefinition } from "./team-manifest";
 
 export type WorkbenchTeamId = string;
@@ -28,7 +33,7 @@ export interface WorkbenchTeamPreset {
   agentFiles: string[];
   skillSlugs: string[];
   starterPrompts: string[];
-  /** Declared in presets/team.yaml — picks a predefined channel UI. */
+  /** Declared in team.yaml `view` — picks a predefined channel UI. */
   view?: string;
   workflow?: string;
   workspaceRoot?: boolean;
@@ -40,7 +45,7 @@ export interface WorkbenchTeamPreset {
   defaultHired?: string[];
 }
 
-/** @deprecated Built-in teams load from `.niuma/teams/<id>/config.yaml`. */
+/** @deprecated Built-in teams load from `.teams/<id>/team.yaml`. */
 export const WORKBENCH_TEAM_PRESETS: WorkbenchTeamPreset[] = [];
 
 export function getWorkbenchTeamPreset(
@@ -61,6 +66,12 @@ export function getWorkbenchTeamPresetById(
 export async function loadWorkbenchTeamPresets(): Promise<WorkbenchTeamPreset[]> {
   if (!isTauri()) return WORKBENCH_TEAM_PRESETS;
   return discoverWorkbenchTeamPresets();
+}
+
+/** Presets for channel UI: includes catalog teams such as `main` (主对话). */
+export async function loadChannelTeamPresets(): Promise<WorkbenchTeamPreset[]> {
+  if (!isTauri()) return WORKBENCH_TEAM_PRESETS;
+  return discoverChannelTeamPresets();
 }
 
 async function loadPresetForTeam(teamId: WorkbenchTeamId): Promise<WorkbenchTeamPreset | null> {
@@ -150,17 +161,15 @@ async function ensurePresetAgent(
   updateRepoAgent: (agent: AgentDefinition) => void,
   roles: TeamRoleDefinition[] = [],
 ) {
-  const teamAgentPath = `/.niuma/teams/${teamId}/agents/${file}`.replace(/\\/g, "/");
+  const teamAgentPath = `/.teams/${teamId}/agents/${file}`.replace(/\\/g, "/");
   const catalogAgent = catalog.find((agent) => agent.file === file && agent.sourcePath.replace(/\\/g, "/").endsWith(teamAgentPath))
     ?? catalog.find((agent) => agent.file === file);
   if (!catalogAgent) return null;
 
-  const role = findRoleByAgentFile(roles, file);
   const targetSkillIds = resolvePresetSkillIds(
     catalogAgent.enabledSkillIds,
     skillSlugs,
     skillsBySlug,
-    role?.skills,
   );
   const preset = await loadPresetForTeam(teamId);
   const workspacePath =

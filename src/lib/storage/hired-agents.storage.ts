@@ -3,7 +3,7 @@
  * are "hired". Shared by the Agents page and the toolbar main chat.
  *
  * First-run defaults come from the catalog team pack (`defaultHired` /
- * `defaultAgent` in `.niuma/teams/<id>/config.yaml` with `surface: catalog`).
+ * `defaultAgent` in `.teams/<id>/config.yaml` with `surface: catalog`).
  */
 const LS_KEY = "niuma-hired-agents";
 let defaultHiredFiles: string[] = [];

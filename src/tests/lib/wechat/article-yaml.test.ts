@@ -13,8 +13,8 @@ import { FORMAT_THEMES, isKnownFormatTheme } from "@/lib/wechat/format-themes";
 describe("article.yaml format preset", () => {
   it("resolves article.yaml next to a draft article.md", () => {
     expect(
-      articleYamlPathFromArticle("C:/proj/.niuma/artifacts/drafts/20260906-demo/article.md"),
-    ).toBe("C:/proj/.niuma/artifacts/drafts/20260906-demo/article.yaml");
+      articleYamlPathFromArticle("C:/proj/.artifacts/drafts/20260906-demo/article.md"),
+    ).toBe("C:/proj/.artifacts/drafts/20260906-demo/article.yaml");
   });
 
   it("parses a flow list and an empty list", () => {
@@ -107,7 +107,7 @@ describe("format theme catalog", () => {
   it("has a YAML file for every catalog id", () => {
     const dir = path.resolve(
       process.cwd(),
-      ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes",
+      ".teams/content/editor/themes/builtin",
     );
     const stems = new Set(
       readdirSync(dir)

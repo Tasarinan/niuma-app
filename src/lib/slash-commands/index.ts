@@ -12,7 +12,7 @@
  *
  * Filename is the command name. Placeholders: `$ARGUMENTS`, `$ARGUMENTS[N]`, `$0`.
  * If the body has no `$ARGUMENTS`/`$N`, leftover args are appended as `ARGUMENTS:`.
- * Who runs the command comes from team `config.yaml` `roles[].commands`, not frontmatter.
+ * Who runs the command comes from agent frontmatter `commands`, via team roles at runtime.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -500,7 +500,7 @@ export interface SlashSkillCandidate {
   description: string;
 }
 
-/** Skills shown beside commands when the input is `/` or `/query`. */
+/** Rank skills for the lower row of the `/` picker. */
 export function rankSlashSkills<T extends SlashSkillCandidate>(
   skills: T[],
   query: string,

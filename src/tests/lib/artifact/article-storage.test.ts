@@ -11,7 +11,7 @@ import {
 } from "@/lib/artifact/article-storage";
 
 const leftover = String.raw`C:\N-5CG2150YY9-Data\dvkx47\Documents\niuma\artifact\untitled-article.md`;
-const draft = "C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder/article.md";
+const draft = "C:/niuma/.artifacts/drafts/20260903-ai-builder/article.md";
 
 function installMemoryStorage() {
   const store = new Map<string, string>();
@@ -84,17 +84,17 @@ describe("article localStorage migration", () => {
   it("rewrites last-open draft.md to article.md in the same folder", () => {
     localStorage.setItem(
       LAST_OPEN_DRAFT_KEY,
-      "C:/niuma/.niuma/artifacts/drafts/20260902-claude-51-de-ai-wei/draft.md",
+      "C:/niuma/.artifacts/drafts/20260902-claude-51-de-ai-wei/draft.md",
     );
     expect(readLastOpenDraftPath()).toBe(
-      "C:/niuma/.niuma/artifacts/drafts/20260902-claude-51-de-ai-wei/article.md",
+      "C:/niuma/.artifacts/drafts/20260902-claude-51-de-ai-wei/article.md",
     );
   });
 
   it("persists the bound co-creation article.md path", () => {
-    writeLastOpenDraftPath("C:/niuma/.niuma/artifacts/drafts/20260917-workbuddy-本地配置/topic.md");
+    writeLastOpenDraftPath("C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/topic.md");
     expect(readLastOpenDraftPath()).toBe(
-      "C:/niuma/.niuma/artifacts/drafts/20260917-workbuddy-本地配置/article.md",
+      "C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/article.md",
     );
   });
 });

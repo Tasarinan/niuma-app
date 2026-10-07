@@ -18,7 +18,7 @@ pub struct SaveHealthAttachmentRequest {
     pub mime_type: String,
     /// Original file extension (without dot), e.g. "jpg".
     pub extension: String,
-    /// When provided, save under `<workspace_root>/.niuma/artifacts/health/attachments/<YYYY>/<MM>/`
+    /// When provided, save under `<workspace_root>/.artifacts/health/attachments/<YYYY>/<MM>/`
     /// instead of the app data directory.
     pub workspace_root: Option<String>,
 }
@@ -74,8 +74,7 @@ pub async fn health_save_attachment(
         .filter(|s| !s.trim().is_empty())
     {
         Some(root) => PathBuf::from(root)
-            .join(".niuma")
-            .join("artifacts")
+            .join(".artifacts")
             .join("health")
             .join("attachments")
             .join(&now.0)

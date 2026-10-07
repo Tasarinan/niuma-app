@@ -12,12 +12,18 @@ import { cn } from "@/lib/utils";
 import { TreeNodeContextMenu } from "./TreeNodeContextMenu";
 import type { ArtifactTreeNodeProps } from "./types";
 
-function getFileIcon(name: string) {
+function FileTypeIcon({ name, className }: { name: string; className?: string }) {
   const lower = name.toLowerCase();
-  if (/\.(png|jpg|jpeg|webp|gif|svg)$/i.test(lower)) return FileImage;
-  if (/\.(md|txt)$/i.test(lower)) return FileText;
-  if (/\.(json|ya?ml)$/i.test(lower)) return FileJson;
-  return File;
+  if (/\.(png|jpg|jpeg|webp|gif|svg)$/i.test(lower)) {
+    return <FileImage className={className} />;
+  }
+  if (/\.(md|txt)$/i.test(lower)) {
+    return <FileText className={className} />;
+  }
+  if (/\.(json|ya?ml)$/i.test(lower)) {
+    return <FileJson className={className} />;
+  }
+  return <File className={className} />;
 }
 
 function getIndentStyle(depth: number, direction: "ltr" | "rtl") {
@@ -38,7 +44,6 @@ export function TreeNode({
   showPath,
 }: ArtifactTreeNodeProps) {
   if (node.kind === "file") {
-    const Icon = getFileIcon(node.name);
     const selected = node.filePath === selectedFilePath;
 
     return (
@@ -58,7 +63,7 @@ export function TreeNode({
           style={getIndentStyle(depth, direction)}
           title={node.path}
         >
-          <Icon className="size-3.5" />
+          <FileTypeIcon name={node.name} className="size-3.5" />
           <span className="min-w-0 flex-1">
             <span className="block truncate">{node.name}</span>
             {showPath && (

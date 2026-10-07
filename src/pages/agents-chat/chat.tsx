@@ -47,19 +47,31 @@ import { loadHiredAgentFiles, loadDisabledSkillSlugs } from "@/lib/storage";
 import { getImaKbConfig } from "@/lib/storage/ima.storage";
 import { safeLocalStorage } from "@/lib/storage";
 import { formatWebSearchHits, searchQueryFromComposerInput } from "@/lib/chat/composer-search";
+import {
+  extractMentionNames,
+  findSlashToken,
+  orderSkillsForSeat,
+  parseTrailingSlashQuery,
+  pickBestSkill,
+  replaceTrailingSlashToken,
+} from "@/lib/chat/composer-routing";
 import { ComposerMicButton } from "./components/ComposerMicButton";
 import { normalizeTauriPath } from "@/lib/agent/tools/shared";
 import {
   ensureWorkbenchDefaultTeams,
   getWorkbenchTeamPreset,
-  loadWorkbenchTeamPresets,
+  loadChannelTeamPresets,
   syncWorkbenchTeamChannel,
   WORKBENCH_TEAM_PRESETS,
   type WorkbenchTeamAccent,
   type WorkbenchTeamPreset,
 } from "@/lib/agent/workbench-defaults";
-import { discoverCatalogTeamPresets } from "@/lib/agent/team-discovery";
-import { findRoleByCommand } from "@/lib/agent/team-manifest";
+import { discoverCatalogTeamPresets, listSkillSlugsFromTeamSkillsDir } from "@/lib/agent/team-discovery";
+import { findRoleByCommand, resolveDefaultRole } from "@/lib/agent/team-manifest";
+import {
+  buildSkillCitationPrompt,
+  findCitedSkill,
+} from "@/lib/agent/skill-ref";
 import { channelKindFromTeam, isMeetingChannel, resolveTeamChannelMode, usesManuscriptWorkspace } from "@/lib/agent/team-channel-mode";
 import {
   resolveContentRosterCopy,
@@ -100,7 +112,6 @@ import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, 
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { MAX_FILES, STORAGE_KEYS } from "@/config";
 import {
-  AtSign,
   BookOpen,
   Download,
   Edit2,
@@ -121,7 +132,6 @@ import {
   Square,
   UserPlus,
   X,
-  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -765,7 +775,7 @@ export default function ChatPage({
     [activeTeamPreset],
   );
   const activeAgents = useMemo<MemberDisplayAgent[]>(() => {
-    return activeChannel?.agentIds.map((id) => {
+    const hired = activeChannel?.agentIds.map((id) => {
       const agent = agentMap[id];
       return agent
         ? {
@@ -781,11 +791,24 @@ export default function ChatPage({
             role: "",
           };
     }) ?? [];
-  }, [activeChannel, agentMap]);
+    const roles = activeTeamPreset?.roles ?? [];
+    if (roles.length === 0) return hired;
+    return roles.map((role) => {
+      const match = hired.find(
+        (agent) => agent.name === role.name || agent.role === role.name,
+      );
+      return match ?? {
+        id: role.agentFile,
+        name: role.name,
+        avatar: "",
+        role: role.summary,
+      };
+    });
+  }, [activeChannel, agentMap, activeTeamPreset?.roles]);
 
   const syncTeamForChannel = useCallback(
     async (channel: GroupChannel) => {
-      const presets = await loadWorkbenchTeamPresets();
+      const presets = await loadChannelTeamPresets();
       setWorkbenchTeamPresets(presets);
       const preset = getWorkbenchTeamPreset(channel, presets);
       if (!preset) return;
@@ -820,7 +843,7 @@ export default function ChatPage({
 
   useEffect(() => {
     let cancelled = false;
-    void loadWorkbenchTeamPresets().then((presets) => {
+    void loadChannelTeamPresets().then((presets) => {
       if (!cancelled) setWorkbenchTeamPresets(presets);
     });
     return () => {
@@ -911,7 +934,8 @@ export default function ChatPage({
           const root = await invoke<string>("get_niuma_root_dir").catch(() => "");
           if (root) {
             const separator = root.includes("/") ? "/" : "\\";
-            scopedCommandsDir = `${root}${separator}.niuma${separator}${commandDir.replace(/\//g, separator)}`;
+            const rel = `.teams/${commandDir.slice("teams/".length)}`.replace(/\//g, separator);
+            scopedCommandsDir = `${root}${separator}${rel}`;
           }
         } else {
           const root = await invoke<string>("get_niuma_commands_dir").catch(() => "");
@@ -932,70 +956,79 @@ export default function ChatPage({
     };
   }, [activeTeamPreset?.commandDir]);
 
-  // ─── Skills catalog for /skills: picker ────────────────────────────────────
+  // `/` lists this team's commands, then its skills. `@` lists this team's agents.
   const [niumaSkills, setNiumaSkills] = useState<NiumaSkill[]>([]);
+  const [teamSkillSlugs, setTeamSkillSlugs] = useState<string[]>([]);
   useEffect(() => {
     fetchNiumaSkillCatalog()
       .then((s) => setNiumaSkills(s))
       .catch(() => {});
   }, []);
 
-  const slashQuery = useMemo(() => parseSlashQuery(input), [input]);
+  useEffect(() => {
+    let cancelled = false;
+    const teamId = activeTeamPreset?.id;
+    void (async () => {
+      const own = teamId ? await listSkillSlugsFromTeamSkillsDir(teamId) : [];
+      if (!cancelled) setTeamSkillSlugs(own);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTeamPreset?.id]);
+
+  const slashQuery = useMemo(() => parseTrailingSlashQuery(input)?.query ?? parseSlashQuery(input), [input]);
+  const teamCommands = useMemo(
+    () => slashCommands.filter((command) => command.source === "file"),
+    [slashCommands],
+  );
   const slashCommandSuggestions = useMemo(
     () =>
       slashQuery === null
         ? []
-        : rankSlashCommands(slashCommands, slashQuery),
-    [slashCommands, slashQuery]
+        : rankSlashCommands(teamCommands, slashQuery),
+    [teamCommands, slashQuery]
   );
+  const slashArgumentCompletion = useMemo(
+    () => getSlashArgumentCompletion(input, teamCommands),
+    [input, teamCommands]
+  );
+
+  const channelSkills = useMemo(() => {
+    const disabledSlugs = loadDisabledSkillSlugs();
+    const allowed = new Set(teamSkillSlugs);
+    return niumaSkills.filter(
+      (skill) =>
+        skill.enabled !== false &&
+        !disabledSlugs.has(skill.slug) &&
+        allowed.has(skill.slug),
+    );
+  }, [niumaSkills, teamSkillSlugs]);
+  const mentionedSeatSkills = useMemo(() => {
+    const name = extractMentionNames(input)[0];
+    if (!name) return [] as string[];
+    const role = (activeTeamPreset?.roles ?? []).find(
+      (item) => item.name === name || item.name.includes(name),
+    );
+    return role?.skills ?? [];
+  }, [input, activeTeamPreset?.roles]);
   const slashSkillSuggestions = useMemo(() => {
     if (slashQuery === null) return [];
-    const disabledSlugs = loadDisabledSkillSlugs();
-    const enabled = niumaSkills.filter(
-      (skill) => skill.enabled !== false && !disabledSlugs.has(skill.slug),
-    );
-    return rankSlashSkills(enabled, slashQuery, {
-      teamSlugs: activeTeamPreset?.skillSlugs,
-      excludeCommands: slashCommandSuggestions.map((command) => command.name),
+    const ranked = rankSlashSkills(channelSkills, slashQuery, {
+      excludeCommands: teamCommands.map((command) => command.name),
     });
-  }, [activeTeamPreset?.skillSlugs, niumaSkills, slashCommandSuggestions, slashQuery]);
-  const slashArgumentCompletion = useMemo(
-    () => getSlashArgumentCompletion(input, slashCommands),
-    [input, slashCommands]
-  );
-
-  // Detects "/skills:<filter>" prefix for the skills picker.
-  const skillsQuery = useMemo(() => {
-    const m = input.match(/^\/skills:(.*)$/i);
-    return m !== null ? m[1].toLowerCase() : null;
-  }, [input]);
-
-  const skillPickerItems = useMemo(() => {
-    if (skillsQuery === null) return [];
-    const q = skillsQuery.trim();
-    const disabledSlugs = loadDisabledSkillSlugs();
-    const enabled = niumaSkills.filter((s) => !disabledSlugs.has(s.slug));
-    if (!q) return enabled;
-    return enabled.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.command.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q)
-    );
-  }, [niumaSkills, skillsQuery]);
+    return orderSkillsForSeat(ranked, mentionedSeatSkills);
+  }, [slashQuery, channelSkills, teamCommands, mentionedSeatSkills]);
 
   const isCommandMenuOpen =
     !slashMenuDismissed &&
     slashQuery !== null &&
-    skillsQuery === null &&
     (slashCommandSuggestions.length > 0 || slashSkillSuggestions.length > 0);
   const isArgumentMenuOpen =
     !slashMenuDismissed &&
     slashArgumentCompletion !== null &&
     slashArgumentCompletion.choices.length > 0;
-  const isSkillPickerOpen =
-    !slashMenuDismissed && skillsQuery !== null;
-  const isSlashMenuOpen = isCommandMenuOpen || isArgumentMenuOpen || isSkillPickerOpen;
+  const isSlashMenuOpen = isCommandMenuOpen || isArgumentMenuOpen;
 
   // ─── @ mention picker ────────────────────────────────────────────────────────
   const [mentionMenuDismissed, setMentionMenuDismissed] = useState(false);
@@ -1022,8 +1055,8 @@ export default function ChatPage({
   const activeInvocationCommand = useMemo(() => {
     const invocation = parseSlashInvocation(input);
     if (!invocation) return null;
-    return slashCommands.find((command) => command.name === invocation.command) ?? null;
-  }, [input, slashCommands]);
+    return teamCommands.find((command) => command.name === invocation.command) ?? null;
+  }, [input, teamCommands]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -1034,7 +1067,7 @@ export default function ChatPage({
   };
 
   const selectSlashCommand = (command: SlashCommandDefinition) => {
-    const inserted = `/${command.name} `;
+    const inserted = replaceTrailingSlashToken(input, command.name);
     setInput(inserted);
     setSlashMenuIndex(0);
     setSlashMenuDismissed(false);
@@ -1060,7 +1093,7 @@ export default function ChatPage({
   };
 
   const selectSkillFromPicker = (skill: NiumaSkill) => {
-    const inserted = `/${skill.command} `;
+    const inserted = replaceTrailingSlashToken(input, skill.slug);
     setInput(inserted);
     setSlashMenuIndex(0);
     setSlashMenuDismissed(false);
@@ -1268,13 +1301,38 @@ export default function ChatPage({
     const images: ImageContent[] | undefined = attachedImages.length
       ? attachedImages.map((f) => ({ type: "image" as const, data: f.data, mimeType: f.mimeType }))
       : undefined;
-    const resolution = resolveSlashInvocation(text, slashCommands);
+    const resolution = resolveSlashInvocation(text, teamCommands);
+    const inlineSlash = findSlashToken(text);
+    const teamId = activeTeamPreset?.id;
+    const own = teamId ? await listSkillSlugsFromTeamSkillsDir(teamId) : [];
+    const allowed = new Set(own);
+    const disabledSlugs = loadDisabledSkillSlugs();
+    const pool = niumaSkills.filter(
+      (skill) =>
+        skill.enabled !== false &&
+        !disabledSlugs.has(skill.slug) &&
+        allowed.has(skill.slug),
+    );
+    let citedSkill: NiumaSkill | undefined;
+    const inlineIsCommand = Boolean(
+      inlineSlash && teamCommands.some((command) => command.name === inlineSlash.name),
+    );
+    if (!citedSkill && inlineSlash && !inlineIsCommand) {
+      citedSkill = findCitedSkill(pool, inlineSlash.name);
+    }
     setInput("");
     setAttachedImages([]);
     setSlashMenuDismissed(true);
     setComposerHint(null);
 
     let agentInput = resolution?.kind === "prompt" ? resolution.text : text;
+    if (!resolution && inlineIsCommand && inlineSlash) {
+      const built = resolveSlashInvocation(`/${inlineSlash.name} ${inlineSlash.args}`.trim(), teamCommands);
+      if (built?.kind === "prompt") agentInput = built.text;
+    }
+    if (citedSkill && inlineSlash && !inlineIsCommand) {
+      agentInput = buildSkillCitationPrompt(citedSkill, inlineSlash.args);
+    }
     // Visible bubble stays as the user's typed text. Hidden draft/platform
     // context is only attached to agentInput so it does not inflate history.
 
@@ -1283,7 +1341,9 @@ export default function ChatPage({
       agentInput = "请分析我上传的图片。";
     }
 
-    const _slashForRouting = parseSlashInvocation(text);
+    const _slashForRouting = inlineIsCommand && inlineSlash
+      ? { command: inlineSlash.name, args: inlineSlash.args }
+      : parseSlashInvocation(text);
     const _articleDraftWorkflow = _slashForRouting
       ? resolveArticleDraftWorkflow(_slashForRouting.command, _slashForRouting.args, workflowCommands)
       : null;
@@ -1304,10 +1364,13 @@ export default function ChatPage({
       return;
     }
     const publishRequested = isAssistantPublishRequest(text, workflowCommands);
-    const commandAgentNames: string[] | undefined = (() => {
+    const mentionNames = extractMentionNames(text);
+    let commandAgentNames: string[] | undefined = mentionNames.length > 0
+      ? mentionNames
+      : (() => {
       const roles = activeTeamPreset?.roles ?? [];
       if (_slashForRouting) {
-        const cmd = slashCommands.find((c) => c.name === _slashForRouting.command);
+        const cmd = teamCommands.find((c) => c.name === _slashForRouting.command);
         const role = findRoleByCommand(roles, _slashForRouting.command);
         if (role) return [role.name];
         if (cmd?.agent) return [cmd.agent];
@@ -1321,6 +1384,27 @@ export default function ChatPage({
       }
       return undefined;
     })();
+    if (!citedSkill && mentionNames.length > 0) {
+      const seat = (activeTeamPreset?.roles ?? []).find((role) =>
+        mentionNames.some((name) => role.name === name || role.name.includes(name)),
+      );
+      if (seat && seat.skills.length === 0) {
+        citedSkill = pickBestSkill(pool, text);
+        if (citedSkill) {
+          agentInput = `${agentInput}\n\n${buildSkillCitationPrompt(citedSkill, text)}`;
+        }
+      } else if (seat && seat.skills.length > 0) {
+        agentInput = `${agentInput}\n\n[技能] 优先使用本坐席已绑定技能：${seat.skills.join("、")}。用户用 /技能名 指定时才改用指定技能。`;
+      }
+    }
+    if (citedSkill && !commandAgentNames) {
+      const role = resolveDefaultRole({
+        defaultAgent: activeTeamPreset?.defaultAgent,
+        roles: activeTeamPreset?.roles ?? [],
+        agentFiles: activeTeamPreset?.agentFiles,
+      });
+      if (role?.name) commandAgentNames = [role.name];
+    }
 
     // /article create: inject feeds + IMA + drafts(create). /article edit <target>: continue draft.
     if (_articleDraftWorkflow?.intent === "create") {
@@ -1530,7 +1614,14 @@ export default function ChatPage({
       }
     }
 
-    await sendMessage(agentInput, images, undefined, commandAgentNames, text.trim() ? text : undefined);
+    await sendMessage(
+      agentInput,
+      images,
+      undefined,
+      commandAgentNames,
+      text.trim() ? text : undefined,
+      citedSkill ? [citedSkill.slug] : undefined,
+    );
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1607,7 +1698,7 @@ export default function ChatPage({
   /**
    * Finds (or lazily creates) the toolbar "main chat" channel and sends `text`.
    * Default sit-in, channel name, and team id come from the catalog pack
-   * (`surface: catalog` in `.niuma/teams/<id>/config.yaml`).
+   * (`surface: catalog` in `.teams/<id>/config.yaml`).
    */
   const ensureMainChannelAndSend = useCallback(
     async (text: string) => {
@@ -1631,7 +1722,7 @@ export default function ChatPage({
         const hired = all.filter((a) => hiredSet.has(a.file));
         const defaultFile = catalogPreset?.defaultAgent?.trim();
         const teamAgentSuffix = defaultFile && catalogPreset
-          ? `/.niuma/teams/${catalogPreset.id}/agents/${defaultFile}`.replace(/\\/g, "/")
+          ? `/.teams/${catalogPreset.id}/agents/${defaultFile}`.replace(/\\/g, "/")
           : "";
         const defaultAgent = defaultFile
           ? all.find((a) => a.file === defaultFile && a.sourcePath.replace(/\\/g, "/").endsWith(teamAgentSuffix))
@@ -2049,132 +2140,80 @@ export default function ChatPage({
                   {/* PI-style inline command/mention/argument menu — no floating popover */}
                   {(isSlashMenuOpen || isMentionMenuOpen) && (
                     <div className="mx-auto mb-2 max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                      {/* Header row */}
-                      {isMentionMenuOpen ? (
-                        <div className="border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400 flex items-center gap-1">
-                          <AtSign className="size-3" />
-                          <span>提及成员</span>
-                        </div>
-                      ) : isSkillPickerOpen ? (
-                        <div className="border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400 flex items-center gap-2">
-                          <Zap className="size-3" />
-                          <span>选择技能</span>
-                          {skillPickerItems.length === 0 && <span className="text-slate-300">（无匹配）</span>}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 border-b border-slate-100 px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                          <span>
-                            {isCommandMenuOpen
-                              ? slashCommandSuggestions.length > 0 && slashSkillSuggestions.length > 0
-                                ? "Command / Skills"
-                                : slashSkillSuggestions.length > 0
-                                  ? "Skills"
-                                  : "Command"
-                              : slashArgumentCompletion
-                                ? `${slashArgumentCompletion.argument.required ? "Required" : "Optional"} · ${slashArgumentCompletion.argument.name}`
-                                : "Argument"}
-                          </span>
-                          <span>Description</span>
-                        </div>
-                      )}
-                      {/* Items */}
-                      <div className="max-h-48 space-y-0.5 overflow-y-auto p-1">
-                        {isMentionMenuOpen ? mentionSuggestions.map((agent, idx) => (
-                          <button
-                            key={agent.id}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); selectMention(agent); }}
-                            className={cn(
-                              "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
-                              idx === mentionMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
-                            )}
-                          >
-                            {agent.avatar ? (
-                              <img src={agent.avatar} alt={agent.name} className="size-6 rounded-full object-cover flex-shrink-0" />
-                            ) : (
-                              <span className="flex size-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-600">
-                                {agent.name.slice(0, 1)}
-                              </span>
-                            )}
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium text-slate-800">{agent.name}</span>
-                              {agent.role && <span className="block truncate text-[10px] text-slate-400">{agent.role}</span>}
-                            </span>
-                          </button>
-                        )) : isSkillPickerOpen ? skillPickerItems.map((skill, idx) => (
-                          <button
-                            key={skill.slug}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); selectSkillFromPicker(skill); }}
-                            className={cn(
-                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
-                              idx === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
-                            )}
-                          >
-                            <span className="min-w-0 flex items-center gap-1.5">
-                              {skill.icon && <span className="text-sm leading-none">{skill.icon}</span>}
-                              <span className="min-w-0">
-                                <span className="block truncate font-medium text-slate-800">{skill.name}</span>
-                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">/{skill.command}</span>
-                              </span>
-                            </span>
-                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
-                              <span className="line-clamp-2">{skill.description || "No description"}</span>
-                              {skill.category && <span className="mt-0.5 block text-[9px] uppercase text-slate-300">{skill.category}</span>}
-                            </span>
-                          </button>
-                        )) : isCommandMenuOpen ? (
+                      <div className="max-h-72 overflow-y-auto px-1 py-1">
+                        {isMentionMenuOpen ? (
                           <>
-                            {slashCommandSuggestions.map((command, idx) => (
-                          <button
-                            key={command.name}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); selectSlashCommand(command); }}
-                            className={cn(
-                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
-                              idx === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
-                            )}
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium text-slate-800">/{command.name}</span>
-                              {commandArgumentHint(command) && (
-                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">
-                                  {commandArgumentHint(command)}
-                                </span>
-                              )}
-                            </span>
-                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
-                              <span className="line-clamp-2">{command.description || "No description"}</span>
-                              <span className="mt-0.5 block text-[9px] uppercase text-slate-300">{command.sourceLabel}</span>
-                            </span>
-                          </button>
+                            <div className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-slate-500">Agents</div>
+                            {mentionSuggestions.map((agent, idx) => (
+                              <button
+                                key={agent.id}
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); selectMention(agent); }}
+                                className={cn(
+                                  "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left",
+                                  idx === mentionMenuIndex ? "bg-slate-100" : "hover:bg-slate-50"
+                                )}
+                              >
+                                {agent.avatar ? (
+                                  <img src={agent.avatar} alt="" className="size-5 rounded-full object-cover" />
+                                ) : (
+                                  <span className="flex size-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-600">
+                                    {agent.name.slice(0, 1)}
+                                  </span>
+                                )}
+                                <span className="w-[34%] truncate text-[13px] font-medium text-slate-900">{agent.name}</span>
+                                <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{agent.role || "Agent"}</span>
+                              </button>
                             ))}
-                            {slashSkillSuggestions.map((skill, idx) => {
-                              const index = slashCommandSuggestions.length + idx;
-                              return (
-                          <button
-                            key={skill.slug}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); selectSkillFromPicker(skill); }}
-                            className={cn(
-                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
-                              index === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
-                            )}
-                          >
-                            <span className="min-w-0 flex items-center gap-1.5">
-                              {skill.icon && <span className="text-sm leading-none">{skill.icon}</span>}
-                              <span className="min-w-0">
-                                <span className="block truncate font-medium text-slate-800">{skill.name}</span>
-                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">/{skill.command}</span>
-                              </span>
-                            </span>
-                            <span className="min-w-0 text-[11px] leading-4 text-slate-500">
-                              <span className="line-clamp-2">{skill.description || "No description"}</span>
-                              <span className="mt-0.5 block text-[9px] uppercase text-slate-300">skill</span>
-                            </span>
-                          </button>
-                              );
-                            })}
+                          </>
+                        ) : isCommandMenuOpen ? (
+                          <>
+                            {slashCommandSuggestions.length > 0 ? (
+                              <>
+                                <div className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-slate-500">Commands</div>
+                                {slashCommandSuggestions.map((command, idx) => (
+                                  <button
+                                    key={command.name}
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); selectSlashCommand(command); }}
+                                    className={cn(
+                                      "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left",
+                                      idx === slashMenuIndex ? "bg-slate-100" : "hover:bg-slate-50"
+                                    )}
+                                  >
+                                    <span className="w-[34%] truncate text-[13px] font-medium text-slate-900">/{command.name}</span>
+                                    <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
+                                      {command.description || commandArgumentHint(command) || "Command"}
+                                    </span>
+                                  </button>
+                                ))}
+                              </>
+                            ) : null}
+                            {slashSkillSuggestions.length > 0 ? (
+                              <>
+                                <div className="px-2 pb-1 pt-2 text-[11px] font-medium text-slate-500">Skills</div>
+                                {slashSkillSuggestions.map((skill, skillIdx) => {
+                                  const idx = slashCommandSuggestions.length + skillIdx;
+                                  return (
+                                    <button
+                                      key={skill.slug}
+                                      type="button"
+                                      onMouseDown={(e) => { e.preventDefault(); selectSkillFromPicker(skill); }}
+                                      className={cn(
+                                        "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left",
+                                        idx === slashMenuIndex ? "bg-slate-100" : "hover:bg-slate-50"
+                                      )}
+                                    >
+                                      <span className="w-[34%] truncate text-[13px] font-medium text-slate-900">/{skill.slug}</span>
+                                      <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
+                                        {skill.description || skill.name}
+                                        {mentionedSeatSkills.includes(skill.slug) ? " · 本坐席" : ""}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </>
+                            ) : null}
                           </>
                         ) : slashArgumentCompletion?.choices.map((choice, idx) => (
                           <button
@@ -2182,12 +2221,12 @@ export default function ChatPage({
                             type="button"
                             onMouseDown={(e) => { e.preventDefault(); selectSlashArgument(choice.value); }}
                             className={cn(
-                              "grid w-full grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] gap-3 rounded-lg px-2 py-2 text-left text-xs transition-colors",
-                              idx === slashMenuIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-100"
+                              "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left",
+                              idx === slashMenuIndex ? "bg-slate-100" : "hover:bg-slate-50"
                             )}
                           >
-                            <span className="truncate font-mono font-medium text-slate-800">{choice.value}</span>
-                            <span className="text-[11px] text-slate-500">
+                            <span className="w-[34%] truncate font-mono text-[13px] font-medium text-slate-900">{choice.value}</span>
+                            <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
                               {choice.description || slashArgumentCompletion.argument.description}
                             </span>
                           </button>
@@ -2260,12 +2299,39 @@ export default function ChatPage({
                                 return;
                               }
                             }
+                            if (isSlashMenuOpen && isCommandMenuOpen) {
+                              const suggestionCount = slashCommandSuggestions.length + slashSkillSuggestions.length;
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setSlashMenuIndex((i) => suggestionCount > 0 ? (i + 1) % suggestionCount : 0);
+                                return;
+                              }
+                              if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setSlashMenuIndex((i) => suggestionCount > 0 ? (i - 1 + suggestionCount) % suggestionCount : 0);
+                                return;
+                              }
+                              if (e.key === "Enter" || e.key === "Tab") {
+                                e.preventDefault();
+                                if (slashMenuIndex < slashCommandSuggestions.length) {
+                                  const command = slashCommandSuggestions[slashMenuIndex];
+                                  if (command) selectSlashCommand(command);
+                                } else {
+                                  const skill = slashSkillSuggestions[slashMenuIndex - slashCommandSuggestions.length];
+                                  if (skill) selectSkillFromPicker(skill);
+                                }
+                                return;
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                setSlashMenuDismissed(true);
+                                return;
+                              }
+                            }
                             if (isSlashMenuOpen) {
-                              const suggestionCount = isSkillPickerOpen
-                                ? skillPickerItems.length
-                                : isCommandMenuOpen
-                                  ? slashCommandSuggestions.length + slashSkillSuggestions.length
-                                  : slashArgumentCompletion?.choices.length ?? 0;
+                              const suggestionCount = isCommandMenuOpen
+                                ? slashCommandSuggestions.length + slashSkillSuggestions.length
+                                : slashArgumentCompletion?.choices.length ?? 0;
                               if (e.key === "ArrowDown") {
                                 e.preventDefault();
                                 setSlashMenuIndex(
@@ -2283,11 +2349,10 @@ export default function ChatPage({
                               }
                               if (e.key === "Enter" || e.key === "Tab") {
                                 e.preventDefault();
-                                if (isSkillPickerOpen && skillPickerItems[slashMenuIndex]) {
-                                  selectSkillFromPicker(skillPickerItems[slashMenuIndex]);
-                                } else if (isCommandMenuOpen) {
+                                if (isCommandMenuOpen) {
                                   if (slashMenuIndex < slashCommandSuggestions.length) {
-                                    selectSlashCommand(slashCommandSuggestions[slashMenuIndex]);
+                                    const command = slashCommandSuggestions[slashMenuIndex];
+                                    if (command) selectSlashCommand(command);
                                   } else {
                                     const skill = slashSkillSuggestions[slashMenuIndex - slashCommandSuggestions.length];
                                     if (skill) selectSkillFromPicker(skill);

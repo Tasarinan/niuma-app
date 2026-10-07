@@ -68,10 +68,10 @@ describe("content roster workflow", () => {
   });
 
   it("resolves team asset paths from pack id and formatting skill", () => {
-    expect(editorialConfigRel("studio")).toBe(".niuma/teams/studio/presets/editorial.yaml");
+    expect(editorialConfigRel("studio")).toBe(".teams/studio/editor/editorial.yaml");
     expect(firstFormattingSkill(roles)).toBe("article-formatting-wechat");
     expect(formatThemeBuiltinDir("studio", "article-formatting-wechat")).toBe(
-      ".niuma/teams/studio/skills/article-formatting-wechat/references/presets/themes",
+      ".teams/studio/editor/themes/builtin",
     );
   });
 });

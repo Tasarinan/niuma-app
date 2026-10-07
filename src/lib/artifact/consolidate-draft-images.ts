@@ -164,7 +164,7 @@ export async function consolidateDraftImages(input: {
   const articlePath = normalizeFsPath(input.articlePath);
   const folder = draftFolderFromFilePath(articlePath);
   if (!folder) {
-    throw new Error("只能整理 .niuma/artifacts/drafts/<主题>/ 下的稿件。");
+    throw new Error("只能整理 .artifacts/drafts/<主题>/ 下的稿件。");
   }
   const themeSlug = draftThemeSlugFromFolder(folder);
   const encodePng = input.encodePng ?? ensurePngBytes;

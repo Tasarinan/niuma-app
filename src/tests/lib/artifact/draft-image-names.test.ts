@@ -19,7 +19,7 @@ describe("draft image names", () => {
   });
 
   it("builds a latin theme slug from the draft folder", () => {
-    expect(draftThemeSlugFromFolder("C:/niuma/.niuma/artifacts/drafts/20260903-ai-native-编辑部")).toBe(
+    expect(draftThemeSlugFromFolder("C:/niuma/.artifacts/drafts/20260903-ai-native-编辑部")).toBe(
       "ai-native",
     );
   });

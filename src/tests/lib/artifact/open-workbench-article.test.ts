@@ -13,11 +13,11 @@ describe("open workbench article event", () => {
     const handler = vi.fn();
     const stop = subscribeOpenWorkbenchArticle(handler);
     requestOpenWorkbenchArticle({
-      filePath: "C:/niuma/.niuma/artifacts/drafts/20260903-topic/article.md",
+      filePath: "C:/niuma/.artifacts/drafts/20260903-topic/article.md",
       focus: "images",
     });
     expect(handler).toHaveBeenCalledWith({
-      filePath: "C:/niuma/.niuma/artifacts/drafts/20260903-topic/article.md",
+      filePath: "C:/niuma/.artifacts/drafts/20260903-topic/article.md",
       focus: "images",
     });
     expect(handler.mock.calls[0][0].switchView).toBeUndefined();
@@ -31,9 +31,9 @@ describe("open workbench article event", () => {
   it("notifies the editor when a draft file changes on disk", () => {
     const handler = vi.fn();
     const stop = subscribeDraftFileChanged(handler);
-    notifyDraftFileChanged("C:/niuma/.niuma/artifacts/drafts/20260903-topic/article.md");
+    notifyDraftFileChanged("C:/niuma/.artifacts/drafts/20260903-topic/article.md");
     expect(handler).toHaveBeenCalledWith({
-      filePath: "C:/niuma/.niuma/artifacts/drafts/20260903-topic/article.md",
+      filePath: "C:/niuma/.artifacts/drafts/20260903-topic/article.md",
     });
     expect(DRAFT_FILE_CHANGED_EVENT).toBe("niuma:draft-file-changed");
     stop();

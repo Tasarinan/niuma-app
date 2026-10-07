@@ -11,7 +11,7 @@ export default tseslint.config(
       'dist-ssr/**',
       'node_modules/**',
       'src-tauri/**',
-      '.niuma/**',
+      '.teams/**',
       'scripts/**',
       '*.config.js',
       '*.config.ts',
@@ -43,6 +43,7 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       'react/react-in-jsx-scope': 'off', // Not needed in React 17+
+      'react/prop-types': 'off', // TypeScript validates props
       'react/no-unescaped-entities': 'off', // Allow apostrophes in JSX
       '@typescript-eslint/no-unused-vars': [
         'warn',

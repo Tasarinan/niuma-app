@@ -25,7 +25,8 @@ export function buildMemoryTool(teamId: string): AgentTool {
     label: "Team Memory",
     description:
       "Read and write persistent memory shared across all agents in this team. " +
-      "Use `add` to store learnings/preferences/facts; `search` to recall relevant entries; " +
+      "Files live in .artifacts/memory/<team>/; each day's conversation is appended under sessions/YYYYMMDD.md. " +
+      "Use `add` to store learnings/preferences/facts; `search` to recall topic entries and session logs; " +
       "`read` to inspect a topic file; `list` to see all topics.",
     parameters: Type.Object({
       action: Type.Union(

@@ -14,10 +14,10 @@ import {
 
 const wealth = toUnpublishedDraft({
   folder: "20260903-ai-builder-财富自由",
-  dirPath: "C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由",
+  dirPath: "C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由",
   fileNames: ["topic.md", "article.md", "imgs"],
-  articlePath: "C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由/article.md",
-  topicPath: "C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由/topic.md",
+  articlePath: "C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由/article.md",
+  topicPath: "C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由/topic.md",
   topicMarkdown: "# AI 时代：别人用 AI 搞钱，我用 AI 做产品却没人看\n",
 })!;
 
@@ -76,11 +76,11 @@ describe("unpublished drafts", () => {
           ...wealth,
           folder: "20260904-newer",
           articlePath: undefined,
-          topicPath: "C:/niuma/.niuma/artifacts/drafts/20260904-newer/topic.md",
+          topicPath: "C:/niuma/.artifacts/drafts/20260904-newer/topic.md",
         },
         wealth,
       ]),
-    ).toBe("C:/niuma/.niuma/artifacts/drafts/20260904-newer/topic.md");
+    ).toBe("C:/niuma/.artifacts/drafts/20260904-newer/topic.md");
   });
 
   it("uses the manuscript heading instead of Untitled or article.md", () => {
@@ -117,8 +117,8 @@ describe("unpublished drafts", () => {
 
   it("opens article.md even if the stored id is topic.md or draft.md", () => {
     const topic = {
-      id: "C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由/topic.md",
-      filePath: "C:/niuma/.niuma/artifacts/drafts/20260903-ai-builder-财富自由/topic.md",
+      id: "C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由/topic.md",
+      filePath: "C:/niuma/.artifacts/drafts/20260903-ai-builder-财富自由/topic.md",
     };
     const article = {
       id: wealth.articlePath!,
@@ -129,10 +129,10 @@ describe("unpublished drafts", () => {
 
   it("does not keep showing the previous manuscript while a new draft path is loading", () => {
     const previous = {
-      id: "C:/niuma/.niuma/artifacts/drafts/20260903-old/article.md",
-      filePath: "C:/niuma/.niuma/artifacts/drafts/20260903-old/article.md",
+      id: "C:/niuma/.artifacts/drafts/20260903-old/article.md",
+      filePath: "C:/niuma/.artifacts/drafts/20260903-old/article.md",
     };
-    const nextPath = "C:/niuma/.niuma/artifacts/drafts/20260906-new/article.md";
+    const nextPath = "C:/niuma/.artifacts/drafts/20260906-new/article.md";
     expect(selectOpenArticle([previous], nextPath)).toBeNull();
   });
 });

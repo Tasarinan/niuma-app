@@ -2,11 +2,12 @@
  * File-based memory for niuma agent teams.
  *
  * Inspired by pi-memory (github.com/yandy/pi-packages/tree/main/pi-memory).
- * Each team gets its own directory under .niuma/memory/<teamId>/:
+ * Each team gets its own directory under .artifacts/memory/<teamId>/:
  *
- *   .niuma/memory/<teamId>/
+ *   .artifacts/memory/<teamId>/
  *     MEMORY.md          — compact index: one line per topic file
  *     <topic>.md         — topic file with frontmatter + ## entries
+ *     sessions/YYYYMMDD.md — conversation turns for that local day
  *
  * MEMORY.md is injected into every agent system prompt (snapshot semantics).
  * Topic files are loaded on demand via the `memory` tool.
@@ -33,9 +34,41 @@ function sep(root: string): string {
   return root.includes("/") ? "/" : "\\";
 }
 
-function memoryDir(root: string, teamId: string): string {
+/** Folder name under `.artifacts/memory/`. Team ids are already slugs; strip path characters. */
+export function memoryTeamSegment(teamId: string): string {
+  const safe = teamId
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/^\.+/, "")
+    .replace(/^-+/, "");
+  return safe || "unknown";
+}
+
+export function memoryDir(root: string, teamId: string): string {
   const s = sep(root);
-  return `${root}${s}.niuma${s}memory${s}${teamId}`;
+  return `${root}${s}.artifacts${s}memory${s}${memoryTeamSegment(teamId)}`;
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** Local calendar day, `YYYYMMDD`. */
+export function sessionDayKey(date: Date): string {
+  return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}`;
+}
+
+export function sessionDayLabel(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+export function sessionClock(date: Date): string {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+}
+
+function sessionFilePath(root: string, teamId: string, date: Date): string {
+  const s = sep(root);
+  return `${memoryDir(root, teamId)}${s}sessions${s}${sessionDayKey(date)}.md`;
 }
 
 function indexPath(root: string, teamId: string): string {
@@ -43,7 +76,7 @@ function indexPath(root: string, teamId: string): string {
 }
 
 function topicPath(root: string, teamId: string, topic: string): string {
-  const safe = topic.replace(/[^a-zA-Z0-9_\-]/g, "-").replace(/\.md$/i, "");
+  const safe = topic.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/\.md$/i, "");
   return `${memoryDir(root, teamId)}${sep(root)}${safe}.md`;
 }
 
@@ -193,7 +226,7 @@ export async function addMemoryEntry(
   await writeFile(idxPath, serializeIndex(updatedIdx));
 }
 
-/** Search memory entries by keyword across all topic files. */
+/** Search topic files and dated session logs. */
 export async function searchMemory(
   teamId: string,
   query: string
@@ -214,6 +247,14 @@ export async function searchMemory(
         results.push({ title: `[${topic}] ${entry.title}`, content: entry.content });
       }
     }
+  }
+  const sessions = await listSessionFiles(teamId);
+  for (const file of sessions) {
+    const raw = await readSessionFile(teamId, file);
+    if (!raw.toLowerCase().includes(q)) continue;
+    const day = file.replace(/\.md$/i, "");
+    const clipped = raw.length > 1200 ? `${raw.slice(0, 1200)}\n…` : raw;
+    results.push({ title: `[会话 ${day}]`, content: clipped });
   }
   return results;
 }
@@ -257,6 +298,73 @@ export async function deleteMemoryEntry(
     }
     break;
   }
+}
+
+export interface SessionReply {
+  agentName: string;
+  content: string;
+}
+
+export interface SessionTurn {
+  at?: Date;
+  channelName: string;
+  userText: string;
+  replies: SessionReply[];
+}
+
+/** One turn inside a daily session file. */
+export function formatSessionTurn(turn: SessionTurn): string {
+  const at = turn.at ?? new Date();
+  const channel = turn.channelName.trim() || "会话";
+  const lines = [`## ${sessionClock(at)} · ${channel}`, "", "**用户**", turn.userText.trim() || "（空消息）", ""];
+  for (const reply of turn.replies) {
+    const name = reply.agentName.trim() || "坐席";
+    const body = reply.content.trim();
+    if (!body) continue;
+    lines.push(`**${name}**`, body, "");
+  }
+  return lines.join("\n").replace(/\n+$/, "");
+}
+
+/** Append a turn to the day's markdown. Creates the day heading when the file is empty. */
+export function mergeSessionLog(existing: string, dayLabel: string, block: string): string {
+  const trimmed = existing.trim();
+  if (!trimmed) return `# ${dayLabel}\n\n${block}\n`;
+  return `${trimmed}\n\n${block}\n`;
+}
+
+/**
+ * Append this turn to `.artifacts/memory/<teamId>/sessions/YYYYMMDD.md`.
+ * The date is the local calendar day of `turn.at`.
+ */
+export async function appendTeamSession(teamId: string, turn: SessionTurn): Promise<void> {
+  const root = await getNiumaRoot();
+  if (!root || !teamId.trim()) return;
+  const at = turn.at ?? new Date();
+  const path = sessionFilePath(root, teamId, at);
+  const existing = await readFile(path);
+  await writeFile(path, mergeSessionLog(existing, sessionDayLabel(at), formatSessionTurn({ ...turn, at })));
+}
+
+/** Session day filenames (`YYYYMMDD.md`), newest first. */
+export async function listSessionFiles(teamId: string): Promise<string[]> {
+  const root = await getNiumaRoot();
+  if (!root || !teamId.trim()) return [];
+  const dir = `${memoryDir(root, teamId)}${sep(root)}sessions`;
+  const entries = await invoke<Array<{ name: string; isDir: boolean }>>("list_directory", { path: dir }).catch(
+    () => [] as Array<{ name: string; isDir: boolean }>,
+  );
+  return entries
+    .filter((entry) => !entry.isDir && /^\d{8}\.md$/i.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((a, b) => b.localeCompare(a));
+}
+
+export async function readSessionFile(teamId: string, fileName: string): Promise<string> {
+  const root = await getNiumaRoot();
+  if (!root || !/^\d{8}\.md$/i.test(fileName)) return "";
+  const path = `${memoryDir(root, teamId)}${sep(root)}sessions${sep(root)}${fileName}`;
+  return readFile(path);
 }
 
 /** Clear all memory for a team. */

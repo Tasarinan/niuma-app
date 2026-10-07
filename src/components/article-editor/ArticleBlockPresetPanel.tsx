@@ -42,7 +42,7 @@ export function ArticleBlockPresetPanel({ disabled, onInsert, embedded }: Props)
       )}
       {!(embedded || open) ? null : presets.length === 0 ? (
         <p className="px-1 text-xs leading-relaxed text-slate-400">
-          还没有模板。文案在内容团队 presets/article-blocks/。
+          还没有模板。可在 `.teams/content/editor/blocks/` 添加。
         </p>
       ) : (
         <div className="space-y-1">

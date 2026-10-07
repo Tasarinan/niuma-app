@@ -8,15 +8,15 @@ import {
 
 describe("workspace-path", () => {
   it("strips Windows extended-length prefixes so writes can use forward slashes", () => {
-    const drafts = String.raw`\\?\C:\userdata\testbed\gitrepo\assistant\niuma-app\.niuma/artifacts\drafts`;
+    const drafts = String.raw`\\?\C:\userdata\testbed\gitrepo\assistant\niuma-app\.artifacts\drafts`;
     expect(normalizeFsPath(drafts)).toBe(
-      "C:/userdata/testbed/gitrepo/assistant/niuma-app/.niuma/artifacts/drafts",
+      "C:/userdata/testbed/gitrepo/assistant/niuma-app/.artifacts/drafts",
     );
     expect(normalizeFsPath(`${drafts}/.niuma.keep`)).toBe(
-      "C:/userdata/testbed/gitrepo/assistant/niuma-app/.niuma/artifacts/drafts/.niuma.keep",
+      "C:/userdata/testbed/gitrepo/assistant/niuma-app/.artifacts/drafts/.niuma.keep",
     );
-    expect(normalizeFsPath("//?/C:/niuma/.niuma/artifacts/drafts/topic/article.md")).toBe(
-      "C:/niuma/.niuma/artifacts/drafts/topic/article.md",
+    expect(normalizeFsPath("//?/C:/niuma/.artifacts/drafts/topic/article.md")).toBe(
+      "C:/niuma/.artifacts/drafts/topic/article.md",
     );
   });
 
@@ -24,16 +24,16 @@ describe("workspace-path", () => {
     expect(
       resolveWorkspacePath(
         "\\\\?\\C:\\userdata\\niuma-app",
-        ".niuma/teams/content/skills/article-formatting-wechat/references/presets/themes/wechat-tech.yaml",
+        ".teams/content/editor/themes/builtin/wechat-tech.yaml",
       ),
     ).toBe(
-      "C:/userdata/niuma-app/.niuma/teams/content/skills/article-formatting-wechat/references/presets/themes/wechat-tech.yaml",
+      "C:/userdata/niuma-app/.teams/content/editor/themes/builtin/wechat-tech.yaml",
     );
   });
 
   it("keeps absolute paths and collapses parent segments", () => {
-    expect(resolveWorkspacePath("C:/proj", "C:/proj/.niuma/artifacts/drafts/a/imgs/../cover.png")).toBe(
-      "C:/proj/.niuma/artifacts/drafts/a/cover.png",
+    expect(resolveWorkspacePath("C:/proj", "C:/proj/.artifacts/drafts/a/imgs/../cover.png")).toBe(
+      "C:/proj/.artifacts/drafts/a/cover.png",
     );
   });
 
@@ -41,7 +41,7 @@ describe("workspace-path", () => {
     const escaped = resolveWorkspacePath("C:/proj", "../outside.png");
     expect(escaped).toBe("C:/outside.png");
     expect(isPathInsideWorkspace("C:/proj", escaped)).toBe(false);
-    expect(isPathInsideWorkspace("C:/proj", "C:/proj/.niuma/artifacts/imgs/01.png")).toBe(true);
+    expect(isPathInsideWorkspace("C:/proj", "C:/proj/.artifacts/imgs/01.png")).toBe(true);
   });
 
   it("picks an image mime from the file extension", () => {

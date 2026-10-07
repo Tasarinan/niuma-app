@@ -39,7 +39,7 @@ export function toPngPath(path: string, existingNames: string[] = [], options: N
 
 function draftFolderOf(path: string): string | null {
   const normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/");
-  const marker = ".niuma/artifacts/drafts/";
+  const marker = ".artifacts/drafts/";
   const index = normalized.toLowerCase().indexOf(marker);
   if (index < 0) return null;
   const rest = normalized.slice(index + marker.length);

@@ -98,7 +98,7 @@ async function scanSkillDir(dir: string): Promise<NiumaSkill[]> {
 async function scanTeamSkillDirs(rootDir: string): Promise<NiumaSkill[]> {
   if (!rootDir) return [];
   const separator = rootDir.includes("/") ? "/" : "\\";
-  const teamsDir = `${rootDir}${separator}.niuma${separator}teams`;
+  const teamsDir = `${rootDir}${separator}.teams`;
   let teamEntries: DirEntry[];
   try {
     teamEntries = await invoke<DirEntry[]>("list_directory", { path: teamsDir });
@@ -133,7 +133,7 @@ export async function fetchNiumaSkillCatalog(): Promise<NiumaSkill[]> {
 
 export async function installSkillToNiuma(slug: string, raw: string): Promise<NiumaSkill> {
   const dir = await invoke<string>("get_niuma_skills_dir");
-  if (!dir) throw new Error("Cannot resolve .niuma/skills directory");
+  if (!dir) throw new Error("Cannot resolve .teams skills directory");
   const separator = dir.includes("/") ? "/" : "\\";
   await invoke("write_text_file", {
     path: `${dir}${separator}${slug}${separator}SKILL.md`,

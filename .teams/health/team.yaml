@@ -1,0 +1,16 @@
+id: health
+defaultAgent: guide.md
+name: 健康
+description: 个人与家庭健康管理频道。命令与技能完成记录、分析与报告；检查报告等附件可上传 IMA 健康知识库。
+eyebrow: 个人 · 家庭 · 全生命周期
+avatar: "❤️"
+accent: emerald
+view: health
+workflow: health
+dataDomain: healthbook
+
+starterPrompts:
+  - "/profile setup — 建立健康档案"
+  - "/record symptom 描述你的症状"
+  - "/analyze — 上传检查报告图片"
+  - "/report — 生成健康报告"

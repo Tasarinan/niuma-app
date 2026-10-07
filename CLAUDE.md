@@ -47,7 +47,7 @@ The name comes from the Chinese workplace self-joke "牛马" (niuma): a workhors
 
 - `@earendil-works/pi-agent-core` and `@earendil-works/pi-ai`
 - Direct provider runtime in `src/lib/agent`
-- Skills loaded from `.niuma` and user preferences
+- Skills loaded from `.teams` and user preferences
 - MCP tools bridged through the runtime
 - File and database backed context memory
 
@@ -76,13 +76,12 @@ stop.bat
 
 ```text
 niuma-app/
-├── .niuma/                         # Built-in teams, agents, commands, and skills
-│   ├── teams/
-│   │   ├── health/
-│   │   ├── meeting/
-│   │   ├── content/
-│   │   └── study/
-│   └── skills/
+├── .teams/                         # Built-in teams, agents, commands, and skills
+│   ├── health/
+│   ├── meeting/
+│   ├── content/
+│   └── study/
+├── .artifacts/                     # Drafts, screenshots, and transcripts (gitignored)
 ├── docs/                           # Project docs and feature notes
 ├── src/
 │   ├── main.tsx                    # Window-aware React entrypoint
@@ -156,7 +155,7 @@ When adding a page, update:
 
 ## Built-In Teams
 
-Teams are defined under `.niuma/teams/<team>/config.yaml` with roster fields plus agents, commands, and skills. Runtime defaults are mirrored in `src/lib/agent/workbench-defaults.ts`.
+Teams are defined under `.teams/<team>/config.yaml` with roster fields plus agents, commands, and skills. Runtime defaults are mirrored in `src/lib/agent/workbench-defaults.ts`.
 
 | Team | Kind | Default Agent | Default Command | Purpose |
 | --- | --- | --- | --- | --- |
@@ -172,7 +171,7 @@ Team folders normally contain:
 - `commands/*.md` for slash commands
 - `skills/*/SKILL.md` for team-specific skills
 
-Adding or renaming a built-in team usually requires changes in both `.niuma/teams` and `src/lib/agent/workbench-defaults.ts`.
+Adding or renaming a built-in team usually requires changes in both `.teams` and `src/lib/agent/workbench-defaults.ts`.
 
 ## State And Storage
 
@@ -272,22 +271,22 @@ Existing tests live under `src/tests/` (for example `src/tests/editor-validation
 
 ### Add A New Team
 
-1. Create `.niuma/teams/<id>/config.yaml`.
-2. Add agent files under `.niuma/teams/<id>/agents/`.
-3. Add commands under `.niuma/teams/<id>/commands/` if needed.
-4. Add team skills under `.niuma/teams/<id>/skills/` or reference existing skill slugs.
-5. Confirm `.niuma/teams/<id>/config.yaml` is picked up by workbench discovery.
+1. Create `.teams/<id>/config.yaml`.
+2. Add agent files under `.teams/<id>/agents/`.
+3. Add commands under `.teams/<id>/commands/` if needed.
+4. Add team skills under `.teams/<id>/skills/` or reference existing skill slugs.
+5. Confirm `.teams/<id>/config.yaml` is picked up by workbench discovery.
 6. Verify the workbench loads the team and starter prompts.
 
 ### Add A New Agent
 
-1. Add the agent Markdown file under the relevant `.niuma/teams/<team>/agents/` folder.
+1. Add the agent Markdown file under the relevant `.teams/<team>/agents/` folder.
 2. Include clear role, responsibilities, and prompt instructions.
 3. Add the filename to `agentFiles` in that team's `config.yaml`.
 
 ### Add A New Slash Command
 
-1. Add a Markdown command file under `.niuma/teams/<team>/commands/`.
+1. Add a Markdown command file under `.teams/<team>/commands/`.
 2. Keep the command name, usage, and output format explicit.
 3. Ensure `commandDir` for the team points to the command folder.
 4. Test from the agent workbench.
@@ -313,5 +312,5 @@ Existing tests live under `src/tests/` (for example `src/tests/editor-validation
 - STT failures: check selected provider, API key, language, and audio permissions.
 - Audio capture issues: check OS permissions and selected input/output devices.
 - Shortcut issues: check `src-tauri/src/shortcuts.rs` and the saved shortcut config.
-- Team missing in workbench: check `.niuma/teams/<id>/config.yaml`, `WORKBENCH_TEAM_PRESETS`, and bundle resources in `tauri.conf.json`.
+- Team missing in workbench: check `.teams/<id>/config.yaml`, `WORKBENCH_TEAM_PRESETS`, and bundle resources in `tauri.conf.json`.
 - Build issues: run `npm run type-check` first, then `npm run build`; Tauri builds also need a working Rust toolchain.

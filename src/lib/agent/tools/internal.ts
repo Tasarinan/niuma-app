@@ -792,7 +792,7 @@ function consolidateDraftImagesTool(deps: InternalToolDeps): AgentTool {
     parameters: Type.Object({
       goal: goalParam(),
       path: Type.String({
-        description: "Path to article.md or the draft folder under .niuma/artifacts/drafts/.",
+        description: "Path to article.md or the draft folder under .artifacts/drafts/.",
       }),
     }),
     execute: async (_id, params) => {

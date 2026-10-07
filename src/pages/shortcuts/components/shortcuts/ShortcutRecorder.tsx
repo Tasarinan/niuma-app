@@ -102,7 +102,7 @@ export const ShortcutRecorder = ({
         }
       }
     },
-    [isRecording, isMoveWindow]
+    [isRecording, isMoveWindow, t]
   );
 
   const handleKeyUp = useCallback(
