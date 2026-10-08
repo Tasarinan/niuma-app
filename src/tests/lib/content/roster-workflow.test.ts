@@ -62,7 +62,7 @@ describe("content roster workflow", () => {
     expect(copy.imageName).toBe("画师");
     expect(copy.publisherName).toBe("出口");
     expect(copy.draftCommand).toBe("draft");
-    expect(topicNotConfirmedMessage(copy)).toContain("/draft create");
+    expect(topicNotConfirmedMessage(copy)).toContain("/draft");
     expect(topicNotConfirmedMessage(copy)).toContain("接待");
     expect(topicNotConfirmedMessage(copy)).not.toContain("主理人");
   });

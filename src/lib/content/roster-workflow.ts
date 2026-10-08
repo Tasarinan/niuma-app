@@ -85,14 +85,22 @@ export function hasFamilyCommand(
   const needle = normCommand(name);
   if (!needle) return false;
   if (commands) return commands[family].includes(needle);
-  return needle === family || (family === "draft" && needle === "article");
+  if (family === "draft") {
+    return (
+      needle === "article" ||
+      needle === "draft" ||
+      needle === "continue" ||
+      needle === "rewrite"
+    );
+  }
+  return needle === family;
 }
 
 export function firstFamilyCommand(
   commands: ContentWorkflowCommands | undefined,
   family: ContentCommandFamily,
 ): string {
-  return commands?.[family][0] ?? (family === "draft" ? "article" : family);
+  return commands?.[family][0] ?? (family === "draft" ? "draft" : family);
 }
 
 export function imageRoleNames(roles: TeamRoleDefinition[]): string[] {
@@ -155,10 +163,10 @@ export function firstFormattingSkill(roles: TeamRoleDefinition[]): string | unde
 }
 
 export function topicNotConfirmedMessage(copy?: Partial<ContentRosterCopy>): string {
-  const command = (copy?.draftCommand ?? "article").replace(/^\//, "");
+  const command = (copy?.draftCommand ?? "draft").replace(/^\//, "");
   const host = copy?.hostName?.trim();
-  const who = host ? `让${host}` : "";
-  return `选题尚未确认，不能创建草稿目录。请先在聊天里用 /${command} create ${who}确认选题。讨论阶段不创建文档。`.replace(
+  const who = host ? `可请${host}` : "";
+  return `尚未开稿。请在聊天里用 /${command} <主题> 创建目录，或 ${who} 从 journal 开稿后再编辑。`.replace(
     /\s+/g,
     " ",
   );

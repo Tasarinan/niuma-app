@@ -1,8 +1,9 @@
 id: content
-defaultAgent: producer.md
+defaultAgent: guide.md
+defaultCommand: record
 name: 内容创作
-description: 编辑部。主理人 /article 管稿；采编选题；写手写 Markdown；主编审稿；配图师 /image 与配图；发行 /format /publish。
-eyebrow: Markdown · 多平台
+description: 个人文风与日更素材；/draft 开稿，编辑栏改稿、选主题、排版与发布；/review 审稿。
+eyebrow: 日记 · 成稿 · 多平台
 avatar: "✍️"
 accent: amber
 view: editor
@@ -11,8 +12,8 @@ workspaceRoot: true
 dataDomain: contentbook
 
 starterPrompts:
-  - "/article create 今天想做一篇什么"
-  - "/article create 开一篇乾坤AI路书（讲一个工具）"
-  - "/article edit"
-  - "/format WECHAT"
-  - "/publish WECHAT"
+  - "/style setup — 建立个人文风"
+  - "/record idea 今天想记的一句"
+  - "/draft 从素材开一篇新稿"
+  - "/article edit — 打开编辑栏"
+  - "/review — 生成审稿单"

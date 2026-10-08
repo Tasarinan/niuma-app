@@ -1498,16 +1498,19 @@ export default function ChatPage({
               rest ? `rest: ${rest}` : "",
               platform
                 ? isFormat
-                  ? "- 只排版，不要推草稿箱。"
+                  ? [
+                      "- 优先引导用户到编辑栏「排版与发布 → 生成微信排版」。",
+                      "- 用户坚持代跑时再执行 format.py；只排版，不要推草稿箱。",
+                    ]
                   : isPublish && platform === "wechat"
                     ? [
-                        "- 推到微信公众号草稿箱。",
-                        "- 必须用 publish.py 的 full 子命令：`python .../publish.py --account N full <草稿目录>/`。",
-                        "- full 会先从磁盘最新 article.md 跑 format.py 生成 article.html，再上传；禁止 create-draft 直传旧 HTML，禁止 --skip-format。",
-                        "- 以磁盘 article.md 为准：请用户先在编辑里保存，再发布。",
+                        "- 优先引导用户到编辑栏「排版与发布 → 推到公众号草稿箱」。",
+                        "- 用户坚持代跑时用 publish.py full：`python .../publish.py --account N full <草稿目录>/`。",
+                        "- full 会先从磁盘最新 article.md 跑 format.py；禁止 --skip-format。",
+                        "- 以磁盘 article.md 为准：请用户先在编辑里保存。",
                       ]
                     : "- 推到该平台草稿箱；XHS/ZHIHU 未接通时禁止假装已发。"
-                : "- 先让用户选择 WECHAT、XHS 或 ZHIHU。未选定不要跑微信 format.py / publish.py。",
+                : "- 先让用户选择 WECHAT、XHS 或 ZHIHU，或去编辑栏操作。未选定不要跑微信 format.py / publish.py。",
             ].flat()),
       ]
         .filter(Boolean)

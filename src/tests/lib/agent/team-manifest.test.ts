@@ -118,12 +118,12 @@ surface: default
     for (const file of agentFiles) {
       expect(pack.roles.some((role) => role.agentFile === file)).toBe(true);
     }
-    const producer = resolveDefaultRole(pack);
-    expect(producer?.agentFile).toBe("producer.md");
-    expect(producer?.summary).toBeTruthy();
-    expect(listDefaultCommandFromManifest(pack)).toBe("article");
+    const guide = resolveDefaultRole(pack);
+    expect(guide?.agentFile).toBe("guide.md");
+    expect(guide?.summary).toBeTruthy();
+    expect(listDefaultCommandFromManifest(pack)).toBe("record");
     expect(findRoleByCommand(pack.roles, listDefaultCommandFromManifest(pack) ?? "")?.agentFile).toBe(
-      "producer.md",
+      "guide.md",
     );
     expect(findRoleByCommand(pack.roles, "publish")?.name).toBeTruthy();
     expect(findRoleByCommand(pack.roles, "image")?.commands).toContain("image");

@@ -73,6 +73,7 @@ import { fillArticleBlockPlaceholders, type ArticleBlockPreset } from "@/lib/con
 import { topicNotConfirmedMessage, type ContentRosterCopy } from "@/lib/content/roster-workflow";
 import type { TeamRoleDefinition } from "@/lib/agent/team-manifest";
 import { WechatThemePreview } from "@/components/article-editor/WechatThemePreview";
+import { ArticleExportPanel } from "@/components/article-editor/ArticleExportPanel";
 
 import {
   draftFolderFromFilePath,
@@ -1593,6 +1594,19 @@ export default function ArticlesPage({
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
                 写入本篇 article.yaml。分栏/预览按此样式显示，排版时{rosterCopy?.publisherName ?? "出口角色"}也用同一套。
               </p>
+            </div>
+
+            <div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-slate-400">
+                排版与发布
+              </div>
+              <ArticleExportPanel
+                draftDirAbs={activeDraftFolder}
+                onBeforeRun={async () => {
+                  const article = activeArticleRef.current;
+                  if (article) await persistArticle(article, { silent: true });
+                }}
+              />
             </div>
 
             {/* Cover */}

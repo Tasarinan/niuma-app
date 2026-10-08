@@ -19,6 +19,8 @@ describe("content article slash command", () => {
   it("resolves draft workflow intents", () => {
     expect(resolveArticleDraftWorkflow("article", "create")?.intent).toBe("create");
     expect(resolveArticleDraftWorkflow("article", "edit 路书")?.intent).toBe("continue");
+    expect(resolveArticleDraftWorkflow("draft", "路书")?.intent).toBe("create");
+    expect(resolveArticleDraftWorkflow("continue", "下一节")?.intent).toBe("continue");
     expect(resolveArticleDraftWorkflow("new", "")?.intent).toBe("create");
     expect(resolveArticleDraftWorkflow("resume", "x")?.intent).toBe("continue");
   });

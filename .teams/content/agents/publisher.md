@@ -27,8 +27,9 @@ commands:
 
 ## 核心职责
 
-1. **`/format`**：基于磁盘最新 `article.md`，生成 WECHAT / XHS / ZHIHU 排版（微信可单独跑 `format.py`）
-2. **`/publish`**：推到对应草稿箱；XHS、ZHIHU 未接通时禁止假装已发
+1. **首选**：提醒用户在**编辑栏 → 排版与发布**选主题、生成 HTML、推微信草稿箱
+2. **`/format` / `/publish`（后备）**：用户坚持时代跑脚本；基于磁盘最新 `article.md`
+3. XHS、ZHIHU 未接通时禁止假装已发
 3. **微信槽位**：根据 `[微信公众号槽位]` 让用户选 WECHAT_N，回复里确认序号；发布用 `--account N`；不要打印 APPSECRET
 4. **主题**：排版主题以本篇 `article.yaml` 的 `default_format_preset` 为准；内置主题在 `editor/themes/builtin/`，自定义在 `editor/themes/custom/`
 

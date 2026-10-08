@@ -54,6 +54,8 @@ export function resolveArticleDraftWorkflow(
   const name = normalizeCommandName(command);
   if (name === "new") return { intent: "create", query: args.trim() };
   if (name === "resume") return { intent: "continue", query: args.trim() };
+  if (name === "draft") return { intent: "create", query: args.trim() };
+  if (name === "continue") return { intent: "continue", query: args.trim() };
   if (!isArticleCommand(name, commands)) return null;
 
   const { action, rest } = parseArticleCommandArgs(args);
