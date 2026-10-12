@@ -14,7 +14,7 @@ describe("composer routing", () => {
       query: "ne",
       slashIndex: "@主理人 请调用".length,
     });
-    expect(parseTrailingSlashQuery("@写手 请用/article-writing 来写")).toBeNull();
+    expect(parseTrailingSlashQuery("@写手 请用/manuscript-writer 来写")).toBeNull();
   });
 
   it("reads /command or /skill anywhere in the line", () => {
@@ -22,15 +22,15 @@ describe("composer routing", () => {
       name: "new",
       args: "新开一篇MARKDOWN 文章",
     });
-    expect(findSlashToken("@写手 请用/article-writing 来写这篇")).toEqual({
-      name: "article-writing",
+    expect(findSlashToken("@写手 请用/manuscript-writer 来写这篇")).toEqual({
+      name: "manuscript-writer",
       args: "来写这篇",
     });
   });
 
   it("keeps the text before the slash when inserting a token", () => {
-    expect(replaceTrailingSlashToken("@写手 请用/wri", "article-writing")).toBe(
-      "@写手 请用/article-writing ",
+    expect(replaceTrailingSlashToken("@写手 请用/wri", "manuscript-writer")).toBe(
+      "@写手 请用/manuscript-writer ",
     );
   });
 
@@ -40,21 +40,21 @@ describe("composer routing", () => {
 
   it("puts the seat's own skills first", () => {
     const skills = [
-      { slug: "article-images", name: "配图" },
-      { slug: "article-writing", name: "写作" },
+      { slug: "image-generator", name: "配图" },
+      { slug: "manuscript-writer", name: "写作" },
     ];
-    expect(orderSkillsForSeat(skills, ["article-writing"]).map((skill) => skill.slug)).toEqual([
-      "article-writing",
-      "article-images",
+    expect(orderSkillsForSeat(skills, ["manuscript-writer"]).map((skill) => skill.slug)).toEqual([
+      "manuscript-writer",
+      "image-generator",
     ]);
   });
 
   it("picks a catalog skill only when the request overlaps", () => {
     const skills = [
-      { slug: "article-writing", name: "写作", description: "写 Markdown 文章" },
+      { slug: "manuscript-writer", name: "写作", description: "写 Markdown 文章" },
       { slug: "weather", name: "天气", description: "查询天气" },
     ];
-    expect(pickBestSkill(skills, "帮我写一篇 markdown")?.slug).toBe("article-writing");
+    expect(pickBestSkill(skills, "帮我写一篇 markdown")?.slug).toBe("manuscript-writer");
     expect(pickBestSkill(skills, "你好")).toBeUndefined();
   });
 });

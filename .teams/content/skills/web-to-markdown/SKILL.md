@@ -1,88 +1,66 @@
 ---
 name: web-to-markdown
-description: "Convert a web URL into cleaned Markdown with deterministic routing. Use when Codex needs to read article-like content from links and should apply source-aware fetch strategies: default to r.jina.ai for general pages (including X/Twitter), use defuddle.md for YouTube links, and use browser-impersonated extraction for WeChat/Zhihu/Feishu pages with Mozilla Readability cleanup."
+description: 按域名把网址收成 Markdown。当用户使用 /pull、丢来一篇网页链接，或公众号/知乎/飞书正文打不开时使用。打不开就说明原因，不要编造。
 ---
 
-# Web To Markdown
+# 网址转 Markdown
 
-Convert URLs into usable Markdown by applying domain-aware fetching routes, then return the cleaned content directly.
+把 http(s) 页面抽成带原 URL 的 Markdown。失败时说明原因，不要编造正文。
 
-## Quick Workflow
+## 核心功能
 
-1. Normalize and validate the input URL.
-2. Select route:
-- `r.jina.ai`: general web + X/Twitter.
-- `defuddle.md`: YouTube transcript/content extraction.
-- `special-browser-fetch`: WeChat/Zhihu/Feishu.
-3. Return markdown text (or JSON metadata if needed).
+### 1. 按域名选路
+- 默认 / X：`https://r.jina.ai/<url>`
+- YouTube：`https://defuddle.md/<url>`
+- 微信 / 知乎 / 飞书：`scripts/fetch_special_sites.mjs`
 
-For generic URLs (non-YouTube, non-WeChat/Zhihu/Feishu), use this fallback chain:
+### 2. 失败回退
+默认失败则：直连 HTML + Readability → 再不行浏览器抽取。
 
-- try `r.jina.ai` first,
-- if it fails, fallback to direct HTTP fetch + Readability,
-- if direct fetch still fails or returns shell-like content, fallback to browser extraction.
+### 3. 落盘与列表报
+- `/pull` 时每个网址一篇 Markdown，文首写原 URL，写到注入的当天目录
+- 列表报：标题、网址、一句摘要、本地路径
 
-## Commands
+## 使用说明
 
-Run from this skill directory (`skills/web-to-markdown`):
+### 触发条件
 
+当用户提到以下场景时，使用此技能：
+
+- ✅ `/pull`
+- ✅ 用户贴了 http(s) 要全文
+- ✅ 公众号 / 知乎 / 飞书打不开
+
+### 执行步骤
+
+#### 步骤 1: 规范化 URL
+
+#### 步骤 2: 选路抓取
 ```bash
-npm install
 node scripts/url_to_markdown.mjs <url>
 ```
+元数据加 `--json`。强制特殊站点：`node scripts/fetch_special_sites.mjs <url> --json`
 
-Return metadata with markdown:
+#### 步骤 3: 写入并汇报
+`/pull` 写到注入的当天目录。打不开就说明原因。
 
-```bash
-node scripts/url_to_markdown.mjs <url> --json
-```
+细则：[references/routing-and-notes.md](references/routing-and-notes.md)
 
-Force special-site browser extraction:
+## 数据源
 
-```bash
-node scripts/fetch_special_sites.mjs <url> --json
-```
+| 数据源 | 位置 | 内容 |
+|--------|------|------|
+| 通用脚本 | `scripts/url_to_markdown.mjs` | 默认抽取 |
+| 特殊站点 | `scripts/fetch_special_sites.mjs` | 微信 / 知乎 / 飞书 |
+| 路由说明 | `references/routing-and-notes.md` | 域名表 |
 
-## Routing Policy
+## 安全与合规
 
-- Default route: `https://r.jina.ai/<url>`.
-- YouTube (`youtube.com`, `youtu.be`): `https://defuddle.md/<url>`.
-- X/Twitter (`x.com`, `twitter.com`): `https://r.jina.ai/<url>`.
-- WeChat/Zhihu/Feishu: run `scripts/fetch_special_sites.mjs`.
-- If input is already proxy-formatted (`https://defuddle.md/https://...` or `https://r.jina.ai/https://...`), normalize back to the original URL and re-apply routing.
+- ❌ 不编造打不开的正文
+- ❌ 不代替 `/digest` 做选题
+- ✅ 文首保留原 URL
 
-## Special-Site Extraction Behavior
+## 相关命令
 
-Use a two-stage strategy for WeChat/Zhihu/Feishu:
-
-1. Try `cuimp` HTTP/TLS impersonation first, then clean HTML with Mozilla Readability.
-2. If stage 1 fails or returns blocked/shell content, fallback to `puppeteer-extra` browser impersonation.
-
-- HTTP stage impersonates modern Chrome TLS/HTTP profile via `cuimp`.
-- Browser stage impersonates a modern Chrome user agent and standard `sec-ch-ua` headers.
-- Remove known login modals and backdrop overlays (best effort).
-- Scroll the page to trigger lazy-loaded article blocks.
-- Parse cleaned document with Mozilla Readability.
-- Convert extracted HTML body to Markdown via Turndown.
-- Resolve browser executable from `CHROME_PATH` first, then system Chrome/Chromium/Edge paths.
-
-If special-site extraction fails due to anti-bot checks, account-only pages, or network limits, report failure clearly and ask for fallback input (for example raw page text).
-
-## Output Contract
-
-For normal usage, output markdown only.
-
-When `--json` is used, return:
-
-- `source`: backend source (`r.jina.ai`, `defuddle`, `cuimp`, `browser-readability`).
-- `strategy`: selected route (`r-jina`, `defuddle`, `special-http-fetch`, `special-browser-fetch-fallback`).
-- `requestedUrl`: original input.
-- `resolvedUrl`: normalized/final URL.
-- `markdown`: extracted markdown body.
-
-## Resources
-
-- [references/routing-and-notes.md](references/routing-and-notes.md): domain routing rules and operational caveats.
-- `scripts/url_to_markdown.mjs`: primary entrypoint.
-- `scripts/fetch_special_sites_http.mjs`: WeChat/Zhihu/Feishu HTTP impersonation fetcher (`cuimp` JS).
-- `scripts/fetch_special_sites.mjs`: two-stage extractor (HTTP-first, browser-fallback).
+- `/pull` — 按已存网址拉取
+- `/digest` — 拉完后再汇总（本技能不做）

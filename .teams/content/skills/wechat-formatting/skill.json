@@ -1,0 +1,14 @@
+{
+  "name": "wechat-formatting",
+  "version": "0.4.0",
+  "author": "niuma.skills",
+  "description": "把当前篇 article.md 排成微信公众号 HTML。当用户要排版、排全文、转微信格式，或只要预览不要推草稿箱时使用。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["wechat", "公众号", "html"],
+  "permissions": ["filesystem", "shell"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  }
+}

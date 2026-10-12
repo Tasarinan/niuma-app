@@ -21,6 +21,25 @@ export type WechatPipelineResult = {
   timedOut: boolean;
 };
 
+export function describeWechatPipelineError(result: {
+  ok?: boolean;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number | null;
+  timedOut?: boolean;
+  message?: string;
+}): string {
+  const raw = [result.message, result.stderr, result.stdout]
+    .filter((part): part is string => Boolean(part && part.trim()))
+    .join("\n")
+    .trim();
+  if (/python was not found/i.test(raw) || /microsoft store/i.test(raw) || /app execution aliases/i.test(raw)) {
+    return "找不到可用的 Python。Windows 的 python3 经常是微软商店占位程序。请安装 Python 3，并在「设置 → 应用 → 高级应用设置 → 应用执行别名」里关闭 python.exe 和 python3.exe。";
+  }
+  if (result.timedOut) return "排版超时。请稍后重试。";
+  return raw.slice(0, 400) || `排版失败（exit ${result.exitCode ?? "?"}）`;
+}
+
 function joinRoot(root: string, rel: string): string {
   const sep = root.includes("\\") ? "\\" : "/";
   return `${root.replace(/[/\\]+$/, "")}${sep}${rel.replace(/^[/\\]+/, "").replace(/\//g, sep)}`;

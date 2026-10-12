@@ -9,6 +9,7 @@ import {
   parseSlashCommandAgent,
   parseSlashInvocation,
   parseSlashQuery,
+  commandsForSlashMenu,
   rankSlashCommands,
   rankSlashSkills,
   type SlashCommandDefinition,
@@ -139,17 +140,32 @@ describe("slash command completion and execution", () => {
 
   it("ranks team skills for the slash menu and skips command-name collisions", () => {
     const skills = [
-      { slug: "article-main", name: "文章生产线", command: "article", description: "开题" },
-      { slug: "article-images", name: "配图", command: "image-skill", description: "整理图片" },
+      { slug: "content-router", name: "流程地图", command: "article", description: "开题" },
+      { slug: "image-generator", name: "配图", command: "image-skill", description: "整理图片" },
       { slug: "grammar", name: "语法", command: "grammar", description: "讲解语法" },
     ];
     expect(
       rankSlashSkills(skills, "", {
-        teamSlugs: ["article-main", "article-images"],
+        teamSlugs: ["content-router", "image-generator"],
         excludeCommands: ["article"],
       }).map((skill) => skill.slug),
-    ).toEqual(["article-images"]);
+    ).toEqual(["image-generator"]);
     expect(rankSlashSkills(skills, "语法").map((skill) => skill.slug)).toEqual(["grammar"]);
+  });
+
+  it("keeps only the content writing commands in the slash menu", () => {
+    const names = ["style", "sources", "record", "continue", "rewrite", "review", "image", "format", "publish", "article-review"];
+    const commands = names.map((name) => ({ ...command, name, hidden: false }));
+    expect(commandsForSlashMenu(commands, { content: true }).map((item) => item.name)).toEqual([
+      "style",
+      "record",
+      "publish",
+    ]);
+    expect(rankSlashCommands(commandsForSlashMenu(commands, { content: true }), "").map((item) => item.name)).toEqual([
+      "style",
+      "record",
+      "publish",
+    ]);
   });
 
   it("omits hidden commands from the suggestion menu", () => {

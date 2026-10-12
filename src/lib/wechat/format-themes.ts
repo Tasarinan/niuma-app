@@ -19,7 +19,7 @@ export type FormatTheme = {
 export const DEFAULT_FORMAT_THEME_ID = "default";
 
 export const FORMAT_THEME_USER_DIR = formatThemeUserDir("content");
-export const FORMAT_THEME_BUILTIN_DIR = formatThemeBuiltinDir("content", "article-formatting-wechat");
+export const FORMAT_THEME_BUILTIN_DIR = formatThemeBuiltinDir("content", "wechat-formatting");
 
 export const FORMAT_THEME_GROUPS: { id: FormatThemeGroupId; label: string }[] = [
   { id: "niuma", label: "Niuma 原主题" },

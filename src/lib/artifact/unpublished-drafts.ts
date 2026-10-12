@@ -1,7 +1,21 @@
 /** In-progress WeChat drafts that were confirmed but not published yet. */
 
 import type { ContentRosterCopy } from "@/lib/content/roster-workflow";
-import { isManuscriptArticlePath, isOpenableDraftMarkdown, toDraftArticlePath } from "./drafts";
+import { readLastOpenDraftPath } from "./article-storage";
+import {
+  CONTENT_DRAFTS_DIR,
+  DRAFT_ARTICLE_FILENAME,
+  extractDraftFolderName,
+  findReusableDraftSlug,
+  isManuscriptArticlePath,
+  isOpenableDraftMarkdown,
+  isSameDraftTheme,
+  redirectDraftWritePath,
+  resolveLockedDraftFolder,
+  rewriteDraftFoldersInCommand,
+  toDraftArticlePath,
+  toDraftDatePrefix,
+} from "./drafts";
 import { draftFolderFromFilePath } from "./draft-workspace";
 
 export interface UnpublishedDraft {
@@ -101,6 +115,134 @@ export function toUnpublishedDraft(input: {
   };
 }
 
+export function pickReusableDraft(
+  drafts: UnpublishedDraft[],
+  theme: string,
+  date: Date = new Date(),
+): UnpublishedDraft | undefined {
+  const today = drafts.filter((draft) => draft.folder.startsWith(`${toDraftDatePrefix(date)}-`));
+  const similar = today.filter(
+    (draft) => isSameDraftTheme(draft.folder, theme) || isSameDraftTheme(draft.title, theme),
+  );
+  if (similar.length === 0) {
+    const slug = findReusableDraftSlug(today.map((draft) => draft.folder), theme, date);
+    return today.find((draft) => draft.folder === slug);
+  }
+  return similar.find((draft) => draft.articlePath) ?? similar[0];
+}
+
+export function formatOutlineFolderAskContext(input: { folder: string; theme: string }): string {
+  return [
+    "[等待确认]",
+    `拟创建：${CONTENT_DRAFTS_DIR}/${input.folder}/`,
+    `主题：${input.theme}`,
+    "本回合只问用户要不要新建这个目录。禁止调研、禁止 write、禁止 mkdir、禁止写 article.md。",
+    "请用户回复「确认」或「取消」。确认前目录不存在。",
+  ].join("\n");
+}
+
+export function formatLockedOutlineFolderContext(input: {
+  folder: string;
+  reused: boolean;
+}): string {
+  return [
+    "[本次草稿目录已锁定]",
+    `folder: ${input.folder}`,
+    `path: ${CONTENT_DRAFTS_DIR}/${input.folder}/`,
+    input.reused
+      ? "沿用已有目录。禁止 mkdir，禁止再写其它 YYYYMMDD-相近主题 目录。"
+      : "系统已指定这一目录。禁止 mkdir 第二个，禁止把很难/难写成两个文件夹。",
+    `只准 write ${CONTENT_DRAFTS_DIR}/${input.folder}/ 下的 topic.md、research.md、article.md。`,
+  ].join("\n");
+}
+
+export function formatOutlineFolderReuseContext(
+  drafts: UnpublishedDraft[],
+  theme: string,
+  date: Date = new Date(),
+  lockedFolder?: string,
+): string {
+  const prefix = toDraftDatePrefix(date);
+  const today = drafts.filter((draft) => draft.folder.startsWith(`${prefix}-`));
+  const reuse = pickReusableDraft(drafts, theme, date);
+  const locked = lockedFolder ?? reuse?.folder ?? resolveLockedDraftFolder(theme, today.map((draft) => draft.folder), date).folder;
+  const lines = [
+    "[草稿目录]",
+    `今天 ${prefix} 已有 ${today.length} 个目录。同一主题只准沿用「${locked}」。`,
+  ];
+  for (const draft of today) {
+    const files = [draft.articlePath ? "article.md" : "", draft.topicPath ? "topic.md" : ""]
+      .filter(Boolean)
+      .join("、");
+    lines.push(`- ${draft.folder}${files ? `（${files}）` : ""}`);
+  }
+  lines.push(`本次必须使用：${CONTENT_DRAFTS_DIR}/${locked}/。不要 mkdir 其它目录。`);
+  return lines.join("\n");
+}
+
+export async function listDraftFolderNames(): Promise<string[]> {
+  const { getArtifactDir } = await import("./path-adapter");
+  const { listDirectory } = await import("./fs");
+  const root = await getArtifactDir();
+  const entries = await listDirectory(root).catch(() => []);
+  return entries.filter((entry) => entry.isDir && /^\d{8}-/.test(entry.name)).map((entry) => entry.name);
+}
+
+function preferredLockedFolder(date: Date = new Date()): string | undefined {
+  const last = readLastOpenDraftPath();
+  const folder = last ? extractDraftFolderName(last) : undefined;
+  const prefix = `${toDraftDatePrefix(date)}-`;
+  return folder?.startsWith(prefix) ? folder : undefined;
+}
+
+export async function redirectSameThemeDraftPath(requestedPath: string, date: Date = new Date()): Promise<string> {
+  const folders = await listDraftFolderNames();
+  return redirectDraftWritePath(requestedPath, folders, date, preferredLockedFolder(date)).path;
+}
+
+export async function rewriteSameThemeDraftCommand(command: string, date: Date = new Date()): Promise<string> {
+  const folders = await listDraftFolderNames();
+  return rewriteDraftFoldersInCommand(command, folders, date, preferredLockedFolder(date));
+}
+
+export async function planOutlineDraftFolder(
+  theme: string,
+  date: Date = new Date(),
+): Promise<{ folder: string; reused: boolean; theme: string }> {
+  const drafts = await loadUnpublishedDrafts();
+  const picked = pickReusableDraft(drafts, theme, date);
+  const folders = await listDraftFolderNames();
+  const resolved = picked
+    ? { folder: picked.folder, reused: true }
+    : resolveLockedDraftFolder(theme, folders, date);
+  return { ...resolved, theme: theme.trim() };
+}
+
+export async function assertDraftFolderWritable(path: string): Promise<void> {
+  const folder = extractDraftFolderName(path);
+  if (!folder) return;
+  const folders = await listDraftFolderNames();
+  if (folders.includes(folder)) return;
+  throw new Error(`草稿目录 ${folder} 还不存在。请先问用户确认后再创建，不要自己 mkdir。`);
+}
+
+export async function lockOutlineDraftFolder(
+  theme: string,
+  date: Date = new Date(),
+): Promise<{ folder: string; dirPath: string; articlePath: string; reused: boolean }> {
+  const { getArtifactDir } = await import("./path-adapter");
+  const { join } = await import("@tauri-apps/api/path");
+  const { writeText } = await import("./fs");
+  const resolved = await planOutlineDraftFolder(theme, date);
+  const dirPath = await join(await getArtifactDir(), resolved.folder);
+  if (!resolved.reused) {
+    const topicPath = await join(dirPath, "topic.md");
+    await writeText(topicPath, `# ${theme.trim()}\n\n主题已锁定。标题后定。\n`);
+  }
+  const articlePath = await join(dirPath, DRAFT_ARTICLE_FILENAME);
+  return { ...resolved, dirPath, articlePath };
+}
+
 export function matchUnpublishedDrafts(query: string, drafts: UnpublishedDraft[]): UnpublishedDraft[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
@@ -135,8 +277,7 @@ export function formatUnpublishedDraftsContext(
     mode === "continue" &&
     (matched.length === 1 || (!query.trim() && drafts.length === 1));
   const continueTarget = continueMatch ? (matched[0] ?? drafts[0]) : undefined;
-  const draft = (copy?.draftCommand ?? "article").replace(/^\//, "");
-  const format = (copy?.formatCommand ?? "format").replace(/^\//, "");
+  const draft = (copy?.draftCommand ?? "outline").replace(/^\//, "");
   const publish = (copy?.publishCommand ?? "publish").replace(/^\//, "");
   const specialists = (copy?.specialistNames ?? []).filter(Boolean);
   const ping = specialists.length ? `然后点名${specialists.join(" / ")}。` : "然后点名职责表里的其他角色。";
@@ -147,19 +288,19 @@ export function formatUnpublishedDraftsContext(
     "",
     "规则：",
     mode === "create"
-      ? `- 本次是 /${draft} create 开新题。禁止续写下列旧稿，禁止 \`open_article\` 旧路径，禁止改旧 \`article.md\`。圆桌结束、用户确认后才 mkdir。`
-      : `- 本次是 /${draft} edit <target> 继续已定题稿。下列目录还没推送到公众号。直接共创，不要再 mkdir，不要再开会定同一篇。`,
+      ? `- 本次是 /${draft} <主题> 写框架。禁止把全文一次写完，禁止编造亲身经历，禁止续写下列旧稿。用户还没选定主题时不要 mkdir。`
+      : `- 下列目录还没推送到公众号。直接打开已有稿，不要再 mkdir，不要再开会定同一篇。`,
     mode === "continue"
-      ? `- 继续时用 \`open_article\` 把该篇 \`article.md\` 定位为当前文稿（没有就定位 \`topic.md\`），不要替用户切换到编辑栏。用户自己点「编辑」就会看到这篇。${ping}`
-      : `- 用户要继续旧稿时请用 /${draft} edit <关键词>，不要在 /${draft} create 里续写。`,
-    "- 审稿只写该目录 `review.md`，不要创建 `.niuma-article/` 或另一篇 drafts。",
+      ? `- 继续时用 \`open_article\` 把该篇 \`article.md\` 定位为当前文稿（没有就定位 \`topic.md\`），不要替用户切换到编辑栏。用户自己点「编辑」，选中文字后用选区旁的图标气泡续写或修改。${ping}`
+      : `- 用户要继续旧稿时请打开编辑栏，不要在 /${draft} 里把旧稿写成新全文。`,
+    "- 审稿在选区旁图标气泡的审核，不要创建 `.niuma-article/` 或另一篇 drafts。",
     mode === "create"
-      ? `- 排版用 /${format}，推草稿箱用 /${publish}。仅切编辑栏用 /${draft} edit（无 target）。`
-      : `- 没有未推送草稿时，请用户改用 /${draft} create。排版用 /${format}，推草稿箱用 /${publish}。`,
+      ? `- 排版用编辑栏「排全文」。推草稿箱用稿件信息里的发布（/${publish} 仅后备）。群发只在公众号后台。`
+      : `- 没有未推送草稿时，请用户改用 /propose 选题，再 /${draft} <主题>。排版用编辑栏「排全文」，推草稿箱用稿件信息里的发布。`,
     drafts.length === 0
       ? mode === "create"
-        ? "- 当前没有未推送草稿，按新选题开会。"
-        : `- 当前没有未推送草稿，不要 mkdir，请用户改用 /${draft} create。`
+        ? "- 当前没有未推送草稿，按用户选定的新主题写框架。"
+        : `- 当前没有未推送草稿，不要 mkdir，请用户改用 /propose 再 /${draft} <主题>。`
       : "",
     mode === "continue" && continueTarget
       ? `- 本次请直接继续：《${continueTarget.title}》`

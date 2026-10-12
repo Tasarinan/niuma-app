@@ -1,6 +1,7 @@
 # 乾坤AI容我懒 · 文案模板目录
-# 以后编辑器按本文件列出可插入模板；用户复制一份改 id / file 即可定制。
-# 占位符：{{title}} {{one_liner}} {{minutes}} {{tool}} {{quote}} {{next}} {{body}}
+# 三层分开：框架 = 章节顺序；栏目 = 账号版式；组件 = 可插入单块。
+# 视觉主题在 editor/themes/，不要写进框架。
+# 框架改编自 https://github.com/md2wechat/md2wechat-templates （只取结构，不取 Convert API / 排版主题）
 
 schemaVersion: v1
 account: 乾坤AI容我懒
@@ -13,19 +14,127 @@ templates:
     series: lushu
     slot: kit
     file: lushu.md
-    description: 工具介绍全文骨架（开场、路标、开箱、工具卡、金句、收束）
+    description: 栏目版式。开场、路标、开箱卡、金句、收束；中间 {{body}} 放框架正文
   - id: fde
     name: FDE日记
     series: fde
     slot: kit
     file: fde.md
-    description: 医问安工程笔记骨架（开场、现场、决定卡、金句、收束）
+    description: 栏目版式。开场、现场、决定卡、金句、收束；中间 {{body}} 放框架正文
   - id: foreign
     name: AI外网
     series: foreign
     slot: kit
     file: foreign.md
-    description: 外网快讯骨架（开场、条数、来源卡、判断、收束）
+    description: 栏目版式。开场、讯、来源卡、判断、收束；中间 {{body}} 放框架正文
+  - id: framework-company-announcement
+    name: 框架·公司公告
+    series: 企业沟通
+    slot: framework
+    file: framework-company-announcement.md
+    description: 公司事项、服务调整。生效安排、影响范围与官方入口
+  - id: framework-meeting-to-public-brief
+    name: 框架·会议简报
+    series: 企业沟通
+    slot: framework
+    file: framework-meeting-to-public-brief.md
+    description: 会议公开简报。公开边界、已确认事项与后续节点
+  - id: framework-event-recap
+    name: 框架·活动复盘
+    series: 企业沟通
+    slot: framework
+    file: framework-event-recap.md
+    description: 会议、沙龙或发布会复盘。现场进程、授权引用与后续资源
+  - id: framework-quarterly-review
+    name: 框架·季度回顾
+    series: 企业沟通
+    slot: framework
+    file: framework-quarterly-review.md
+    description: 团队或项目季度回顾。指标口径、目标偏差与下季安排
+  - id: framework-employer-brand
+    name: 框架·雇主品牌
+    series: 企业沟通
+    slot: framework
+    file: framework-employer-brand.md
+    description: 团队故事、招聘沟通。工作实践、成员视角与岗位匹配
+  - id: framework-data-report
+    name: 框架·数据报告
+    series: 研究洞察
+    slot: framework
+    file: framework-data-report.md
+    description: 调研报告、数据解读。口径、指标、发现与局限
+  - id: framework-whitepaper-summary
+    name: 框架·白皮书摘要
+    series: 研究洞察
+    slot: framework
+    file: framework-whitepaper-summary.md
+    description: 白皮书摘要。原文定义、研究方法与引用页码
+  - id: framework-executive-opinion
+    name: 框架·管理者观点
+    series: 研究洞察
+    slot: framework
+    file: framework-executive-opinion.md
+    description: 管理者署名观点。判断、证据、异议与行动依据
+  - id: framework-knowledge-science
+    name: 框架·知识科普
+    series: 研究洞察
+    slot: framework
+    file: framework-knowledge-science.md
+    description: 概念解释、入门科普。定义、原理、例子与误区
+  - id: framework-interview
+    name: 框架·人物访谈
+    series: 研究洞察
+    slot: framework
+    file: framework-interview.md
+    description: 人物访谈、问答整理。人物背景、原话与主题线索
+  - id: framework-product-launch
+    name: 框架·产品发布
+    series: 产品增长
+    slot: framework
+    file: framework-product-launch.md
+    description: 产品发布、版本更新。变化、适用对象、升级步骤
+  - id: framework-customer-case-study
+    name: 框架·客户案例
+    series: 产品增长
+    slot: framework
+    file: framework-customer-case-study.md
+    description: 客户案例、方案验证。实施过程、结果口径与适用边界
+  - id: framework-tech-tutorial
+    name: 框架·技术教程
+    series: 产品增长
+    slot: framework
+    file: framework-tech-tutorial.md
+    description: 工具教程、操作指南。前提、步骤、验证与排错
+  - id: framework-listicle
+    name: 框架·清单
+    series: 产品增长
+    slot: framework
+    file: framework-listicle.md
+    description: 方法、工具或建议清单。入选标准、逐项证据与选择建议
+  - id: framework-opinion-piece
+    name: 框架·观点
+    series: 个人创作
+    slot: framework
+    file: framework-opinion-piece.md
+    description: 行业观点、深度评论。立场、证据、异议与建议
+  - id: framework-weekly-digest
+    name: 框架·周报
+    series: 个人创作
+    slot: framework
+    file: framework-weekly-digest.md
+    description: 行业周报、内容策展。筛选依据、来源与编辑总结
+  - id: framework-thread-summary
+    name: 框架·帖子整理
+    series: 个人创作
+    slot: framework
+    file: framework-thread-summary.md
+    description: 公开帖子整理成长文。来源、原意、脉络与补充
+  - id: framework-newsletter
+    name: 框架·周刊
+    series: 个人创作
+    slot: framework
+    file: framework-newsletter.md
+    description: 品牌周刊、固定栏目期次。编辑视角、推荐理由与读者互动
   - id: manifesto
     name: 容我懒宣言
     series: shared
@@ -38,6 +147,12 @@ templates:
     slot: follow
     file: follow.md
     description: 合规关注引导，不诱导转发
+  - id: greeting
+    name: 寄语
+    series: shared
+    slot: greeting
+    file: greeting.md
+    description: 称呼、具体感谢、祝福、落款。不是文章框架
   - id: divider-lushu
     name: 分割·开箱
     series: lushu

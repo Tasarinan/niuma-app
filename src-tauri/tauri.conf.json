@@ -57,7 +57,7 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:niuma.db"]
+      "preload": []
     },
     "updater": {
       "endpoints": ["https://github.com/Tasarinan/niuma-app/releases/latest/download/latest.json"],

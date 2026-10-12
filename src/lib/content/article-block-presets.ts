@@ -36,6 +36,21 @@ export function parseArticleBlockIndex(raw: string): ArticleBlockPresetMeta[] {
     .filter((item) => item.id && item.file && !item.file.includes(".."));
 }
 
+const PRESET_GROUPS = [
+  { slot: "framework", label: "框架" },
+  { slot: "kit", label: "栏目" },
+] as const;
+
+export function groupArticleBlockPresets(presets: ArticleBlockPresetMeta[]) {
+  const grouped = PRESET_GROUPS.map((group) => ({
+    label: group.label,
+    items: presets.filter((preset) => preset.slot === group.slot),
+  })).filter((group) => group.items.length > 0);
+  const rest = presets.filter((preset) => preset.slot !== "framework" && preset.slot !== "kit");
+  if (rest.length > 0) grouped.push({ label: "组件", items: rest });
+  return grouped;
+}
+
 export function fillArticleBlockPlaceholders(
   markdown: string,
   values: Record<string, string>,

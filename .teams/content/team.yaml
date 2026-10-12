@@ -2,7 +2,7 @@ id: content
 defaultAgent: guide.md
 defaultCommand: record
 name: 内容创作
-description: 个人文风与日更素材；/draft 开稿，编辑栏改稿、选主题、排版与发布；/review 审稿。
+description: 文风、素材、调研与初稿；改稿配图审稿排版在编辑栏；确认后推公众号草稿箱。
 eyebrow: 日记 · 成稿 · 多平台
 avatar: "✍️"
 accent: amber
@@ -12,8 +12,9 @@ workspaceRoot: true
 dataDomain: contentbook
 
 starterPrompts:
-  - "/style setup — 建立个人文风"
-  - "/record idea 今天想记的一句"
-  - "/draft 从素材开一篇新稿"
-  - "/article edit — 打开编辑栏"
-  - "/review — 生成审稿单"
+  - "/style setup — 建立文风档案"
+  - "/record idea 今天的一句思考"
+  - "/pull — 拉取今天的网址"
+  - "/digest — 汇总素材并建议题目"
+  - "/propose — 提出写作主题"
+  - "/outline 一个想法 — 调研后写初稿，标题后定"

@@ -3,12 +3,12 @@ import { describeAgentToolDone, describeAgentToolProgress } from "@/lib/agent/to
 
 describe("describeAgentToolProgress", () => {
   it("only names the skill while it is in use", () => {
-    expect(describeAgentToolProgress("load_skill", { name: "article-images" })).toBe(
-      "正在使用技能 article-images",
+    expect(describeAgentToolProgress("load_skill", { name: "image-generator" })).toBe(
+      "正在使用技能 image-generator",
     );
     expect(describeAgentToolProgress("run_skill", { name: "ima-skill" })).toBe("正在使用技能 ima-skill");
-    expect(describeAgentToolDone("正在使用技能 article-images")).toBe(
-      "使用技能 article-images",
+    expect(describeAgentToolDone("正在使用技能 image-generator")).toBe(
+      "使用技能 image-generator",
     );
   });
 

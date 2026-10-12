@@ -2,6 +2,7 @@ import { readDirRecursive, readText, writeText, ensureDir } from "./fs";
 import { getArtifactDirs, getArtifactDir, getEntryName, toRelativePath } from "./path-adapter";
 import { requireConfirmedDraftPath, isOpenableDraftMarkdown, isDraftArticleFile, normalizeDraftPath } from "./drafts";
 import { displayTitleForDraftFile, applyMarkdownTitle } from "./unpublished-drafts";
+import { diskWriteDecision, isMissingArticleFile } from "./article-write-guard";
 import { normalizeFsPath } from "./workspace-path";
 import {
   articleYamlPathFromArticle,
@@ -114,17 +115,45 @@ export async function openArtifactArticle(filePath: string): Promise<ArtifactArt
   };
 }
 
+export type ArticleSaveResult =
+  | { status: "saved"; filePath: string; relativePath: string; writtenContent: string }
+  | { status: "conflict"; diskContent: string };
+
 export async function saveArticleToArtifact(input: {
   title: string;
   content: string;
   summary?: string;
   existingPath?: string;
-}): Promise<{ filePath: string; relativePath: string }> {
+  /** Bytes last read from disk or last written by this editor. Omit to overwrite. */
+  baselineContent?: string;
+  /** User chose 保留我的: the current disk copy is the baseline, then write the editor text. */
+  adoptDisk?: boolean;
+}): Promise<ArticleSaveResult> {
   const artifactDir = await getArtifactDir();
   await ensureDir(artifactDir);
 
   const filePath = normalizeDraftPath(requireConfirmedDraftPath(input.existingPath));
   const content = applyMarkdownTitle(input.content, input.title);
+  if (input.baselineContent !== undefined) {
+    let diskContent = "";
+    let fileExists = true;
+    try {
+      diskContent = await readText(filePath);
+    } catch (error) {
+      if (!isMissingArticleFile(error)) throw error;
+      fileExists = false;
+    }
+    if (
+      diskWriteDecision({
+        fileExists,
+        diskContent,
+        baselineContent: input.baselineContent,
+        adoptDisk: input.adoptDisk,
+      }) === "conflict"
+    ) {
+      return { status: "conflict", diskContent };
+    }
+  }
   await writeText(filePath, content);
 
   const yamlPath = articleYamlPathFromArticle(filePath);
@@ -142,7 +171,9 @@ export async function saveArticleToArtifact(input: {
   }
 
   return {
+    status: "saved",
     filePath,
     relativePath: toRelativePath(normalizeFsPath(artifactDir), filePath),
+    writtenContent: content,
   };
 }

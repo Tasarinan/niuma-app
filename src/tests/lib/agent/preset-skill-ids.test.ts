@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { resolvePresetSkillIds } from "@/lib/agent/preset-skill-ids";
 
 const skillsBySlug = new Map([
-  ["article-main", "id-main"],
-  ["article-writing", "id-writing"],
-  ["article-images", "id-images"],
+  ["content-router", "id-main"],
+  ["manuscript-writer", "id-writing"],
+  ["image-generator", "id-images"],
   ["ima-skill", "id-ima"],
 ]);
 
@@ -12,8 +12,8 @@ describe("resolvePresetSkillIds", () => {
   it("prefers agent frontmatter skills over team-wide slugs", () => {
     expect(
       resolvePresetSkillIds(
-        ["article-writing"],
-        ["article-main", "article-writing", "article-images"],
+        ["manuscript-writer"],
+        ["content-router", "manuscript-writer", "image-generator"],
         skillsBySlug,
       ),
     ).toEqual(["id-writing"]);
@@ -22,8 +22,8 @@ describe("resolvePresetSkillIds", () => {
   it("keeps only the agent's declared skills when set", () => {
     expect(
       resolvePresetSkillIds(
-        ["article-writing"],
-        ["article-main", "article-writing", "article-images"],
+        ["manuscript-writer"],
+        ["content-router", "manuscript-writer", "image-generator"],
         skillsBySlug,
       ),
     ).toEqual(["id-writing"]);
@@ -33,7 +33,7 @@ describe("resolvePresetSkillIds", () => {
     expect(
       resolvePresetSkillIds(
         [],
-        ["article-main", "article-writing"],
+        ["content-router", "manuscript-writer"],
         skillsBySlug,
       ),
     ).toEqual([]);
@@ -47,7 +47,13 @@ describe("resolvePresetSkillIds", () => {
 
   it("drops slugs that are not in the skill store", () => {
     expect(
-      resolvePresetSkillIds(["missing", "article-images"], [], skillsBySlug),
+      resolvePresetSkillIds(["missing", "image-generator"], [], skillsBySlug),
     ).toEqual(["id-images"]);
+  });
+
+  it("resolves retired article-* slugs to the renamed skill ids", () => {
+    expect(resolvePresetSkillIds(["article-writing"], [], skillsBySlug)).toEqual([
+      "id-writing",
+    ]);
   });
 });

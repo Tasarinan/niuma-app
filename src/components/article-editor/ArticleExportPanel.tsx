@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { loadWechatReadyPack, type WechatSlot } from "@/lib/wechat/accounts";
 import {
+  describeWechatPipelineError,
   resolveWorkspaceRoot,
   runWechatFormatForDraft,
   runWechatPublishFullForDraft,
@@ -54,11 +55,14 @@ export function ArticleExportPanel({ draftDirAbs, onBeforeRun }: Props) {
       if (result.ok) {
         toast.success("已生成微信排版（article.html）");
       } else {
-        const detail = (result.stderr || result.stdout).trim().slice(0, 400);
-        toast.error(detail || `排版失败（exit ${result.exitCode ?? "?"})`);
+        toast.error(describeWechatPipelineError(result));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(
+        describeWechatPipelineError({
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
     } finally {
       setFormatting(false);
     }
@@ -87,11 +91,14 @@ export function ArticleExportPanel({ draftDirAbs, onBeforeRun }: Props) {
       if (result.ok) {
         toast.success("已推到微信公众号草稿箱");
       } else {
-        const detail = (result.stderr || result.stdout).trim().slice(0, 400);
-        toast.error(detail || `发布失败（exit ${result.exitCode ?? "?"})`);
+        toast.error(describeWechatPipelineError(result));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(
+        describeWechatPipelineError({
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
     } finally {
       setPublishing(false);
     }

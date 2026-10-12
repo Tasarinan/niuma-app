@@ -61,7 +61,7 @@ fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-fn runtime_or_build_env(keys: &[&str]) -> Option<String> {
+pub(crate) fn runtime_or_build_env(keys: &[&str]) -> Option<String> {
     for key in keys {
         if let Ok(value) = std::env::var(key) {
             let trimmed = value.trim();
@@ -327,6 +327,12 @@ fn get_articles_dirs(app: tauri::AppHandle) -> Vec<String> {
     get_artifact_dirs(app)
 }
 
+/// SQLite connection string. The file lives at `<workspace>/.artifacts/sqlite/niuma.db`.
+#[tauri::command]
+fn get_niuma_sqlite_url() -> String {
+    db::sqlite_connection_url()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Get PostHog API key
@@ -335,7 +341,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:niuma.db", db::migrations())
+                .add_migrations(&db::sqlite_connection_url(), db::migrations())
                 .build(),
         )
         .manage(AudioState::default())
@@ -445,6 +451,7 @@ pub fn run() {
             get_niuma_agents_dir,
             get_niuma_skills_dir,
             get_niuma_root_dir,
+            get_niuma_sqlite_url,
             get_niuma_commands_dir,
             get_artifact_dirs,
             get_articles_dirs,

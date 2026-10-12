@@ -1,0 +1,14 @@
+{
+  "name": "content-router",
+  "version": "0.4.0",
+  "author": "niuma.skills",
+  "description": "当用户问内容频道下一步用哪条命令、还没有文风或选题，或把日常流程和编辑栏搞混时使用。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["markdown", "producer", "pipeline"],
+  "permissions": ["filesystem"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  }
+}

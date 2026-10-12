@@ -82,6 +82,44 @@ export function readLastOpenDraftPath(): string | undefined {
   }
 }
 
+export const PENDING_OUTLINE_FOLDER_KEY = "niuma.content.pendingOutlineFolder";
+
+export interface PendingOutlineFolder {
+  theme: string;
+  folder: string;
+}
+
+export function readPendingOutlineFolder(): PendingOutlineFolder | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(PENDING_OUTLINE_FOLDER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingOutlineFolder;
+    if (typeof parsed?.theme === "string" && typeof parsed?.folder === "string") return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function writePendingOutlineFolder(pending: PendingOutlineFolder): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PENDING_OUTLINE_FOLDER_KEY, JSON.stringify(pending));
+  } catch {
+    // ignore quota / private-mode failures
+  }
+}
+
+export function clearPendingOutlineFolder(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(PENDING_OUTLINE_FOLDER_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export function writeLastOpenDraftPath(path: string): void {
   if (typeof window === "undefined") return;
   try {

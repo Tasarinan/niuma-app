@@ -1,5 +1,11 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fillArticleBlockPlaceholders, parseArticleBlockIndex } from "@/lib/content/article-block-presets";
+import {
+  fillArticleBlockPlaceholders,
+  groupArticleBlockPresets,
+  parseArticleBlockIndex,
+} from "@/lib/content/article-block-presets";
 
 const INDEX = `# catalog
 templates:
@@ -28,6 +34,28 @@ describe("article block presets", () => {
       file: "lushu.md",
       description: "工具介绍全文骨架",
     });
+  });
+
+  it("lists narrative frameworks ahead of column kits", () => {
+    const raw = readFileSync(join(".teams/content/editor/blocks/index.yaml"), "utf8");
+    const items = parseArticleBlockIndex(raw);
+    const groups = groupArticleBlockPresets(items);
+    expect(groups.map((group) => group.label)).toEqual(["框架", "栏目", "组件"]);
+    expect(groups[0].items).toHaveLength(18);
+    expect(groups[0].items.every((item) => item.id.startsWith("framework-"))).toBe(true);
+    expect(groups[1].items.map((item) => item.id)).toEqual(["lushu", "fde", "foreign"]);
+    expect(groups[2].items.map((item) => item.id)).toContain("greeting");
+    for (const item of groups[0].items) {
+      const markdown = readFileSync(join(".teams/content/editor/blocks", item.file), "utf8");
+      expect(markdown).toContain("## ");
+      expect(markdown).not.toContain(":::hero");
+      expect(markdown).not.toContain("background:");
+    }
+    for (const item of groups[1].items) {
+      const markdown = readFileSync(join(".teams/content/editor/blocks", item.file), "utf8");
+      expect(markdown).toContain(":::hero");
+      expect(markdown).toContain("{{body}}");
+    }
   });
 
   it("fills known placeholders and keeps the rest", () => {

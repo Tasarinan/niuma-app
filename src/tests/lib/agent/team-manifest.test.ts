@@ -40,7 +40,7 @@ roles:
   - agentFile: producer.md
     name: 主理人
     skills:
-      - article-main
+      - content-router
     commands:
       - article
     summary: 主持
@@ -48,7 +48,7 @@ roles:
     const roles = parseTeamRoles(yaml);
     expect(roles).toHaveLength(1);
     expect(roles[0].name).toBe("主理人");
-    expect(roles[0].skills).toEqual(["article-main"]);
+    expect(roles[0].skills).toEqual(["content-router"]);
 
     const pack = parseTeamPackManifest(yaml);
     expect(pack.workflow).toBe("content");
@@ -125,8 +125,16 @@ surface: default
     expect(findRoleByCommand(pack.roles, listDefaultCommandFromManifest(pack) ?? "")?.agentFile).toBe(
       "guide.md",
     );
-    expect(findRoleByCommand(pack.roles, "publish")?.name).toBeTruthy();
-    expect(findRoleByCommand(pack.roles, "image")?.commands).toContain("image");
+    expect(findRoleByCommand(pack.roles, "publish")?.agentFile).toBe("publisher.md");
+    expect(findRoleByCommand(pack.roles, "outline")?.agentFile).toBe("writer.md");
+    expect(findRoleByCommand(pack.roles, "style")?.agentFile).toBe("guide.md");
+    expect(findRoleByCommand(pack.roles, "digest")?.agentFile).toBe("desk.md");
+    expect(findRoleByCommand(pack.roles, "propose")?.agentFile).toBe("desk.md");
+    expect(findRoleByCommand(pack.roles, "clip")?.agentFile).toBe("writer.md");
+    expect(pack.roles.some((role) => role.agentFile === "producer.md")).toBe(false);
+    expect(findRoleByCommand(pack.roles, "image")).toBeUndefined();
+    expect(findRoleByCommand(pack.roles, "format")).toBeUndefined();
+    expect(findRoleByCommand(pack.roles, "continue")).toBeUndefined();
     const allRoleSkills = pack.roles.flatMap((role) => role.skills);
     for (const slug of allRoleSkills) {
       expect(skillSlugs).toContain(slug);

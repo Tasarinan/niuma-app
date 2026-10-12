@@ -13,6 +13,13 @@ import {
   requireOpenableDraftMarkdown,
   toDraftSlug,
   formatDraftTodayContext,
+  collapseThemeKey,
+  isSameDraftTheme,
+  findReusableDraftSlug,
+  extractDraftFolderName,
+  resolveLockedDraftFolder,
+  redirectDraftWritePath,
+  rewriteDraftFoldersInCommand,
 } from "@/lib/artifact/drafts";
 
 const DAY = new Date(2026, 8, 3); // 2026-09-03 local
@@ -22,7 +29,56 @@ describe("content draft paths", () => {
     const text = formatDraftTodayContext(new Date(2026, 8, 17));
     expect(text).toContain("[今天] 20260917");
     expect(text).toContain("20260917-主题");
+    expect(text).toContain("同一主题当天只准一个目录");
     expect(text).not.toContain("20260903");
+  });
+
+  it("treats 难 and 很难 as the same theme folder", () => {
+    const day = new Date(2026, 9, 12);
+    expect(collapseThemeKey("20261012-做产品容易走到客户很难")).toBe(
+      collapseThemeKey("做产品容易走到客户难"),
+    );
+    expect(isSameDraftTheme("20261012-做产品容易走到客户难", "做产品容易走到客户很难")).toBe(true);
+    expect(
+      findReusableDraftSlug(
+        ["20261012-做产品容易走到客户难", "20261011-做产品容易到客户难"],
+        "做产品容易走到客户很难",
+        day,
+      ),
+    ).toBe("20261012-做产品容易走到客户难");
+    expect(
+      resolveLockedDraftFolder("做产品容易走到客户很难", ["20261012-做产品容易走到客户难"], day),
+    ).toEqual({ folder: "20261012-做产品容易走到客户难", reused: true });
+    expect(
+      extractDraftFolderName(
+        "C:/niuma/.artifacts/drafts/20261012-做产品容易走到客户很难/article.md",
+      ),
+    ).toBe("20261012-做产品容易走到客户很难");
+    expect(
+      redirectDraftWritePath(
+        ".artifacts/drafts/20261012-做产品容易走到客户很难/article.md",
+        ["20261012-做产品容易走到客户难"],
+        day,
+      ),
+    ).toEqual({
+      path: ".artifacts/drafts/20261012-做产品容易走到客户难/article.md",
+      redirectedFrom: "20261012-做产品容易走到客户很难",
+    });
+    expect(
+      rewriteDraftFoldersInCommand(
+        "mkdir .artifacts/drafts/20261012-做产品容易走到客户很难",
+        ["20261012-做产品容易走到客户难"],
+        day,
+      ),
+    ).toBe("mkdir .artifacts/drafts/20261012-做产品容易走到客户难");
+    expect(
+      redirectDraftWritePath(
+        ".artifacts/drafts/20261012-做产品容易走到客户难/article.md",
+        ["20261012-做产品容易走到客户难", "20261012-做产品容易走到客户很难"],
+        day,
+        "20261012-做产品容易走到客户很难",
+      ).path,
+    ).toBe(".artifacts/drafts/20261012-做产品容易走到客户很难/article.md");
   });
 
   it("names a new draft folder as YYYYMMDD-topic", () => {
@@ -50,7 +106,7 @@ describe("content draft paths", () => {
   });
 
   it("refuses to create a draft folder before the topic is confirmed", () => {
-    expect(() => requireConfirmedDraftPath(undefined)).toThrow(/\/article create/);
+    expect(() => requireConfirmedDraftPath(undefined)).toThrow(/\/outline/);
     expect(requireConfirmedDraftPath("C:/drafts/20260903-topic/article.md")).toBe(
       "C:/drafts/20260903-topic/article.md",
     );
@@ -66,7 +122,7 @@ describe("content draft paths", () => {
         String.raw`C:\N-5CG2150YY9-Data\dvkx47\Documents\niuma\artifact\untitled-article.md`,
       ),
     ).toBe(false);
-    expect(() => requireOpenableDraftMarkdown(undefined)).toThrow(/\/article create/);
+    expect(() => requireOpenableDraftMarkdown(undefined)).toThrow(/\/outline/);
     expect(() => requireOpenableDraftMarkdown("notes.md")).toThrow(/Markdown/);
   });
 

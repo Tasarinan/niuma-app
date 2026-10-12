@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ArticleBlockPreset } from "@/lib/content/article-block-presets";
+import { groupArticleBlockPresets, type ArticleBlockPreset } from "@/lib/content/article-block-presets";
 import { loadArticleBlockPresets } from "@/lib/content/load-article-block-presets";
 
 type Props = {
@@ -45,20 +45,27 @@ export function ArticleBlockPresetPanel({ disabled, onInsert, embedded }: Props)
           还没有模板。可在 `.teams/content/editor/blocks/` 添加。
         </p>
       ) : (
-        <div className="space-y-1">
-          {presets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onInsert(preset)}
-              className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-slate-50 disabled:opacity-50"
-            >
-              <div className="text-xs font-medium text-slate-700">{preset.name}</div>
-              {preset.description ? (
-                <div className="mt-0.5 text-[11px] leading-snug text-slate-400">{preset.description}</div>
-              ) : null}
-            </button>
+        <div className="space-y-3">
+          {groupArticleBlockPresets(presets).map((group) => (
+            <div key={group.label}>
+              <div className="px-1 pb-1 text-[11px] font-medium text-slate-400">{group.label}</div>
+              <div className="space-y-1">
+                {group.items.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onInsert(preset)}
+                    className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <div className="text-xs font-medium text-slate-700">{preset.name}</div>
+                    {preset.description ? (
+                      <div className="mt-0.5 text-[11px] leading-snug text-slate-400">{preset.description}</div>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}

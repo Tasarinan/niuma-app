@@ -1,0 +1,14 @@
+{
+  "name": "wechat-publish",
+  "version": "0.5.0",
+  "author": "niuma.skills",
+  "description": "把当前篇排版后推到微信公众号草稿箱。当用户使用 /publish、要发到公众号，并且已经看过预览时使用。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["wechat", "公众号", "draft"],
+  "permissions": ["filesystem", "network", "shell"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  }
+}

@@ -12,7 +12,7 @@ import type { Static, TSchema } from "@earendil-works/pi-ai";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Skill } from "@/types";
 import { invoke, text, normalizeTauriPath } from "./shared";
-import { canonicalNiumaSkillSlug } from "../skill-slugs";
+import { canonicalNiumaSkillSlug, expandNiumaSkillSlug } from "../skill-slugs";
 
 /** Identity helper that preserves TypeBox param inference for `execute`. */
 function defineTool<P extends TSchema>(def: {
@@ -74,7 +74,7 @@ export function buildLoadSkillTool(skills: Skill[]): AgentTool {
     const canonical = canonicalNiumaSkillSlug(s.name || s.id);
     const skill = s.name === canonical ? s : { ...s, name: canonical };
     const keys = new Set<string>();
-    for (const key of [s.id, s.name, s.source, canonical]) {
+    for (const key of [s.id, s.name, s.source, canonical, ...expandNiumaSkillSlug(s.name || s.source || "")]) {
       if (key) keys.add(key);
     }
     for (const key of keys) byName.set(key, skill);

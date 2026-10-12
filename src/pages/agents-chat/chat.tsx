@@ -83,6 +83,7 @@ import {
   loadSlashCommands,
   parseSlashInvocation,
   parseSlashQuery,
+  commandsForSlashMenu,
   rankSlashCommands,
   rankSlashSkills,
   resolveSlashInvocation,
@@ -101,12 +102,27 @@ import {
   shouldInjectWechatSlots,
   splitPlatformAndRest,
 } from "@/lib/content/workflow-command";
-import { formatUnpublishedDraftsContext, loadUnpublishedDrafts, pickDefaultDraftOpenPath } from "@/lib/artifact/unpublished-drafts";
+import {
+  formatLockedOutlineFolderContext,
+  formatOutlineFolderAskContext,
+  formatOutlineFolderReuseContext,
+  formatUnpublishedDraftsContext,
+  loadUnpublishedDrafts,
+  lockOutlineDraftFolder,
+  pickDefaultDraftOpenPath,
+  planOutlineDraftFolder,
+} from "@/lib/artifact/unpublished-drafts";
 import { injectOpenDraftContext } from "@/lib/artifact/draft-workspace";
 import { injectDraftTodayContext } from "@/lib/artifact/drafts";
 import { formatContentTeamConfigContext, loadContentTeamConfigRaw } from "@/lib/artifact/content-team-config";
-import { readLastOpenDraftPath } from "@/lib/artifact/article-storage";
-import { requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-article";
+import {
+  clearPendingOutlineFolder,
+  readLastOpenDraftPath,
+  readPendingOutlineFolder,
+  writeLastOpenDraftPath,
+  writePendingOutlineFolder,
+} from "@/lib/artifact/article-storage";
+import { requestFlushOpenManuscript, requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-article";
 import { runImaApi } from "@/lib/functions/ima.api";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel, GroupMessage, SandboxMode } from "@/types";
 import type { ImageContent } from "@earendil-works/pi-ai";
@@ -138,6 +154,16 @@ import moment from "moment";
 import { getActiveProvider } from "@/lib/providers/storage";
 import { HealthImportReviewDialog } from "@/components/health/HealthImportReviewDialog";
 import { resolveHealthSlashIntegration } from "@/lib/health/health-slash-integration";
+import {
+  clipIntoArticlePrompt,
+  isContentClipPaste,
+  isContentTitlePickReply,
+  isOutlineFolderCancelReply,
+  isOutlineFolderConfirmReply,
+  resolveContentSlashIntegration,
+  resolveWritingMaterialContext,
+  titlePickContinuationPrompt,
+} from "@/lib/content/content-slash-integration";
 import { runMinimalHealthUploadUsecase } from "@/lib/health/health-minimal-usecase";
 
 // ─── Channel icon set ─────────────────────────────────────────────────────────
@@ -757,6 +783,8 @@ export default function ChatPage({
   const activeTeamStyle = activeTeamPreset ? TEAM_STYLES[activeTeamPreset.accent] : null;
   const channelMode = resolveTeamChannelMode(activeTeamPreset);
   const isHealthChannel = channelMode === "health";
+  const isContentChannel =
+    activeTeamPreset?.workflow === "content" || activeTeamPreset?.dataDomain === "contentbook";
   const meetingSurface = isMeetingChannel(activeTeamPreset, activeChannel?.kind);
   const workflowCommands = useMemo(
     () =>
@@ -979,8 +1007,8 @@ export default function ChatPage({
 
   const slashQuery = useMemo(() => parseTrailingSlashQuery(input)?.query ?? parseSlashQuery(input), [input]);
   const teamCommands = useMemo(
-    () => slashCommands.filter((command) => command.source === "file"),
-    [slashCommands],
+    () => commandsForSlashMenu(slashCommands, { content: isContentChannel }),
+    [slashCommands, isContentChannel],
   );
   const slashCommandSuggestions = useMemo(
     () =>
@@ -1013,12 +1041,12 @@ export default function ChatPage({
     return role?.skills ?? [];
   }, [input, activeTeamPreset?.roles]);
   const slashSkillSuggestions = useMemo(() => {
-    if (slashQuery === null) return [];
+    if (slashQuery === null || isContentChannel) return [];
     const ranked = rankSlashSkills(channelSkills, slashQuery, {
       excludeCommands: teamCommands.map((command) => command.name),
     });
     return orderSkillsForSeat(ranked, mentionedSeatSkills);
-  }, [slashQuery, channelSkills, teamCommands, mentionedSeatSkills]);
+  }, [slashQuery, isContentChannel, channelSkills, teamCommands, mentionedSeatSkills]);
 
   const isCommandMenuOpen =
     !slashMenuDismissed &&
@@ -1297,6 +1325,18 @@ export default function ChatPage({
 
   const send = async () => {
     if ((!input.trim() && attachedImages.length === 0) || !selectedId || isSending) return;
+    if (usesManuscriptWorkspace(channelMode)) {
+      try {
+        const flushed = await requestFlushOpenManuscript();
+        if (flushed === "conflict") {
+          setComposerHint("磁盘上的稿和编辑器不一致。先在编辑栏选择「应用磁盘」或「保留我的」，再发送。");
+          return;
+        }
+      } catch (err) {
+        setComposerHint(err instanceof Error ? err.message : String(err));
+        return;
+      }
+    }
     const text = input.trim();
     const images: ImageContent[] | undefined = attachedImages.length
       ? attachedImages.map((f) => ({ type: "image" as const, data: f.data, mimeType: f.mimeType }))
@@ -1382,6 +1422,19 @@ export default function ChatPage({
           if (role) return [role.name];
         }
       }
+      if (
+        isContentChannel &&
+        (isContentTitlePickReply(text) ||
+          isOutlineFolderConfirmReply(text) ||
+          isOutlineFolderCancelReply(text))
+      ) {
+        const writer = findRoleByCommand(roles, "outline");
+        if (writer) return [writer.name];
+      }
+      if (isContentChannel && isContentClipPaste(text)) {
+        const writer = findRoleByCommand(roles, "clip") ?? findRoleByCommand(roles, "outline");
+        if (writer) return [writer.name];
+      }
       return undefined;
     })();
     if (!citedSkill && mentionNames.length > 0) {
@@ -1406,7 +1459,7 @@ export default function ChatPage({
       if (role?.name) commandAgentNames = [role.name];
     }
 
-    // /article create: inject feeds + IMA + drafts(create). /article edit <target>: continue draft.
+    // Legacy /article create: inject feeds + IMA + drafts. Current path: /propose then /outline.
     if (_articleDraftWorkflow?.intent === "create") {
       const topicQuery = _articleDraftWorkflow.query;
       setIsAugmenting(true);
@@ -1569,6 +1622,159 @@ export default function ChatPage({
             healthContext.prompt,
           ].join("\n");
         }
+      }
+    }
+
+    if (isContentChannel) {
+      const slash = parseSlashInvocation(text);
+      const skipOutlineSlash = slash?.command.trim().toLowerCase() === "outline";
+      if (slash && !skipOutlineSlash) {
+        try {
+          const contentContext = await resolveContentSlashIntegration({
+            command: slash.command,
+            args: slash.args,
+          });
+          if (contentContext) {
+            agentInput = [
+              agentInput,
+              "",
+              "[Content DB Integration Context]",
+              contentContext.prompt,
+            ].join("\n");
+          }
+        } catch (err) {
+          agentInput = [
+            agentInput,
+            "",
+            "[Content DB Integration Context]",
+            `写入 contentbook 失败：${err instanceof Error ? err.message : String(err)}`,
+          ].join("\n");
+        }
+      }
+    }
+
+    const topicTurn = ["digest", "propose"].includes(
+      _slashForRouting?.command.trim().toLowerCase() ?? "",
+    );
+    if (isContentChannel && topicTurn) {
+      setIsAugmenting(true);
+      try {
+        try {
+          const pack = await loadCentralFeeds();
+          agentInput = `${agentInput}\n\n${formatDigestFeedContext(pack)}`;
+        } catch (err) {
+          agentInput = `${agentInput}\n\n${formatDigestFeedContext({
+            status: "error",
+            x: [],
+            podcasts: [],
+            blogs: [],
+            errors: [err instanceof Error ? err.message : String(err)],
+          })}`;
+        }
+      } finally {
+        setIsAugmenting(false);
+      }
+    }
+
+    const titlePickTurn = isContentChannel && !_slashForRouting && isContentTitlePickReply(text);
+    if (titlePickTurn) {
+      agentInput = [agentInput, "", "[Content DB Integration Context]", titlePickContinuationPrompt()].join("\n");
+    }
+    const clipPasteTurn = isContentChannel && !_slashForRouting && isContentClipPaste(text);
+    if (clipPasteTurn) {
+      agentInput = [agentInput, "", "[Content DB Integration Context]", clipIntoArticlePrompt(text)].join("\n");
+    }
+
+    const pendingOutline = isContentChannel ? readPendingOutlineFolder() : null;
+    const outlineConfirmTurn = Boolean(
+      pendingOutline &&
+        (isOutlineFolderConfirmReply(text) ||
+          (_slashForRouting?.command.trim().toLowerCase() === "outline" &&
+            isOutlineFolderConfirmReply(_slashForRouting.args))),
+    );
+    const outlineCancelTurn = Boolean(
+      pendingOutline &&
+        (isOutlineFolderCancelReply(text) ||
+          (_slashForRouting?.command.trim().toLowerCase() === "outline" &&
+            isOutlineFolderCancelReply(_slashForRouting.args))),
+    );
+    let outlineAskTurn = false;
+    const outlineThemeTurn =
+      isContentChannel &&
+      _slashForRouting?.command.trim().toLowerCase() === "outline" &&
+      !isContentTitlePickReply(_slashForRouting.args) &&
+      !outlineConfirmTurn &&
+      !outlineCancelTurn;
+
+    if (outlineCancelTurn) {
+      clearPendingOutlineFolder();
+      agentInput = `${agentInput}\n\n[草稿目录]\n用户取消新建目录。不要 mkdir，不要写稿。`;
+    } else if (outlineConfirmTurn && pendingOutline) {
+      try {
+        const locked = await lockOutlineDraftFolder(pendingOutline.theme);
+        writeLastOpenDraftPath(locked.articlePath);
+        clearPendingOutlineFolder();
+        const drafts = await loadUnpublishedDrafts();
+        const contentContext = await resolveContentSlashIntegration({
+          command: "outline",
+          args: pendingOutline.theme,
+        });
+        agentInput = [
+          agentInput,
+          contentContext?.prompt ? `[Content DB Integration Context]\n${contentContext.prompt}` : "",
+          formatLockedOutlineFolderContext(locked),
+          formatOutlineFolderReuseContext(drafts, pendingOutline.theme, new Date(), locked.folder),
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+      } catch (err) {
+        agentInput = `${agentInput}\n\n[草稿目录]\n创建目录失败：${err instanceof Error ? err.message : String(err)}`;
+      }
+    } else if (outlineThemeTurn && _slashForRouting) {
+      try {
+        const plan = await planOutlineDraftFolder(_slashForRouting.args);
+        if (plan.reused) {
+          const locked = await lockOutlineDraftFolder(plan.theme);
+          writeLastOpenDraftPath(locked.articlePath);
+          clearPendingOutlineFolder();
+          const drafts = await loadUnpublishedDrafts();
+          const contentContext = await resolveContentSlashIntegration({
+            command: "outline",
+            args: plan.theme,
+          });
+          agentInput = [
+            agentInput,
+            contentContext?.prompt ? `[Content DB Integration Context]\n${contentContext.prompt}` : "",
+            formatLockedOutlineFolderContext(locked),
+            formatOutlineFolderReuseContext(drafts, plan.theme, new Date(), locked.folder),
+          ]
+            .filter(Boolean)
+            .join("\n\n");
+        } else {
+          writePendingOutlineFolder({ theme: plan.theme, folder: plan.folder });
+          outlineAskTurn = true;
+          agentInput = `${agentInput}\n\n${formatOutlineFolderAskContext(plan)}`;
+        }
+      } catch (err) {
+        agentInput = `${agentInput}\n\n[草稿目录]\n准备草稿目录失败：${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+
+    const writingTurn =
+      !outlineAskTurn &&
+      !outlineCancelTurn &&
+      (_articleDraftWorkflow != null ||
+        titlePickTurn ||
+        clipPasteTurn ||
+        outlineConfirmTurn ||
+        (outlineThemeTurn && !outlineAskTurn) ||
+        ["rewrite", "clip"].includes(_slashForRouting?.command.trim().toLowerCase() ?? ""));
+    if (isContentChannel && writingTurn) {
+      try {
+        const material = await resolveWritingMaterialContext();
+        agentInput = `${agentInput}\n\n${material}`;
+      } catch (err) {
+        agentInput = `${agentInput}\n\n[Content DB Integration Context]\n读取文风或素材失败：${err instanceof Error ? err.message : String(err)}`;
       }
     }
 

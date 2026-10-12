@@ -263,24 +263,53 @@ fn find_bash_windows() -> Option<String> {
         .clone()
 }
 
-/// Return true if `name.exe` (or `name`) exists in any PATH directory on Windows.
+/// Microsoft Store execution aliases (`WindowsApps\python.exe`) exist on PATH
+/// but only open the Store. Treat them as missing.
 #[cfg(target_os = "windows")]
-fn command_on_path_windows(name: &str) -> bool {
-    if let Ok(path_var) = std::env::var("PATH") {
-        for dir in path_var.split(';') {
-            let dir = dir.trim();
-            if dir.is_empty() {
-                continue;
-            }
-            if std::path::Path::new(&format!("{}\\{}.exe", dir, name)).exists() {
-                return true;
-            }
-            if std::path::Path::new(&format!("{}\\{}", dir, name)).exists() {
-                return true;
+fn is_windows_store_alias(path: &str) -> bool {
+    path.replace('/', "\\")
+        .to_ascii_lowercase()
+        .contains("\\windowsapps\\")
+}
+
+/// First real `name.exe` on PATH, skipping Store aliases.
+#[cfg(target_os = "windows")]
+fn find_command_on_path_windows(name: &str) -> Option<String> {
+    let path_var = std::env::var("PATH").ok()?;
+    for dir in path_var.split(';') {
+        let dir = dir.trim();
+        if dir.is_empty() {
+            continue;
+        }
+        for candidate in [
+            format!("{}\\{}.exe", dir, name),
+            format!("{}\\{}", dir, name),
+        ] {
+            if std::path::Path::new(&candidate).exists() && !is_windows_store_alias(&candidate) {
+                return Some(candidate);
             }
         }
     }
-    false
+    None
+}
+
+/// Return true if `name.exe` (or `name`) exists in any PATH directory on Windows.
+#[cfg(target_os = "windows")]
+fn command_on_path_windows(name: &str) -> bool {
+    find_command_on_path_windows(name).is_some()
+}
+
+#[cfg(target_os = "windows")]
+static WINDOWS_PYTHON: OnceLock<Option<String>> = OnceLock::new();
+
+/// Prefer a real interpreter over the Windows Store `python3` stub.
+#[cfg(target_os = "windows")]
+fn find_python_windows() -> Option<String> {
+    WINDOWS_PYTHON
+        .get_or_init(|| {
+            find_command_on_path_windows("python3").or_else(|| find_command_on_path_windows("python"))
+        })
+        .clone()
 }
 
 /// Build the platform Command for Windows with automatic runtime fallbacks:
@@ -311,16 +340,18 @@ fn build_windows_command(req: &SandboxRunRequest) -> Result<Command, String> {
             }
             Ok(cmd)
         }
-        "python3" => {
-            // Windows typically ships as 'python', not 'python3'.
-            if command_on_path_windows("python3") {
-                let mut cmd = Command::new("python3");
+        "python3" | "python" => {
+            // Windows typically ships as `python.exe`. `python3` on PATH is often
+            // the Microsoft Store alias, which only prints "Python was not found".
+            if let Some(path) = find_python_windows() {
+                let mut cmd = Command::new(path);
                 cmd.args(&req.args);
                 Ok(cmd)
             } else {
-                let mut cmd = Command::new("python");
-                cmd.args(&req.args);
-                Ok(cmd)
+                Err(
+                    "找不到 Python 3。Windows 的 python3 经常是微软商店占位程序。请安装 Python 3，并在「设置 → 应用 → 高级应用设置 → 应用执行别名」里关闭 python.exe 和 python3.exe。"
+                        .to_string(),
+                )
             }
         }
         "pwsh" => {
@@ -401,4 +432,18 @@ fn seatbelt_profile(mode: &str, cwd: &str, temp_dir: &str) -> String {
 #[cfg(target_os = "macos")]
 fn escape_seatbelt_path(path: &str) -> String {
     path.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn skips_microsoft_store_python_alias() {
+        assert!(super::is_windows_store_alias(
+            r"C:\Users\a\AppData\Local\Microsoft\WindowsApps\python3.exe"
+        ));
+        assert!(!super::is_windows_store_alias(
+            r"C:\Users\a\AppData\Local\Programs\Python\Python311\python.exe"
+        ));
+    }
 }

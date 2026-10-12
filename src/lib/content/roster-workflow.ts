@@ -16,6 +16,7 @@ export type ContentRosterCopy = {
   hostName: string;
   specialistNames: string[];
   writerName?: string;
+  reviewerName?: string;
   imageName?: string;
   publisherName?: string;
   draftCommand: string;
@@ -31,10 +32,23 @@ function normCommand(name: string): string {
 export function skillFamily(slug: string): ContentCommandFamily | undefined {
   const value = slug.trim().toLowerCase();
   if (!value) return undefined;
-  if (value === "article-main" || value.startsWith("article-main")) return "draft";
+  if (value.includes("writing") || value.includes("writer")) return "draft";
   if (value.includes("image")) return "image";
-  if (value.includes("formatting")) return "format";
-  if (value.includes("publish")) return "publish";
+  if (value === "wechat-formatting" || value.includes("formatting")) return "format";
+  if (value === "wechat-publish" || value.includes("publish")) return "publish";
+  return undefined;
+}
+
+const DRAFT_OPENERS = ["outline", "draft", "article"] as const;
+
+function namedCommandFamily(command: string): ContentCommandFamily | undefined {
+  const value = normCommand(command);
+  if ((DRAFT_OPENERS as readonly string[]).includes(value) || value === "continue" || value === "rewrite") {
+    return "draft";
+  }
+  if (value === "image") return "image";
+  if (value === "format") return "format";
+  if (value === "publish") return "publish";
   return undefined;
 }
 
@@ -55,25 +69,35 @@ export function resolveContentWorkflowCommands(
   for (const role of roles) {
     const families = uniqueFamilies(role);
     const commands = role.commands.map(normCommand).filter(Boolean);
-    if (families.length === 0 || commands.length === 0) continue;
-    if (families.length === 1) {
-      out[families[0]].push(...commands);
-      continue;
-    }
+    if (commands.length === 0) continue;
     const unused = [...families];
     for (const command of commands) {
+      const byName = namedCommandFamily(command);
+      if (byName) {
+        out[byName].push(command);
+        const index = unused.indexOf(byName);
+        if (index >= 0) unused.splice(index, 1);
+        continue;
+      }
+      if (families.length === 1) {
+        out[families[0]].push(command);
+        continue;
+      }
+      if (unused.length === 0) continue;
       const named = unused.find((family) => command.includes(family) || family.includes(command));
       if (named) {
         out[named].push(command);
         unused.splice(unused.indexOf(named), 1);
         continue;
       }
-      const next = unused.shift() ?? families[families.length - 1];
-      out[next].push(command);
+      const next = unused.shift();
+      if (next) out[next].push(command);
     }
   }
   const fallback = defaultCommand ? normCommand(defaultCommand) : "";
-  if (fallback && !out.draft.includes(fallback)) out.draft.unshift(fallback);
+  if (fallback && namedCommandFamily(fallback) === "draft" && !out.draft.includes(fallback)) {
+    out.draft.unshift(fallback);
+  }
   return out;
 }
 
@@ -89,6 +113,7 @@ export function hasFamilyCommand(
     return (
       needle === "article" ||
       needle === "draft" ||
+      needle === "outline" ||
       needle === "continue" ||
       needle === "rewrite"
     );
@@ -100,7 +125,13 @@ export function firstFamilyCommand(
   commands: ContentWorkflowCommands | undefined,
   family: ContentCommandFamily,
 ): string {
-  return commands?.[family][0] ?? (family === "draft" ? "draft" : family);
+  const list = commands?.[family] ?? [];
+  if (family === "draft") {
+    const preferred = DRAFT_OPENERS.find((name) => list.includes(name));
+    if (preferred) return preferred;
+    return list[0] ?? "outline";
+  }
+  return list[0] ?? family;
 }
 
 export function imageRoleNames(roles: TeamRoleDefinition[]): string[] {
@@ -126,7 +157,8 @@ export function resolveContentRosterCopy(
       .filter((role) => role.agentFile !== host?.agentFile)
       .map((role) => role.name.trim())
       .filter(Boolean),
-    writerName: roles.find((role) => role.skills.some((slug) => slug.includes("writing")))?.name.trim(),
+    writerName: roles.find((role) => role.skills.some((slug) => slug.includes("writing") || slug.includes("writer")))?.name.trim(),
+    reviewerName: roles.find((role) => role.skills.some((slug) => slug.includes("review")))?.name.trim(),
     imageName: byFamily("image"),
     publisherName: byFamily("publish") ?? byFamily("format"),
     draftCommand: firstFamilyCommand(commands, "draft"),
@@ -163,10 +195,10 @@ export function firstFormattingSkill(roles: TeamRoleDefinition[]): string | unde
 }
 
 export function topicNotConfirmedMessage(copy?: Partial<ContentRosterCopy>): string {
-  const command = (copy?.draftCommand ?? "draft").replace(/^\//, "");
+  const command = (copy?.draftCommand ?? "outline").replace(/^\//, "");
   const host = copy?.hostName?.trim();
-  const who = host ? `可请${host}` : "";
-  return `尚未开稿。请在聊天里用 /${command} <主题> 创建目录，或 ${who} 从 journal 开稿后再编辑。`.replace(
+  const who = host ? `可请${host}先 /propose。` : "先 /propose 选题。";
+  return `尚未开稿。${who}选定后在聊天里用 /${command} <想法>：先调研再写初稿，标题后定，再到编辑栏用助手续写。`.replace(
     /\s+/g,
     " ",
   );

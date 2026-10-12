@@ -66,5 +66,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("migrations/meeting-snapshots.sql"),
             kind: MigrationKind::Up,
         },
+        // Migration 10: Personal content style profile and journal entries
+        Migration {
+            version: 10,
+            description: "create_content_core_tables",
+            sql: include_str!("migrations/content-core.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

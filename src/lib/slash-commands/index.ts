@@ -480,6 +480,29 @@ export function getSlashArgumentCompletion(
  * Return commands ranked by relevance: `startsWith` match first, then
  * `includes` matches, mirroring standard command-palette behavior.
  */
+/** Commands shown in the content channel `/` menu. */
+export const CONTENT_SLASH_MENU = [
+  "style",
+  "record",
+  "pull",
+  "digest",
+  "propose",
+  "outline",
+  "clip",
+  "publish",
+] as const;
+
+const CONTENT_SLASH_MENU_SET = new Set<string>(CONTENT_SLASH_MENU);
+
+export function commandsForSlashMenu(
+  commands: SlashCommandDefinition[],
+  options?: { content?: boolean },
+): SlashCommandDefinition[] {
+  const visible = commands.filter((command) => !command.hidden && command.source === "file");
+  if (!options?.content) return visible;
+  return visible.filter((command) => CONTENT_SLASH_MENU_SET.has(command.name));
+}
+
 export function rankSlashCommands(
   commands: SlashCommandDefinition[],
   query: string

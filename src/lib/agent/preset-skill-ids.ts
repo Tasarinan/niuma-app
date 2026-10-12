@@ -1,3 +1,5 @@
+import { expandNiumaSkillSlug } from "./skill-slugs";
+
 /**
  * Map a workbench agent's catalog skill slugs to Skill-store ids.
  *
@@ -14,9 +16,13 @@ export function resolvePresetSkillIds(
     catalogEnabledSkillIds !== undefined ? catalogEnabledSkillIds : teamSkillSlugs;
   return Array.from(
     new Set(
-      slugs
-        .map((slug) => skillsBySlug.get(slug))
-        .filter((id): id is string => Boolean(id)),
+      slugs.flatMap((slug) => {
+        for (const key of expandNiumaSkillSlug(slug)) {
+          const id = skillsBySlug.get(key);
+          if (id) return [id];
+        }
+        return [];
+      }),
     ),
   );
 }

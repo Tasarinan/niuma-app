@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { EditorAssistPanel } from "@/components/article-editor/EditorAssistPanel";
 import {
   articleYamlPathFromArticle,
   parseDefaultFormatPreset,
@@ -60,7 +61,8 @@ import {
 } from "@/lib/wechat/format-themes";
 import { loadFormatThemeStyles } from "@/lib/wechat/load-format-theme";
 import { openArtifactArticle, saveArticleToArtifact, scanArtifactArticles } from "@/lib/artifact/article-repo";
-import { subscribeOpenWorkbenchArticle, subscribeDraftFileChanged } from "@/lib/artifact/open-workbench-article";
+import { subscribeOpenWorkbenchArticle, subscribeDraftFileChanged, subscribeFlushOpenManuscript } from "@/lib/artifact/open-workbench-article";
+import { normalizeArticleText } from "@/lib/artifact/article-write-guard";
 import { ArticleEditor } from "@/components/article-editor/ArticleEditor";
 import { ArticleBlockPresetPanel } from "@/components/article-editor/ArticleBlockPresetPanel";
 import { ArticleOutline } from "@/components/article-editor/ArticleOutline";
@@ -195,6 +197,7 @@ function initialActiveId(stored: ArticleRecord[]): string {
 export default function ArticlesPage({
   activeView = "editor",
   onOpenFileChange,
+  teamId,
   rosterCopy,
 }: ArticlesPageProps = {}) {
   const { refreshTree } = useArticleArtifactTree();
@@ -213,6 +216,7 @@ export default function ArticlesPage({
   const lastSavedSnapshotRef = useRef<Record<string, string>>({});
   const lastSavedContentRef = useRef<Record<string, string>>({});
   const editorRef = useRef<Editor | null>(null);
+  const pendingImageInsertRef = useRef<number | null>(null);
   const activeArticleRef = useRef<ArticleRecord | null>(null);
   const [galleryItems, setGalleryItems] = useState<DraftGalleryItem[]>([]);
   const galleryItemsRef = useRef<DraftGalleryItem[]>([]);
@@ -643,7 +647,11 @@ export default function ArticlesPage({
   };
 
   const persistArticle = useCallback(
-    async (article: ArticleRecord, options?: { silent?: boolean }) => {
+    async (
+      article: ArticleRecord,
+      options?: { silent?: boolean; adoptDisk?: boolean },
+    ): Promise<"ok" | "conflict" | "skipped"> => {
+      if (!article.filePath) return "skipped";
       const live = (() => {
         const instance = editorRef.current;
         if (!instance || isSettingContentRef.current) return article.content;
@@ -653,20 +661,38 @@ export default function ArticlesPage({
           return article.content;
         }
       })();
+      const baseline = lastSavedContentRef.current[article.filePath] ?? "";
       const result = await saveArticleToArtifact({
         title: article.title,
         content: live,
         summary: article.summary,
         existingPath: article.filePath,
+        baselineContent: baseline,
+        adoptDisk: options?.adoptDisk,
       });
+      if (result.status === "conflict") {
+        setConflictDisk(result.diskContent);
+        return "conflict";
+      }
 
       const snapshot = getArticleSnapshot({ title: article.title, content: live, summary: article.summary });
       lastSavedSnapshotRef.current[result.filePath] = snapshot;
-      lastSavedContentRef.current[result.filePath] = live;
+      lastSavedContentRef.current[result.filePath] = result.writtenContent;
       if (article.filePath && article.filePath !== result.filePath) {
         lastSavedSnapshotRef.current[article.filePath] = snapshot;
-        lastSavedContentRef.current[article.filePath] = live;
+        lastSavedContentRef.current[article.filePath] = result.writtenContent;
       }
+      let typedDuringSave = false;
+      try {
+        const instance = editorRef.current;
+        if (instance && !isSettingContentRef.current) {
+          const now = relativizeMarkdownImages(instance.getMarkdown(), imageSrcMapRef.current);
+          typedDuringSave = normalizeArticleText(now) !== normalizeArticleText(live);
+        }
+      } catch {
+        typedDuringSave = true;
+      }
+      if (!typedDuringSave) humanEditedRef.current = false;
 
       setArticles((current) =>
         current.map((item) =>
@@ -689,9 +715,17 @@ export default function ArticlesPage({
       if (!options?.silent) {
         toast.success(t("articles.toast.savedToDisk", { path: result.relativePath }));
       }
+      return "ok";
     },
     [getArticleSnapshot, refreshTree, t],
   );
+
+  useEffect(() => subscribeFlushOpenManuscript(async () => {
+    const article = activeArticleRef.current;
+    if (!article?.filePath || !humanEditedRef.current) return "ok";
+    const flushed = await persistArticle(article, { silent: true });
+    return flushed === "skipped" ? "ok" : flushed;
+  }), [persistArticle]);
 
   const handleSave = async () => {
     if (!activeArticle) return;
@@ -701,7 +735,11 @@ export default function ArticlesPage({
     }
     setIsSaving(true);
     try {
-      await persistArticle(activeArticle, { silent: true });
+      const saved = await persistArticle(activeArticle, { silent: true });
+      if (saved === "conflict") {
+        toast.message("磁盘上的稿已经更新。先选择应用磁盘或保留我的。");
+        return;
+      }
       toast.success(t("articles.toast.saved"));
     } catch (e) {
       toast.error(t("articles.toast.saveToDiskFailed", { error: String(e) }));
@@ -931,7 +969,9 @@ export default function ArticlesPage({
       setConflictDisk(null);
       return;
     }
-    void persistArticle(article, { silent: true }).finally(() => setConflictDisk(null));
+    void persistArticle(article, { silent: true, adoptDisk: true }).then((saved) => {
+      if (saved === "ok") setConflictDisk(null);
+    });
   }, [persistArticle]);
 
   const handleUploadGalleryImage = useCallback(
@@ -969,7 +1009,20 @@ export default function ArticlesPage({
         referenceDataUrl: reference,
       });
       const saved = await saveGalleryImage(name, bytes, name);
+      const insertAt = pendingImageInsertRef.current;
+      pendingImageInsertRef.current = null;
       if (saved) {
+        if (insertAt != null && editorRef.current) {
+          const displaySrc = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+          editorObjectUrlsRef.current.push(displaySrc);
+          imageSrcMapRef.current.set(displaySrc, `imgs/${saved.name}`);
+          editorRef.current
+            .chain()
+            .focus()
+            .setTextSelection(insertAt)
+            .setImage({ src: displaySrc, alt: saved.name })
+            .run();
+        }
         await writeText(
           promptMarkdownAbsPath(saved.dest),
           formatDraftImagePromptMarkdown({
@@ -981,6 +1034,7 @@ export default function ArticlesPage({
         await refreshGallery(activeArticleRef.current?.filePath);
       }
     } catch (error) {
+      pendingImageInsertRef.current = null;
       toast.error(`生成失败: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setGeneratingId(null);
@@ -1194,7 +1248,7 @@ export default function ArticlesPage({
 
         {!activeArticle ? (
           <div className="flex min-h-0 flex-1 items-center justify-center px-8 text-center text-sm leading-relaxed text-slate-400">
-            还没有打开一篇已定题的稿。切到对话用 /{rosterCopy?.draftCommand ?? "article"} create 确认选题。
+            还没有打开一篇稿。切到对话用 /{rosterCopy?.draftCommand ?? "outline"} 写初稿；外面看到的一段话可以直接粘贴进来整理进稿。
           </div>
         ) : (
           <>
@@ -1459,7 +1513,7 @@ export default function ArticlesPage({
               when the preview-only mode is active. */}
           <div
             className={cn(
-              "min-w-0 h-full overflow-y-auto",
+              "relative min-w-0 h-full overflow-y-auto",
               mode === "split" && "border-r border-slate-100",
               mode === "preview" && "hidden"
             )}
@@ -1473,6 +1527,30 @@ export default function ArticlesPage({
               onDropFile={handleDropFile}
               onPasteFile={handlePasteFile}
             />
+            {mode !== "preview" ? (
+              <EditorAssistPanel
+                editor={editor}
+                draftDirAbs={activeDraftFolder}
+                teamId={teamId ?? "content"}
+                rosterCopy={rosterCopy}
+                onBeforeFormat={async () => {
+                  const article = activeArticleRef.current;
+                  if (!article) return;
+                  const saved = await persistArticle(article, { silent: true });
+                  if (saved === "conflict") {
+                    throw new Error("磁盘上的稿和编辑器不一致。先选择应用磁盘或保留我的。");
+                  }
+                }}
+                onPrepareImage={(prompt, at) => {
+                  pendingImageInsertRef.current = at;
+                  const existing = galleryItems.map((entry) => entry.name);
+                  setGenerateTargetId(null);
+                  setGenerateName(toPngPath(nextDraftImageFilename(existing)));
+                  setGeneratePrompt(prompt);
+                  setGenerateOpen(true);
+                }}
+              />
+            ) : null}
           </div>
           {mode !== "write" && (
             <div className={cn("min-w-0 overflow-y-auto", "bg-slate-200/70")}>
@@ -1604,7 +1682,11 @@ export default function ArticlesPage({
                 draftDirAbs={activeDraftFolder}
                 onBeforeRun={async () => {
                   const article = activeArticleRef.current;
-                  if (article) await persistArticle(article, { silent: true });
+                  if (!article) return;
+                  const saved = await persistArticle(article, { silent: true });
+                  if (saved === "conflict") {
+                    throw new Error("磁盘上的稿和编辑器不一致。先选择应用磁盘或保留我的。");
+                  }
                 }}
               />
             </div>
@@ -1718,7 +1800,10 @@ export default function ArticlesPage({
               <button
                 type="button"
                 className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-                onClick={() => setGenerateOpen(false)}
+                onClick={() => {
+                  pendingImageInsertRef.current = null;
+                  setGenerateOpen(false);
+                }}
               >
                 取消
               </button>

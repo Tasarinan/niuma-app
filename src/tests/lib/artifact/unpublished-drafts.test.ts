@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatOutlineFolderAskContext,
+  formatOutlineFolderReuseContext,
   formatUnpublishedDraftsContext,
+  pickReusableDraft,
   isPublishedMarker,
   matchUnpublishedDrafts,
   titleFromTopicOrFolder,
@@ -40,6 +43,41 @@ describe("unpublished drafts", () => {
     expect(matchUnpublishedDrafts("小红书", [wealth])).toEqual([]);
   });
 
+  it("reuses today's similar folder instead of creating a second 20261012", () => {
+    const day = new Date(2026, 9, 12);
+    const topicOnly = toUnpublishedDraft({
+      folder: "20261012-做产品容易走到客户难",
+      dirPath: "C:/niuma/.artifacts/drafts/20261012-做产品容易走到客户难",
+      fileNames: ["topic.md"],
+      topicPath: "C:/niuma/.artifacts/drafts/20261012-做产品容易走到客户难/topic.md",
+    })!;
+    const withArticle = toUnpublishedDraft({
+      folder: "20261012-做产品容易走到客户很难",
+      dirPath: "C:/niuma/.artifacts/drafts/20261012-做产品容易走到客户很难",
+      fileNames: ["article.md"],
+      articlePath: "C:/niuma/.artifacts/drafts/20261012-做产品容易走到客户很难/article.md",
+    })!;
+    expect(pickReusableDraft([topicOnly, withArticle, wealth], "做产品容易，走到客户很难", day)).toBe(
+      withArticle,
+    );
+    const text = formatOutlineFolderReuseContext(
+      [topicOnly, withArticle],
+      "做产品容易走到客户很难",
+      day,
+      withArticle.folder,
+    );
+    expect(text).toContain("[草稿目录]");
+    expect(text).toContain("20261012-做产品容易走到客户很难");
+    expect(text).toContain("必须使用");
+    expect(text).not.toContain("可以新建一个");
+    expect(
+      formatOutlineFolderAskContext({
+        folder: "20261012-做产品容易走到客户很难",
+        theme: "做产品容易走到客户很难",
+      }),
+    ).toContain("[等待确认]");
+  });
+
   it("tells the host to resume instead of opening a new topic", () => {
     const text = formatUnpublishedDraftsContext([wealth], "财富自由");
     expect(text).toContain("[未推送草稿]");
@@ -49,7 +87,6 @@ describe("unpublished drafts", () => {
     expect(text).toContain("article.md");
     expect(text).toContain("不要替用户切换到编辑栏");
     expect(text).toContain("点「编辑」");
-    expect(text).toContain("review.md");
     expect(text).toContain("不要创建 `.niuma-article/`");
     expect(text).not.toContain("打开该篇");
   });

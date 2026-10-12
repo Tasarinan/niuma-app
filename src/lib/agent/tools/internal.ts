@@ -19,7 +19,13 @@ import { invoke, textResult } from "./shared";
 import { getImaKbConfig } from "@/lib/storage/ima.storage";
 import { runImaOpenApi } from "@/lib/ima/openapi";
 import { notifyDraftFileChanged, requestOpenWorkbenchArticle } from "@/lib/artifact/open-workbench-article";
-import { isOpenableDraftMarkdown, toDraftArticlePath } from "@/lib/artifact/drafts";
+import { extractDraftFolderName, isOpenableDraftMarkdown, toDraftArticlePath } from "@/lib/artifact/drafts";
+import {
+  assertDraftFolderWritable,
+  listDraftFolderNames,
+  redirectSameThemeDraftPath,
+  rewriteSameThemeDraftCommand,
+} from "@/lib/artifact/unpublished-drafts";
 import {
   writeBinary,
   readBinaryBase64,
@@ -210,10 +216,26 @@ function bashTool(deps: InternalToolDeps): AgentTool {
       ),
     }),
     execute: async (_id, params) => {
+      let command = params.command;
+      try {
+        command = await rewriteSameThemeDraftCommand(params.command);
+        if (/\b(mkdir|md|New-Item)\b/i.test(command)) {
+          const folder = extractDraftFolderName(command);
+          if (folder) {
+            const folders = await listDraftFolderNames();
+            if (!folders.includes(folder)) {
+              throw new Error(`草稿目录 ${folder} 还不存在。请先问用户确认后再创建，不要自己 mkdir。`);
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("还不存在")) throw err;
+        command = params.command;
+      }
       const res = await invoke<SandboxRunResponse>("run_sandboxed_command", {
         req: {
           command: "bash",
-          args: ["-lc", params.command],
+          args: ["-lc", command],
           cwd: deps.workspaceRoot.trim() || undefined,
           sandboxMode: deps.sandboxMode,
           timeoutMs: params.timeoutMs,
@@ -316,16 +338,27 @@ function writeTool(deps: InternalToolDeps): AgentTool {
       content: Type.String({ description: "Full file content to write." }),
     }),
     execute: async (_id, params) => {
+      let path = params.path;
+      try {
+        path = await redirectSameThemeDraftPath(params.path);
+      } catch {
+        path = params.path;
+      }
+      await assertDraftFolderWritable(path);
       const res = await invoke<FsWriteResponse>("fs_write", {
         req: {
           workspaceRoot: deps.workspaceRoot.trim(),
-          path: params.path,
+          path,
           content: params.content,
           sandboxMode: deps.sandboxMode,
         },
       });
       afterDraftWrite(res.path);
-      return textResult(`已写入 ${res.path} (${res.bytesWritten} 字节)`, res);
+      const merged =
+        path.replace(/\\/g, "/") !== params.path.replace(/\\/g, "/")
+          ? `（已并入已有主题目录，未新建相近文件夹）`
+          : "";
+      return textResult(`已写入 ${res.path} (${res.bytesWritten} 字节)${merged}`, res);
     },
   });
 }
@@ -354,10 +387,17 @@ function editTool(deps: InternalToolDeps): AgentTool {
       ),
     }),
     execute: async (_id, params) => {
+      let path = params.path;
+      try {
+        path = await redirectSameThemeDraftPath(params.path);
+      } catch {
+        path = params.path;
+      }
+      await assertDraftFolderWritable(path);
       const res = await invoke<FsEditResponse>("fs_edit", {
         req: {
           workspaceRoot: deps.workspaceRoot.trim(),
-          path: params.path,
+          path,
           oldStr: params.oldStr,
           newStr: params.newStr,
           replaceAll: params.replaceAll,

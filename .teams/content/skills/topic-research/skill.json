@@ -1,0 +1,14 @@
+{
+  "name": "topic-research",
+  "version": "0.1.0",
+  "author": "niuma.skills",
+  "description": "针对一个想法上网查找资料，给出写法和主题。不定最终标题。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["research", "web_search", "desk"],
+  "permissions": ["network"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  }
+}

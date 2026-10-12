@@ -18,6 +18,7 @@ describe("follow-builders feed mirrors", () => {
 
   it("identifies /digest as the command that should inject feeds", () => {
     expect(isDigestCommand("digest")).toBe(true);
+    expect(isDigestCommand("propose")).toBe(false);
     expect(isDigestCommand("topic")).toBe(false);
   });
 });

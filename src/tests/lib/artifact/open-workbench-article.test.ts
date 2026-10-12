@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   DRAFT_FILE_CHANGED_EVENT,
+  FLUSH_OPEN_MANUSCRIPT_EVENT,
   OPEN_WORKBENCH_ARTICLE_EVENT,
   notifyDraftFileChanged,
+  requestFlushOpenManuscript,
   requestOpenWorkbenchArticle,
   subscribeDraftFileChanged,
+  subscribeFlushOpenManuscript,
   subscribeOpenWorkbenchArticle,
 } from "@/lib/artifact/open-workbench-article";
 
@@ -36,6 +39,17 @@ describe("open workbench article event", () => {
       filePath: "C:/niuma/.artifacts/drafts/20260903-topic/article.md",
     });
     expect(DRAFT_FILE_CHANGED_EVENT).toBe("niuma:draft-file-changed");
+    stop();
+  });
+
+  it("reports absent when no editor is listening for a flush", async () => {
+    await expect(requestFlushOpenManuscript()).resolves.toBe("absent");
+    expect(FLUSH_OPEN_MANUSCRIPT_EVENT).toBe("niuma:flush-open-manuscript");
+  });
+
+  it("returns the editor flush result before the agent turn", async () => {
+    const stop = subscribeFlushOpenManuscript(async () => "conflict");
+    await expect(requestFlushOpenManuscript()).resolves.toBe("conflict");
     stop();
   });
 });

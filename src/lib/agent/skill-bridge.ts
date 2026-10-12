@@ -51,12 +51,16 @@ async function findOrCreateBridgedSkill(cs: NiumaSkill): Promise<string> {
   const canonicalSlug = canonicalNiumaSkillSlug(cs.slug);
   const canonicalName = canonicalNiumaSkillSlug(cs.name || cs.slug);
   const aliases = new Set(expandNiumaSkillSlug(canonicalSlug));
-  const existing = store.items.find(
-    (s) =>
-      s.sourceType === "niuma" &&
-      s.source &&
-      (aliases.has(s.source) || aliases.has(canonicalNiumaSkillSlug(s.name || ""))),
-  );
+  const existing =
+    store.items.find(
+      (s) => s.sourceType === "niuma" && s.source === canonicalSlug,
+    ) ??
+    store.items.find(
+      (s) =>
+        s.sourceType === "niuma" &&
+        s.source &&
+        (aliases.has(s.source) || aliases.has(canonicalNiumaSkillSlug(s.name || ""))),
+    );
 
   if (existing) {
     if (

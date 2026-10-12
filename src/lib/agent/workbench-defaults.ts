@@ -7,7 +7,7 @@ import { useSkillStore } from "@/store";
 import type { AgentDefinition, AgentInternalToolId, GroupChannel } from "@/types";
 import { bridgeEnabledNiumaSkills } from "./skill-bridge";
 import { catalogAgentAliases } from "./command-target";
-import { canonicalNiumaSkillSlug } from "./skill-slugs";
+import { canonicalNiumaSkillSlug, expandNiumaSkillSlug } from "./skill-slugs";
 import { resolvePresetSkillIds } from "./preset-skill-ids";
 import {
   discoverCatalogTeamPresets,
@@ -144,7 +144,17 @@ function getNiumaSkillIdsBySlug() {
   const map = new Map<string, string>();
   for (const skill of useSkillStore.getState().items) {
     if (skill.sourceType !== "niuma" || !skill.source) continue;
-    map.set(canonicalNiumaSkillSlug(skill.source), skill.id);
+    const canonical = canonicalNiumaSkillSlug(skill.source);
+    if (skill.source === canonical || !map.has(canonical)) {
+      map.set(canonical, skill.id);
+    }
+  }
+  for (const skill of useSkillStore.getState().items) {
+    if (skill.sourceType !== "niuma" || !skill.source) continue;
+    const id = map.get(canonicalNiumaSkillSlug(skill.source)) ?? skill.id;
+    for (const slug of expandNiumaSkillSlug(skill.source)) {
+      if (!map.has(slug)) map.set(slug, id);
+    }
   }
   return map;
 }
@@ -306,10 +316,6 @@ export async function ensureWorkbenchDefaultTeams(options: {
   let createdAny = false;
 
   for (const preset of [...presets].reverse()) {
-    // Skip if any channel is already bound to this team
-    if (boundTeamIds.has(preset.id)) continue;
-    if (existingNames.has(preset.name)) continue;
-
     const members = await Promise.all(
       preset.agentFiles.map((file) =>
         ensurePresetAgent(
@@ -327,6 +333,7 @@ export async function ensureWorkbenchDefaultTeams(options: {
       ),
     );
     const agentIds = members.filter((agent): agent is AgentDefinition => Boolean(agent)).map((agent) => agent.id);
+    if (boundTeamIds.has(preset.id) || existingNames.has(preset.name)) continue;
     if (agentIds.length === 0) continue;
     options.createChannel(preset.name, agentIds, preset.avatar, preset.kind, [], preset.id);
     createdAny = true;

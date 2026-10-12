@@ -1,7 +1,7 @@
 /**
  * Composer rules:
  * - `@` mentions a seat in the current team.
- * - `/` completes a team command or a skill (`@写手 请用/article-writing …`).
+ * - `/` completes a team command or a skill (`@写手 请用/manuscript-writer …`).
  * - An explicit `/skill` wins. Otherwise the seat's own skills are used.
  *   A seat with no skills gets the closest match from the team skill catalog.
  */

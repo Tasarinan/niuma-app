@@ -14,8 +14,8 @@ agentFiles:
   - producer.md
   - writer.md
 skillSlugs:
-  - article-main
-  - article-review
+  - content-router
+  - manuscript-reviewer
 default_author: 折叠的AI
 title_max_length: 25
 `;
@@ -25,15 +25,15 @@ describe("content team config", () => {
     expect(parseYamlBlockList(sample, "agentFiles")).toEqual(["producer.md", "writer.md"]);
     const manifest = parseContentTeamManifest(sample);
     expect(manifest.name).toBe("内容创作");
-    expect(manifest.skillSlugs).toEqual(["article-main", "article-review"]);
+    expect(manifest.skillSlugs).toEqual(["content-router", "manuscript-reviewer"]);
   });
 
   it("parses block lists with CRLF line endings", () => {
     const crlf = sample.replaceAll("\n", "\r\n");
     expect(parseYamlBlockList(crlf, "agentFiles")).toEqual(["producer.md", "writer.md"]);
     expect(parseYamlBlockList(crlf, "skillSlugs")).toEqual([
-      "article-main",
-      "article-review",
+      "content-router",
+      "manuscript-reviewer",
     ]);
     expect(parseContentTeamManifest(crlf).name).toBe("内容创作");
   });

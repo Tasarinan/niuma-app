@@ -18,7 +18,7 @@ describe("searchQueryFromComposerInput", () => {
   });
 
   it("strips a /skill citation so search uses the task text", () => {
-    expect(searchQueryFromComposerInput("/ak-rss-digest 最近一周 RSS")).toBe("最近一周 RSS");
+    expect(searchQueryFromComposerInput("/topic-analyzer 最近一周 RSS")).toBe("最近一周 RSS");
     expect(searchQueryFromComposerInput("/weather")).toBe("");
   });
 });
