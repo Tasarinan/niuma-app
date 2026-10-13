@@ -159,8 +159,8 @@ export function editorAssistMessages(request: EditorAssistRequest): { system: st
       : "你是选区旁的写作助手。只处理用户给出的这一处或这一篇。",
     "现在只处理用户给出的这一处或这一篇。不要提斜杠命令，不要要求换一个 Agent。",
     "修改、续写、排版选区时只返回 Markdown 正文，不要代码围栏，不要前后说明，不要改磁盘文件。",
-    "审稿时用中文列出问题与建议，不要输出改写稿。",
-    "配图时只返回一行，以「配图：」开头，后面是可直接拿去生图的画面说明。",
+    "审稿时用中文列出三遍结论（内容/风格/细节）、5 维质量分（满分 50，低于 35 阻断）、问题与建议。不要输出改写稿。暴露 AI 参与写作为硬约束。",
+    "配图时只返回一行，以「配图：」开头，后面是可直接拿去生图的画面说明。沿用全文已锁定的一种 Style（见 illustration-plan.md / style-anchor）；不要每张换风格。产品界面不要画成假截图。",
   ].join("\n");
 
   const user = (() => {
@@ -171,12 +171,12 @@ export function editorAssistMessages(request: EditorAssistRequest): { system: st
         return `从下面这段后面续写，接得上前文，不要重复已有句子。只返回要插入的新段落。\n\n【光标前】\n${target}\n\n【全文摘录】\n${document}${note}`;
       case "image":
         return instruction.includes("主题封面")
-          ? `为整篇文章出主题封面配图。只返回一行「配图：」加画面说明，包含主体、场景和用途。\n\n【全文摘录】\n${document}${note}`
-          : `为下面这段配一张图。只返回一行「配图：」加画面说明，包含主体、场景和用途。\n\n【这一段】\n${target}${note}`;
+          ? `为整篇文章出主题封面配图（只出封面这一张的画面说明）。正文插图必须另按 illustration-plan：含封面共 3–5 张、全文一种 Style，不能只靠封面交差。只返回一行「配图：」加画面说明，包含主体、场景、用途、锁定 Style。\n\n【全文摘录】\n${document}${note}`
+          : `为下面这段配一张图。Type 按段落选，Style 必须与全文锁定的那一种一致（不要另起风格）。流程/架构/对比用结构化画面（短中文标签），产品界面不要假截图。只返回一行「配图：」加画面说明。\n\n【这一段】\n${target}${note}`;
       case "review-selection":
-        return `审下面这一段。用中文列出：问题、建议。不要输出改写稿。\n\n【这一段】\n${target}${note}`;
+        return `审下面这一段。用中文列出：问题、建议；若暴露 AI 参与写作标 🔴。不要输出改写稿。\n\n【这一段】\n${target}${note}`;
       case "review-document":
-        return `审整篇文章。用中文列出：结构、事实与语气、最值得改的三处。不要输出改写稿。\n\n【全文】\n${document}${note}`;
+        return `审整篇文章。先做三遍审校（内容/风格/细节），再给 5 维分数（直接性、节奏、信任度、真实性、精炼度，各 1–10，满分 50；<35 阻断）。再列结构、事实与语气、最值得改的三处。暴露 AI 参与写作为硬约束。不要输出改写稿。\n\n【全文】\n${document}${note}`;
       case "format-selection":
         return `整理下面这一段的 Markdown：标题、列表、段落空行。不改变事实。只返回整理后的 Markdown。\n\n【这一段】\n${target}${note}`;
     }

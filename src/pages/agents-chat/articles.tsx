@@ -60,6 +60,10 @@ import {
   isKnownFormatTheme,
 } from "@/lib/wechat/format-themes";
 import { loadFormatThemeStyles } from "@/lib/wechat/load-format-theme";
+import {
+  WECHAT_TITLE_MAX_BYTES,
+  describeWechatTitle,
+} from "@/lib/wechat/title-bytes";
 import { openArtifactArticle, saveArticleToArtifact, scanArtifactArticles } from "@/lib/artifact/article-repo";
 import { subscribeOpenWorkbenchArticle, subscribeDraftFileChanged, subscribeFlushOpenManuscript } from "@/lib/artifact/open-workbench-article";
 import { normalizeArticleText } from "@/lib/artifact/article-write-guard";
@@ -1636,9 +1640,20 @@ export default function ArticlesPage({
                 placeholder={t("articles.titlePlaceholder")}
                 className="h-8 rounded-xl text-sm"
               />
-              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-                与正文一级标题联动；保存时写入 article.yaml 的 title。
-              </p>
+              {(() => {
+                const meta = describeWechatTitle(activeArticle.title || "");
+                return (
+                  <p
+                    className={cn(
+                      "mt-1.5 text-[11px] leading-relaxed",
+                      meta.overBytes || meta.overChars ? "text-rose-500" : "text-slate-400",
+                    )}
+                  >
+                    {meta.utf8Bytes}/{WECHAT_TITLE_MAX_BYTES} UTF-8 字节（微信 45028）。
+                    与正文一级标题联动；保存时写入 article.yaml。不要只数 25 字。
+                  </p>
+                );
+              })()}
             </div>
 
             <div>

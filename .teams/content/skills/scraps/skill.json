@@ -1,0 +1,14 @@
+{
+  "name": "scraps",
+  "version": "0.1.0",
+  "author": "niuma.skills",
+  "description": "按预置信源或指定网址采集材料，写入 .artifacts/scraps。",
+  "license": "MIT",
+  "homepage": "https://github.com/Tasarinan/niuma-app",
+  "tags": ["scrap", "news", "content"],
+  "permissions": ["network", "filesystem", "shell"],
+  "entryPoint": {
+    "type": "natural",
+    "path": "SKILL.md"
+  }
+}

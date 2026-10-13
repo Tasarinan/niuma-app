@@ -121,7 +121,7 @@ export async function runEditorAssist(request: EditorAssistRequest): Promise<str
   def.enabledMcpServerIds = [];
   def.sandboxMode = "read-only";
   def.temperature = request.kind.startsWith("review") ? 0.2 : catalogAgent.temperature ?? 0.4;
-  def.maxTokens = request.kind === "review-document" ? 2048 : catalogAgent.maxTokens ?? 4096;
+  def.maxTokens = request.kind === "review-document" ? 4096 : catalogAgent.maxTokens ?? 4096;
 
   let finalText = "";
   let errorMsg: string | null = null;

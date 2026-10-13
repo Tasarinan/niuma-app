@@ -7,7 +7,10 @@ export type FormatThemeGroupId =
   | "wechat-classic"
   | "media"
   | "digital"
-  | "design";
+  | "design"
+  | "macaron"
+  | "wenyan"
+  | "shuimo";
 
 export type FormatTheme = {
   id: string;
@@ -27,6 +30,9 @@ export const FORMAT_THEME_GROUPS: { id: FormatThemeGroupId; label: string }[] = 
   { id: "media", label: "传统媒体" },
   { id: "digital", label: "现代数字" },
   { id: "design", label: "设计向" },
+  { id: "macaron", label: "马卡龙" },
+  { id: "wenyan", label: "文颜" },
+  { id: "shuimo", label: "水墨" },
 ];
 
 export const FORMAT_THEMES: FormatTheme[] = [
@@ -54,6 +60,27 @@ export const FORMAT_THEMES: FormatTheme[] = [
   { id: "warm-docs", name: "焦橙文档", description: "花生排版器 · 焦橙文档", group: "design" },
   { id: "warm-dossier", name: "档案馆", description: "花生排版器 · 档案馆", group: "design" },
   { id: "lemonde", name: "Le Monde 世界报", description: "花生排版器 · Le Monde 世界报", group: "media" },
+  { id: "macaron-blue", name: "马卡龙蓝", description: "清新明亮，适合科技、商务、教育", group: "macaron" },
+  { id: "macaron-coral", name: "马卡龙珊瑚", description: "温暖珊瑚色，适合情感、生活、旅行", group: "macaron" },
+  { id: "macaron-cream", name: "马卡龙奶油", description: "奶油色，适合美食、烘焙、复古", group: "macaron" },
+  { id: "macaron-lavender", name: "马卡龙薰衣草", description: "薰衣草色，适合艺术、设计、文学", group: "macaron" },
+  { id: "macaron-lemon", name: "马卡龙柠檬", description: "柠檬色，适合财经、商业、励志", group: "macaron" },
+  { id: "macaron-lilac", name: "马卡龙丁香", description: "丁香色，适合时尚、美妆、婚礼", group: "macaron" },
+  { id: "macaron-mint", name: "马卡龙薄荷", description: "薄荷色，适合健康、环保、生活方式", group: "macaron" },
+  { id: "macaron-peach", name: "马卡龙蜜桃", description: "蜜桃色，适合美食、生活、亲子", group: "macaron" },
+  { id: "macaron-pink", name: "马卡龙粉", description: "粉色，适合情感、生活、女性向", group: "macaron" },
+  { id: "macaron-rose", name: "马卡龙玫瑰", description: "玫瑰色，适合情感、浪漫、精致", group: "macaron" },
+  { id: "macaron-sage", name: "马卡龙鼠尾草", description: "鼠尾草绿，适合健康、植物、园艺", group: "macaron" },
+  { id: "macaron-sky", name: "马卡龙天空", description: "天空蓝，适合旅行、自由、梦想", group: "macaron" },
+  { id: "wenyan-default", name: "文颜默认", description: "黑白灰 + 蓝色点缀，适合长文", group: "wenyan" },
+  { id: "wenyan-lapis", name: "文颜青金石", description: "清凉蓝色，适合科技、商务、知识", group: "wenyan" },
+  { id: "wenyan-maize", name: "文颜玉米", description: "玉米色，适合美食、生活、阳光", group: "wenyan" },
+  { id: "wenyan-mint", name: "文颜薄荷", description: "薄荷绿，适合健康、环保、自然", group: "wenyan" },
+  { id: "wenyan-orange-heart", name: "文颜橙心", description: "温暖橙色，适合美食、旅行、生活", group: "wenyan" },
+  { id: "wenyan-pie", name: "文颜派", description: "锐利现代，适合科技评论、深度分析", group: "wenyan" },
+  { id: "wenyan-purple", name: "文颜紫色", description: "微紫点缀，适合文艺、设计", group: "wenyan" },
+  { id: "wenyan-rainbow", name: "文颜彩虹", description: "多彩但不刺眼，适合多元内容", group: "wenyan" },
+  { id: "shuimo-default", name: "中国水墨", description: "黑白灰 + 印章红，适合文化、历史、艺术", group: "shuimo" },
 ];
 
 export function isKnownFormatTheme(id: string): boolean {

@@ -101,6 +101,9 @@ describe("format theme catalog", () => {
     expect(isKnownFormatTheme("wechat-tech")).toBe(true);
     expect(isKnownFormatTheme("wechat-anthropic")).toBe(true);
     expect(FORMAT_THEMES.map((theme) => theme.id)).toContain("lemonde");
+    expect(FORMAT_THEMES.map((theme) => theme.id)).toContain("macaron-blue");
+    expect(FORMAT_THEMES.map((theme) => theme.id)).toContain("wenyan-lapis");
+    expect(FORMAT_THEMES.map((theme) => theme.id)).toContain("shuimo-default");
     expect(new Set(FORMAT_THEMES.map((theme) => theme.id)).size).toBe(FORMAT_THEMES.length);
   });
 

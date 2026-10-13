@@ -1,0 +1,17 @@
+{
+  "default": "general",
+  "groups": {
+    "general": ["hackernews", "producthunt", "github", "weibo", "36kr", "tencent", "wallstreetcn", "v2ex"],
+    "default": ["hackernews", "producthunt", "github", "weibo", "36kr", "tencent", "wallstreetcn", "v2ex"],
+    "tech": ["hackernews", "github", "producthunt", "v2ex", "sspai", "juejin", "ithome"],
+    "finance": ["wallstreetcn", "36kr", "tencent", "cls"],
+    "social": ["weibo", "v2ex", "tencent", "zhihu"],
+    "china": ["weibo", "zhihu", "baidu", "douyin", "bilibili", "toutiao", "tencent", "thepaper", "hupu"]
+  },
+  "profiles": {
+    "general": { "per": 8, "count": 40, "deep": true },
+    "tech": { "per": 8, "count": 32, "deep": true },
+    "finance": { "per": 12, "count": 30, "deep": true },
+    "social": { "per": 12, "count": 30, "deep": false }
+  }
+}

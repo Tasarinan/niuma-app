@@ -1,0 +1,38 @@
+# Ported from wechat-auto-writer (nested styles → format.py CSS strings)
+name: "中国水墨"
+description: "传统中国水墨画风格，黑白灰主调，辅以印章红点缀，适合文化、历史、艺术类文章"
+source: wechat-auto-writer
+
+variables:
+  primary-color: "#1a1a1a"
+  bg-accent-color: "#f0ece1"
+  text-color: "#333333"
+  text-light: "#666666"
+  link-color: "#9e2a2b"
+  font-size: "16px"
+  line-height: "1.8"
+  font-family: "'Noto Serif SC', 'Songti SC', 'SimSun', 'STSong', serif"
+
+styles:
+  container: "max-width: 740px; margin: 0 auto; font-size: 16px; line-height: 1.8; letter-spacing: 1px; padding: 0 16px; color: #333333; background-color: #fdfcf8; font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', 'STSong', serif"
+  h1: "font-size: 24px; font-weight: bold; margin: 20px 0 15px 0; padding: 0 16px; text-align: center; color: #1a1a1a; letter-spacing: 2px"
+  h2: "font-size: 20px; font-weight: bold; margin: 24px 0 12px 0; padding: 5px 16px; color: #1a1a1a; border-bottom: 1px solid #1a1a1a; text-align: center; letter-spacing: 2px"
+  h3: "font-size: 18px; font-weight: bold; margin: 16px 0 8px 0; padding: 0 16px; color: #333333"
+  h4: "font-size: 16px; font-weight: bold; margin: 12px 0 6px 0; padding: 0 16px; color: #666666"
+  p: "margin: 0 0 10px 0; line-height: 1.8; color: #333333; font-size: 16px; letter-spacing: 1px"
+  strong: "font-weight: bold; color: #1a1a1a"
+  em: "font-style: italic; color: #666666"
+  a: "color: #9e2a2b; text-decoration: none; border-bottom: 1px solid #9e2a2b"
+  ul: "font-size: 16px; margin: 12px 0; padding: 0 16px 0 32px; line-height: 1.8; color: #333333"
+  ol: "font-size: 16px; margin: 12px 0; padding: 0 16px 0 32px; line-height: 1.8; color: #333333"
+  li: "font-size: 16px; line-height: 1.8; color: #333333; margin-bottom: 6px"
+  blockquote: "font-size: 15px; padding: 10px 15px; margin: 16px 0; border-left: 4px solid #9e2a2b; background: #f5f5f5; border-radius: 2px; line-height: 1.8; color: #666666"
+  hr: "border: none; border-top: 1px solid #1a1a1a; margin: 30px auto; width: 60%"
+  img: "border-radius: 2px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); margin: 16px auto; max-width: 100%; height: auto; display: block"
+  code: "font-size: 14px; padding: 2px 6px; border-radius: 2px; background: #f0ece1; color: #9e2a2b"
+  pre: "font-size: 14px; line-height: 1.6; margin: 16px 4px; padding: 12px; border-radius: 4px; background: #f5f5f5; color: #333333; border: 1px solid #e0e0e0"
+  table: "font-size: 14px; border-collapse: collapse; width: 100%; margin: 16px 0"
+  th: "padding: 10px 12px; line-height: 1.6; font-weight: bold; background: #e6e6e6; color: #1a1a1a; border: 1px solid #cccccc"
+  td: "padding: 10px 12px; line-height: 1.6; color: #333333; border: 1px solid #cccccc"
+  strong-color: "#1a1a1a"
+  figcaption: "text-align: center; font-size: 12px; color: #666666; margin-top: 6px"

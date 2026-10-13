@@ -14,7 +14,9 @@ dataDomain: contentbook
 starterPrompts:
   - "/style setup — 建立文风档案"
   - "/record idea 今天的一句思考"
-  - "/pull — 拉取今天的网址"
-  - "/digest — 汇总素材并建议题目"
+  - "/scrap — 采集预置信源或一篇文章"
+  - "/digest — 根据采集写日报或月报"
+  - "/ops — 公众号涨粉与阅读"
+  - "/ops comments — 评论拟回复，确认再发"
   - "/propose — 提出写作主题"
   - "/outline 一个想法 — 调研后写初稿，标题后定"

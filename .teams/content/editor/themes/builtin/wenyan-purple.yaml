@@ -1,0 +1,38 @@
+# Ported from wechat-auto-writer (nested styles → format.py CSS strings)
+name: "文颜紫色"
+description: "微微紫点缀，简约优雅风格，适合文艺、设计、女性类文章"
+source: wechat-auto-writer
+
+variables:
+  primary-color: "#8b5cf6"
+  bg-accent-color: "#ede9fe"
+  text-color: "#1e1b4b"
+  text-light: "#7c3aed"
+  link-color: "#7c3aed"
+  font-size: "16px"
+  line-height: "1.75"
+  font-family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+
+styles:
+  container: "max-width: 740px; margin: 0 auto; font-size: 16px; line-height: 1.75; letter-spacing: 0px; padding: 0 16px; color: #1e1b4b; background-color: #ffffff"
+  h1: "font-size: 24px; font-weight: normal; margin: 0 0 8px 0; padding: 0 16px; text-align: center; color: #7c3aed"
+  h2: "font-size: 20.8px; font-weight: bold; margin: 0 0 6px 0; padding: 0 16px; color: #1e1b4b"
+  h3: "font-size: 20.8px; font-weight: bold; margin: 0 0 4px 0; padding: 0 16px; color: #6d28d9"
+  h4: "font-size: 19.2px; font-weight: bold; margin: 0 0 4px 0; padding: 0 16px; color: #7c3aed"
+  p: "margin: 0 0 10px 0; line-height: 1.75; color: #1e1b4b; font-size: 16px; letter-spacing: 0px"
+  strong: "font-weight: bold; color: #6d28d9"
+  em: "font-style: italic; color: #7c3aed"
+  a: "color: #7c3aed; text-decoration: underline"
+  ul: "font-size: 16px; margin: 10px 0; padding: 0 16px 0 32px; line-height: 1.75; color: #1e1b4b"
+  ol: "font-size: 16px; margin: 10px 0; padding: 0 16px 0 32px; line-height: 1.75; color: #1e1b4b"
+  li: "font-size: 16px; line-height: 1.75; color: #1e1b4b; margin-bottom: 6px"
+  blockquote: "font-size: 14.4px; padding: 8px 10px; margin: 16px 0; border-left: 4px solid #8b5cf6; background: #faf5ff; border-radius: 0 5px 5px 0; line-height: 1.75; color: #4c1d95"
+  hr: "border: none; border-top: 1px solid #ddd; margin: 20px auto"
+  img: "border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); max-width: 100%; height: auto; display: block; margin: 16px auto"
+  code: "font-size: 12.5px; padding: 4px 6px; border-radius: 3px; background: #ede9fe; color: #7c3aed"
+  pre: "font-size: 14px; line-height: 2; margin: 10px 4px; padding: 8px; border-radius: 5px; background: #faf5ff; color: #1e1b4b"
+  table: "font-size: 12px; border-collapse: collapse; width: 100%; margin: 10px 0"
+  th: "padding: 9px 12px; line-height: 22px; font-weight: bold; background: #ede9fe; color: #1e1b4b; border: 1px solid #ddd6fe"
+  td: "padding: 9px 12px; line-height: 22px; color: #4c1d95; border: 1px solid #ddd6fe"
+  strong-color: "#6d28d9"
+  figcaption: "text-align: center; font-size: 12px; color: #7c3aed; margin-top: 6px"

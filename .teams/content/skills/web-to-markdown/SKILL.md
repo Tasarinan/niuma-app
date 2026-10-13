@@ -1,6 +1,6 @@
 ---
 name: web-to-markdown
-description: 按域名把网址收成 Markdown。当用户使用 /pull、丢来一篇网页链接，或公众号/知乎/飞书正文打不开时使用。打不开就说明原因，不要编造。
+description: 按域名把网址收成 Markdown。当用户使用 /scrap 指定文章网址、丢来一篇网页链接，或公众号/知乎/飞书正文打不开时使用。打不开就说明原因，不要编造。
 ---
 
 # 网址转 Markdown
@@ -18,7 +18,7 @@ description: 按域名把网址收成 Markdown。当用户使用 /pull、丢来�
 默认失败则：直连 HTML + Readability → 再不行浏览器抽取。
 
 ### 3. 落盘与列表报
-- `/pull` 时每个网址一篇 Markdown，文首写原 URL，写到注入的当天目录
+- `/scrap` 指定文章时每个网址一篇 Markdown，文首写原 URL，写到 `.artifacts/scraps/<YYYY-MM-DD>/`
 - 列表报：标题、网址、一句摘要、本地路径
 
 ## 使用说明
@@ -27,7 +27,7 @@ description: 按域名把网址收成 Markdown。当用户使用 /pull、丢来�
 
 当用户提到以下场景时，使用此技能：
 
-- ✅ `/pull`
+- ✅ `/scrap` 里的文章网址
 - ✅ 用户贴了 http(s) 要全文
 - ✅ 公众号 / 知乎 / 飞书打不开
 
@@ -42,7 +42,7 @@ node scripts/url_to_markdown.mjs <url>
 元数据加 `--json`。强制特殊站点：`node scripts/fetch_special_sites.mjs <url> --json`
 
 #### 步骤 3: 写入并汇报
-`/pull` 写到注入的当天目录。打不开就说明原因。
+`/scrap` 的文章 URL 写到注入的当天 scraps 目录。打不开就说明原因。
 
 细则：[references/routing-and-notes.md](references/routing-and-notes.md)
 
@@ -62,5 +62,5 @@ node scripts/url_to_markdown.mjs <url>
 
 ## 相关命令
 
-- `/pull` — 按已存网址拉取
-- `/digest` — 拉完后再汇总（本技能不做）
+- `/scrap` — 采集（预置信源由 scraps 处理；本技能只抽文章）
+- `/digest` — 采完后再写报告（本技能不做）

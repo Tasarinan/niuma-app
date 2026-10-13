@@ -1,6 +1,6 @@
 ---
 name: topic-analyzer
-description: 根据已有素材做周月汇总、拆角度、拟标题。当用户使用 /digest、/propose，或问这些材料能写成哪几篇时使用。不定题、不建草稿目录。
+description: 根据 scraps 写日报或月报，并拆角度、拟标题。当用户使用 /digest、/propose，或问这些材料能写成哪几篇时使用。不定题、不建草稿目录。
 ---
 
 # 选题分析器
@@ -9,10 +9,12 @@ description: 根据已有素材做周月汇总、拆角度、拟标题。当用�
 
 ## 核心功能
 
-### 1. 素材汇总
-- 统计近 7 天或 30 天的 `content_entries` 条数与类型
-- 列表报：日期、类型、摘要、来源
-- 最多给出 3 个可成稿题目
+### 1. 采集报告
+- `/digest` 或 `/digest daily`：读 `.artifacts/scraps/<今天>/`（含 `briefing.md`），按统一模板写入 `daily-report.md`
+- `/digest month`：读本月 scraps，写入 `monthly-report.md`
+- 每条独立一节：Source / Time / Heat / Links / Summary / Deep Dive；Time 必填；HN 必须带 Discussion
+- 没有材料就写「今日无采集」或「本月无采集」
+- 再统计对应范围的 `content_entries`，最多 3 个可成稿题目
 
 ### 2. 主题提案
 - 最多 5 个主题：题目、为什么现在写、引用的记录 id 或网址
@@ -29,22 +31,22 @@ description: 根据已有素材做周月汇总、拆角度、拟标题。当用�
 
 当用户提到以下场景时，使用此技能：
 
-- ✅ `/digest` 周/月汇总
+- ✅ `/digest` 日报 / 月报
 - ✅ `/propose` 出主题
 - ✅ 「这些材料能写成哪几篇」
 
 ### 执行步骤
 
 #### 步骤 1: 确认数据源
-`/digest` 只使用已注入的 `content_entries`、中央 Feed、IMA。
-用户给了新想法或本地不够时，加载 `topic-research` 上网查。
+`/digest` 先读 `.artifacts/scraps`，再用已注入的 `content_entries`、中央 Feed、IMA。
+不要在 `/digest` 里重新采集。用户给了新想法或本地不够时，加载 `topic-research` 上网查。
 
 #### 步骤 2: 按命令产出
-- `/digest`：汇总 → 最多 3 个可成稿题目 → 停，等人
+- `/digest`：写 daily/monthly 报告 → 最多 3 个可成稿题目 → 停，等人
 - `/propose`：最多 5 个主题（不定最终标题）→ 停，等人 `/outline`
 
-#### 步骤 3: 不要落盘
-不要创建 `.artifacts/drafts/`，不要写 `article.md`。定题是用户的事。
+#### 步骤 3: 只写报告
+可以写 `daily-report.md` / `monthly-report.md`。不要创建 `.artifacts/drafts/`，不要写 `article.md`。定题是用户的事。
 
 输出格式见 [references/output-format.md](references/output-format.md)。
 
@@ -52,6 +54,7 @@ description: 根据已有素材做周月汇总、拆角度、拟标题。当用�
 
 | 数据源 | 位置 | 内容 |
 |--------|------|------|
+| 采集 | `.artifacts/scraps` | /scrap 落盘 |
 | 日常素材 | 对话注入的 `content_entries` | idea / note / 摘录 |
 | 中央 Feed | 对话注入 | 已登记网址的条目 |
 | IMA | 对话注入 | 知识库摘录 |
@@ -59,13 +62,13 @@ description: 根据已有素材做周月汇总、拆角度、拟标题。当用�
 
 ## 安全与合规
 
-- ❌ 不建目录、不写正文、不定最终标题
+- ❌ 不建草稿目录、不写正文、不定最终标题
 - ❌ 不编造无来源的 Feed 或数字
 - ✅ 没有 URL 的 Feed 条目丢掉
 - ✅ 需要上网时交给 `topic-research`
 
 ## 相关命令
 
-- `/digest` — 周/月汇总
+- `/digest` — 日报 / 月报
 - `/propose` — 提出写作主题
 - `/outline` — 写初稿（本技能不要执行）

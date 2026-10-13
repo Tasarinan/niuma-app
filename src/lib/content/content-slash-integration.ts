@@ -50,6 +50,36 @@ export const CONTENT_SOURCE_FIELDS = [
 ] as const;
 
 export const DEFAULT_PULL_DIR = ".artifacts/content/pulls";
+export const DEFAULT_SCRAP_DIR = ".artifacts/scraps";
+export const DEFAULT_SCRAP_SOURCES = "general";
+export const SCRAP_SOURCE_TOKENS = new Set([
+  "general",
+  "default",
+  "tech",
+  "finance",
+  "social",
+  "china",
+  "all",
+  "hackernews",
+  "github",
+  "v2ex",
+  "weibo",
+  "zhihu",
+  "36kr",
+  "baidu",
+  "juejin",
+  "sspai",
+  "ithome",
+  "producthunt",
+  "bilibili",
+  "douyin",
+  "toutiao",
+  "tencent",
+  "thepaper",
+  "hupu",
+  "wallstreetcn",
+  "cls",
+]);
 
 const defaultStore: ContentSlashStore = {
   createEntry: createContentEntry,
@@ -296,26 +326,113 @@ async function handleCollect(args: string, store: ContentSlashStore): Promise<Co
   };
 }
 
+async function handleOps(args: string, store: ContentSlashStore): Promise<ContentSlashResolution> {
+  const tokens = args.trim().split(/\s+/).filter(Boolean);
+  const first = (tokens[0] || "daily").toLowerCase();
+  if (first === "comments" || first === "comment" || first === "评论") {
+    const action = (tokens[1] || "list").toLowerCase();
+    const profile = await store.latestProfile();
+    if (action === "send" || action === "reply" || action === "发送") {
+      return {
+        prompt: [
+          "用户确认发送公众号评论回复。加载 wechat-publish。",
+          "只发送 `.artifacts/wechat/ops/comment-drafts.json` 里已有的 draftReply，或用户本回合点名的那几条。不要新编读者评论。",
+          "在仓库根运行（必须带 --yes 才会真发）：",
+          "python .teams/content/skills/wechat-publish/scripts/comments.py send --file .artifacts/wechat/ops/comment-drafts.json --yes",
+          "槽位加 `--account N`。不要打印 APPSECRET。发送失败说明原因。",
+        ].join("\n"),
+      };
+    }
+    if (action === "elect" || action === "unelect" || action === "精选" || action === "取消精选") {
+      const confirmed = tokens.some((token) => ["yes", "--yes", "确认", "send"].includes(token.toLowerCase()));
+      const rawId = tokens.slice(2).find((token) => !["yes", "--yes", "确认", "send"].includes(token.toLowerCase())) || "";
+      const verb = action === "unelect" || action === "取消精选" ? "unelect" : "elect";
+      if (!rawId) {
+        return { prompt: `用户执行 /ops comments ${verb} 但没有评论 id。请提示 \`/ops comments ${verb} <articleId_commentId>\`。` };
+      }
+      const yes = confirmed ? " --yes" : "";
+      return {
+        prompt: [
+          confirmed
+            ? `用户确认${verb === "elect" ? "精选" : "取消精选"}评论 ${rawId}。加载 wechat-publish。`
+            : `用户要${verb === "elect" ? "精选" : "取消精选"}评论 ${rawId}。先预览，不要调用微信，除非本回合已确认。`,
+          `python .teams/content/skills/wechat-publish/scripts/comments.py ${verb} ${rawId}${yes}`,
+          confirmed
+            ? "必须带 --yes 才会真正调用 markelect/unmarkelect。"
+            : "未确认只允许不加 --yes 的 dry-run。请用户确认后再 `/ops comments elect <id> yes`。",
+          "槽位加 `--account N`。不要打印 APPSECRET。不要编造评论。",
+        ].join("\n"),
+      };
+    }
+    return {
+      prompt: [
+        "用户执行 /ops comments。拉取真实评论并拟回复。不要发到微信，除非用户本回合明确确认发送。",
+        "加载 wechat-publish。在仓库根运行：",
+        "python .teams/content/skills/wechat-publish/scripts/comments.py list --count 5",
+        "槽位加 `--account N`。不要打印 APPSECRET。",
+        "不要编造读者评论。接口失败就说明原因。JSON 的 unreplied 已排除已回复、已拟过（comment-drafts.json）和 processed-comments.json 里的 id，不要再给旧评写一遍。没有新的未回复就停。",
+        "对 unreplied 每条按文风拟一条口语回复（≤120 字），像号主本人，不要暴露 AI，不要承诺做不到的事。这是拟回复，还没发出。",
+        "写入 `.artifacts/wechat/ops/comment-drafts.json`，字段：articleId, commentId, index, user, content, draftReply。",
+        "在回复里列出：文章、读者、原文、拟回复。请用户确认或改稿后再 `/ops comments send`。精选用 `/ops comments elect <id>`，确认后再加 yes。",
+        "",
+        "个人文风：",
+        formatProfile(profile),
+      ].join("\n"),
+    };
+  }
+  const range = first === "week" || first === "weekly" ? "week" : "daily";
+  const date = tokens.find((token) => /^\d{4}-\d{2}-\d{2}$/.test(token));
+  const dateFlag = date ? ` --date ${date}` : "";
+  const outName = range === "week" ? "week-<end>.md" : "<YYYY-MM-DD>.md";
+  return {
+    prompt: [
+      "用户执行公众号运营报告（/ops）。这不是采集早报。不要读采集目录，不要写 scraps 的 daily-report.md。",
+      "加载 wechat-publish。在仓库根运行：",
+      `python .teams/content/skills/wechat-publish/scripts/daily_report.py --range ${range}${dateFlag}`,
+      "槽位按对话里的 [微信公众号槽位] 加 `--account N`。不要打印 APPSECRET。",
+      `把脚本写出的 Markdown 展示给用户，文件在 \`.artifacts/wechat/ops/${outName}\`。`,
+      "用 JSON 里的数字说话：涨粉、取关、净增、累计粉丝、阅读、分享、消息、最近已发。接口失败就说明原因，不要编造阅读量。",
+      "结尾明确：该不该跟读（用 insight 字段）。微信 datacube 通常延迟一天，默认统计昨天。",
+      "看评论请用户 `/ops comments`：先拟回复，确认后再发。",
+    ].join("\n"),
+  };
+}
+
 async function handleDigest(args: string, store: ContentSlashStore): Promise<ContentSlashResolution> {
-  const range = (args.trim().split(/\s+/)[0] || "week").toLowerCase();
-  const days = range === "month" ? 30 : 7;
+  const token = (args.trim().split(/\s+/)[0] || "daily").toLowerCase();
+  if (token === "wechat" || token === "ops" || token === "account") {
+    const rest = args.trim().split(/\s+/).slice(1).join(" ");
+    return handleOps(rest, store);
+  }
+  const range = token === "month" || token === "monthly" ? "month" : token === "week" ? "week" : "daily";
+  const days = range === "month" ? 30 : range === "week" ? 7 : 1;
   const since = Date.now() - days * 24 * 3600 * 1000;
   const entries = await store.listEntries({ since, limit: 200 });
   const counts = entries.reduce<Record<string, number>>((acc, entry) => {
     acc[entry.type] = (acc[entry.type] ?? 0) + 1;
     return acc;
   }, {});
+  const dayStamp = new Date().toISOString().slice(0, 10);
+  const monthStamp = dayStamp.slice(0, 7);
+  const scrapHint =
+    range === "month"
+      ? `读取 \`${DEFAULT_SCRAP_DIR}/${monthStamp}-*/\` 与 \`${DEFAULT_SCRAP_DIR}/${monthStamp}/\` 里的采集（含 index.json）。没有材料就写「本月无采集」。写入 \`${DEFAULT_SCRAP_DIR}/${monthStamp}/monthly-report.md\`，并在回复里展示全文。`
+      : range === "week"
+        ? `也可读取近 7 天 \`${DEFAULT_SCRAP_DIR}/YYYY-MM-DD/\` 目录作为补充。本模式不必另写 report 文件。`
+        : `读取 \`${DEFAULT_SCRAP_DIR}/${dayStamp}/\`（含 index.json 与 briefing.md）。没有材料就写「今日无采集」。写入 \`${DEFAULT_SCRAP_DIR}/${dayStamp}/daily-report.md\`，并在回复里展示全文。`;
   return {
     prompt: [
-      `用户执行 /digest ${range === "month" ? "month" : "week"}。以下是 content_entries 统计，不要自动创建草稿目录。`,
-      `- 范围: 近 ${days} 天`,
+      `用户执行 /digest ${range}。加载 topic-analyzer。根据 scraps 写报告；不要创建草稿目录。`,
+      scrapHint,
+      "报告用 scraps 统一模板（Title / Source / Time / Heat / Links / Summary / Deep Dive），全文简体中文。Time 必填。HN 必须带 Discussion。只用磁盘材料，不要编造未采集的条目，不要把多条揉成一条。",
+      `- 范围: ${range === "daily" ? "当天" : `近 ${days} 天`}`,
       `- 条数: ${entries.length}`,
       `- 类型: ${JSON.stringify(counts)}`,
       "",
       "最近记录：",
       entries.slice(0, 15).map(formatEntry).join("\n") || "- 暂无",
       "",
-      "请输出一份列表报：每条一行，包含日期、类型、摘要、来源。然后最多给 3 个可成稿题目。不要自动建草稿目录；等用户选定后再 /outline。",
+      "然后再给一份列表报（日期、类型、摘要、来源），最多 3 个可成稿题目。等用户选定后再 /outline。",
     ].join("\n"),
   };
 }
@@ -355,8 +472,9 @@ function formatSources(profile: ContentProfile | null): string {
   const urls = listedUrls(profile.structured.source_urls);
   const home = materialHome(profile);
   return [
-    `- 素材去向: ${home === "ima" ? "IMA" : home === "dir" ? "目录" : "未指定（思考默认进 IMA，拉取默认进目录）"}`,
-    `- 拉取目录: ${profile.structured.pull_dir || DEFAULT_PULL_DIR}`,
+    `- 素材去向: ${home === "ima" ? "IMA" : home === "dir" ? "目录" : "未指定（思考默认进 IMA，采集固定进 .artifacts/scraps）"}`,
+    `- 采集目录: ${DEFAULT_SCRAP_DIR}`,
+    `- 文风目录字段: ${profile.structured.pull_dir || DEFAULT_PULL_DIR}`,
     `- IMA 知识库: ${profile.structured.ima_kb_id || "（未指定，沿用应用里的文章资产）"}`,
     `- IMA 文件夹: ${profile.structured.ima_folder_id || "（未指定，思考默认进蜜粉）"}`,
     urls.length ? urls.map((url) => `- ${url}`).join("\n") : "- 尚未添加网址",
@@ -380,7 +498,7 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
         `用户通过 /style sources add 写入了网址，文风档案版本 v${saved.version}。`,
         formatSources(saved),
         "",
-        "请简短确认。这些网址供 /pull 使用。",
+        "请简短确认。这些网址会并入 /scrap。",
       ].join("\n"),
     };
   }
@@ -405,7 +523,7 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
         `用户把素材去向设为目录，版本 v${saved.version}。`,
         formatSources(saved),
         "",
-        "请简短确认。之后 /pull 写入该目录，/record 只留在本地。",
+        "请简短确认。/scrap 仍写入 .artifacts/scraps；该目录字段留给记录和其它素材。/record 只留在本地。",
       ].join("\n"),
     };
   }
@@ -422,7 +540,7 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
         `用户把素材去向设为 IMA，版本 v${saved.version}。`,
         formatSources(saved),
         "",
-        "请简短确认。之后 /record 写入这个知识库；未填 ID 时沿用应用里的文章资产。/pull 的网址列表也会记入 IMA。",
+        "请简短确认。之后 /record 写入这个知识库；未填 ID 时沿用应用里的文章资产。/scrap 仍先写入 .artifacts/scraps。",
       ].join("\n"),
     };
   }
@@ -437,47 +555,72 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
   };
 }
 
-async function handlePull(args: string, store: ContentSlashStore): Promise<ContentSlashResolution> {
-  const profile = await store.latestProfile();
-  const urls = [...listedUrls(profile?.structured.source_urls), ...listedUrls(args)];
-  const unique = urls.filter((url, index, all) => all.indexOf(url) === index);
-  if (unique.length === 0) {
-    return { prompt: "用户执行了 /pull，但还没有网址。请提示先 /style sources add https://…" };
+function parseScrapArgs(args: string): { urls: string[]; sources: string[]; keywords: string[] } {
+  const urls = listedUrls(args);
+  const sources: string[] = [];
+  const keywords: string[] = [];
+  for (const token of args.trim().split(/\s+/).filter(Boolean)) {
+    if (/^https?:\/\//i.test(token)) continue;
+    for (const part of token.split(",")) {
+      const name = part.trim();
+      if (!name) continue;
+      const low = name.toLowerCase();
+      if (SCRAP_SOURCE_TOKENS.has(low)) sources.push(low);
+      else keywords.push(name);
+    }
   }
+  return { urls, sources: [...new Set(sources)], keywords: [...new Set(keywords)] };
+}
+
+async function handleScrap(args: string, store: ContentSlashStore): Promise<ContentSlashResolution> {
+  const profile = await store.latestProfile();
+  const parsed = parseScrapArgs(args);
+  const urls = [...listedUrls(profile?.structured.source_urls), ...parsed.urls].filter(
+    (url, index, all) => all.indexOf(url) === index,
+  );
+  const sources =
+    parsed.sources.length > 0
+      ? parsed.sources
+      : parsed.urls.length > 0
+        ? []
+        : [DEFAULT_SCRAP_SOURCES];
+  const keywordFlag = parsed.keywords.length
+    ? ` --keyword "${parsed.keywords.join(",")}"`
+    : "";
   const dayStamp = new Date().toISOString().slice(0, 10);
-  const dir = `${(profile?.structured.pull_dir || DEFAULT_PULL_DIR).replace(/\\/g, "/").replace(/\/$/, "")}/${dayStamp}`;
+  const dir = `${DEFAULT_SCRAP_DIR}/${dayStamp}`;
+  const summaryParts = [
+    sources.length ? `源 ${sources.join(",")}` : "",
+    urls.length ? `${urls.length} 个网址` : "",
+  ].filter(Boolean);
   const entry = await store.createEntry({
     type: "collect",
-    title: `拉取 ${dayStamp}`,
-    summary: `${unique.length} 个网址`,
-    rawText: unique.join("\n"),
-    source: "url",
-    sourceRef: unique[0],
+    title: `采集 ${dayStamp}`,
+    summary: summaryParts.join("；") || "预置信源",
+    rawText: [...sources, ...urls].join("\n"),
+    source: urls[0] ? "url" : "manual",
+    sourceRef: urls[0],
   });
-  const home = materialHome(profile);
-  if (home === "ima") {
-    const imaNote = store.pushToIma ? await store.pushToIma(entry) : "文风指定放 IMA，但这次没有执行写入。";
-    return {
-      prompt: [
-        `用户执行 /pull。文风指定素材放在 IMA。这次拉取已记入 content_entries（${entry.id}）。`,
-        imaNote,
-        "请在回复里给出列表报：标题、网址、一句摘要。不要把正文另存到本地拉取目录。",
-        "打不开的页面直接写进列表，不要编造正文。",
-        "",
-        unique.map((url) => `- ${url}`).join("\n"),
-      ].join("\n"),
-    };
-  }
+  const imaNote =
+    materialHome(profile) === "ima"
+      ? store.pushToIma
+        ? await store.pushToIma(entry)
+        : "文风指定放 IMA；采集仍先写入 .artifacts/scraps。"
+      : "";
   return {
     prompt: [
-      `用户执行 /pull。这次拉取已记入 content_entries（${entry.id}）。素材去向是目录。`,
-      `请把每个网址收成一篇 Markdown，写到 \`${dir}/\` 下，文件名用短英文 slug，文首写原来的 URL。`,
-      "打不开的页面直接写进列表，不要编造正文。",
-      "",
-      unique.map((url) => `- ${url}`).join("\n"),
-      "",
-      "写完后用中文给一份列表报：标题、网址、一句摘要、本地路径。",
-    ].join("\n"),
+      `用户执行 /scrap。加载 scraps 技能。这次采集已记入 content_entries（${entry.id}）。`,
+      imaNote,
+      `把材料写到 \`${dir}/\`。每条一篇 Markdown（文首原 URL），再写 \`briefing.md\` 和 \`index.json\`。格式见 scraps/references/report-template.md。`,
+      sources.length
+        ? `预置信源：${sources.join(",")}。先运行 \`python .teams/content/skills/scraps/scripts/collect.py --sources ${sources.join(",")}${keywordFlag} --deep\`。脚本会按关键词过滤、标题去重、相关度排序，再 HTTP 深读，失败再用 Playwright。JSON 的 engine 为 playwright 时优先用那段 content。每一条都要写成中文模板：标题、Source、Time、Heat、Links、Summary、Deep Dive。Time 必填；缺则 Unknown Time。Hacker News 必须带 [Discussion](hn_url)。Deep Dive 只用 content 字段，没有就写「材料不足，仅标题」。briefing.md 选相关度高的约 20–25 条，不够就全写，禁止编造凑数，不要把多条揉成一条。`
+        : "本次不跑预置信源，只处理下面的文章网址。抽正文后仍按同一模板写 Markdown。",
+      urls.length ? ["额外文章网址（用 web-to-markdown 抽正文）：", ...urls.map((url) => `- ${url}`)].join("\n") : "",
+      "打不开的源或页面写进列表，不要编造正文。",
+      "写完后用中文给一份列表报：标题 | 源 | 时间 | 热度 | 网址 | 本地路径。",
+    ]
+      .filter(Boolean)
+      .join("\n"),
   };
 }
 
@@ -486,7 +629,7 @@ async function handlePropose(store: ContentSlashStore): Promise<ContentSlashReso
   const entries = await store.listEntries({ limit: 30 });
   return {
     prompt: [
-      "用户执行 /propose。根据文风、日更和已拉取的素材，提出写作主题。不要创建草稿目录，不要写 article.md。",
+      "用户执行 /propose。根据文风、日更和已采集的素材，提出写作主题。不要创建草稿目录，不要写 article.md。",
       "",
       "个人文风：",
       formatProfile(profile),
@@ -595,12 +738,12 @@ async function handleOutline(args: string, store: ContentSlashStore): Promise<Co
             "主题和标题分开。先用一句话锁定主题，写入 topic.md，后面材料都要贴这个主题。",
             "不要先选最终标题。标题按写成的内容后续再改。",
             "若还没有 research.md：加载 topic-research（本地素材 → collect.py → web_search → web-to-markdown）。跑题材料丢掉。",
-            "聊天里先讲写法和各节要解决什么，废水套话列入禁用。",
+            "聊天里先讲写法和各节要解决什么，废水至少 3 条列入禁用。写稿执行五大技巧（微幽默/强开头/概念把手/句长节奏/多巴胺密度），不要暴露 AI 参与。",
             "若对话里有 [等待确认]，本回合只问要不要新建该目录，禁止调研、禁止 write、禁止 mkdir。用户确认后才写锁定目录。",
             "目录已锁定时：只写那一个文件夹。同一主题当天不会有第二个；不要 mkdir，不要按很难/难另开目录。",
-            "写 article.md 初稿：可读段落，约 1200–2000 字，不要空小节。H1 可用工作标题（可暂用主题原句）。",
+            "写 article.md 初稿：可读段落，篇幅按 target_word_count（缺省 1800–2500 字），不要空小节。H1 可用工作标题（可暂用主题原句）。",
             "缺的亲身事实标「待补」。有来源才写数字。",
-            "open_article 定位 article.md。初稿后可给标题候选，改标题不改主题。",
+            "open_article 定位 article.md。初稿后给双轨标题（爆款 3–5 + 自然 3–5）并推荐 Top 3，改标题不改主题。",
           ].join(" "),
       "不要编造亲身经历。若文风里有 IMA 地址，在 topic.md 注明这些引用也可以在该知识库里找到。",
       "",
@@ -663,10 +806,11 @@ export async function resolveContentSlashIntegration(
   if (command === "record") return handleRecord(ctx.args, store);
   if (command === "style") return handleStyle(ctx.args, store);
   if (command === "collect") return handleCollect(ctx.args, store);
+  if (command === "ops") return handleOps(ctx.args, store);
   if (command === "digest") return handleDigest(ctx.args, store);
   if (command === "search") return handleSearch(ctx.args, store);
   if (command === "sources") return handleSources(ctx.args, store);
-  if (command === "pull") return handlePull(ctx.args, store);
+  if (command === "scrap" || command === "pull") return handleScrap(ctx.args, store);
   if (command === "propose") return handlePropose(store);
   if (command === "clip") return handleClip(ctx.args, store);
   if (command === "outline") return handleOutline(ctx.args, store);

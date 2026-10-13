@@ -203,22 +203,112 @@ describe("content slash integration", () => {
       { command: "style", args: "sources add https://example.com/feed" },
       store,
     );
-    const pull = await resolveContentSlashIntegration({ command: "pull", args: "" }, store);
-    expect(pull?.prompt).toContain("IMA");
-    expect(pull?.prompt).not.toContain("写到");
+    const scrap = await resolveContentSlashIntegration({ command: "scrap", args: "" }, store);
+    expect(scrap?.prompt).toContain("IMA");
+    expect(scrap?.prompt).toContain(".artifacts/scraps");
+    expect(scrap?.prompt).toContain("https://example.com/feed");
   });
 
-  it("saves source urls and lists them for a pull", async () => {
+  it("saves source urls and lists them for a scrap", async () => {
     const store = memoryStore();
     await resolveContentSlashIntegration(
       { command: "sources", args: "add https://example.com/feed" },
       store,
     );
-    const pull = await resolveContentSlashIntegration({ command: "pull", args: "" }, store);
+    const scrap = await resolveContentSlashIntegration({ command: "scrap", args: "" }, store);
     expect(store.profiles[0].structured.source_urls).toContain("https://example.com/feed");
     expect(store.entries.some((entry) => entry.type === "collect")).toBe(true);
-    expect(pull?.prompt).toContain("https://example.com/feed");
-    expect(pull?.prompt).toContain(".artifacts/content/pulls");
+    expect(scrap?.prompt).toContain("https://example.com/feed");
+    expect(scrap?.prompt).toContain(".artifacts/scraps");
+    expect(scrap?.prompt).toContain("scraps");
+  });
+
+  it("passes scrap keywords through collect.py", async () => {
+    const store = memoryStore();
+    const result = await resolveContentSlashIntegration({ command: "scrap", args: "tech GPT,Claude" }, store);
+    expect(result?.prompt).toContain("--sources tech");
+    expect(result?.prompt).toContain('--keyword "GPT,Claude"');
+    expect(result?.prompt).toContain("相关度");
+  });
+
+  it("runs preset sources when scrap has no urls", async () => {
+    const store = memoryStore();
+    const scrap = await resolveContentSlashIntegration({ command: "scrap", args: "" }, store);
+    expect(scrap?.prompt).toContain("collect.py");
+    expect(scrap?.prompt).toContain("--sources general");
+    expect(scrap?.prompt).toContain("--deep");
+    expect(scrap?.prompt).toContain("Playwright");
+    expect(scrap?.prompt).toContain("briefing.md");
+    expect(scrap?.prompt).toContain("Deep Dive");
+    expect(store.entries.some((entry) => entry.type === "collect")).toBe(true);
+  });
+
+  it("skips preset sources when scrap is given a url", async () => {
+    const store = memoryStore();
+    const result = await resolveContentSlashIntegration(
+      { command: "scrap", args: "https://example.com/today" },
+      store,
+    );
+    expect(result?.prompt).toContain("https://example.com/today");
+    expect(result?.prompt).toContain("本次不跑预置信源");
+    expect(result?.prompt).not.toContain("collect.py");
+  });
+
+  it("treats pull as an alias of scrap", async () => {
+    const store = memoryStore();
+    const result = await resolveContentSlashIntegration({ command: "pull", args: "tech" }, store);
+    expect(result?.prompt).toContain("/scrap");
+    expect(result?.prompt).toContain("tech");
+    expect(result?.prompt).toContain(".artifacts/scraps");
+  });
+
+  it("asks digest to write a daily report from scraps", async () => {
+    const store = memoryStore();
+    const result = await resolveContentSlashIntegration({ command: "digest", args: "" }, store);
+    expect(result?.prompt).toContain("/digest daily");
+    expect(result?.prompt).toContain("daily-report.md");
+    expect(result?.prompt).toContain("briefing.md");
+    expect(result?.prompt).toContain("Deep Dive");
+    expect(result?.prompt).toContain(".artifacts/scraps");
+    expect(result?.prompt).not.toContain("不要自动创建草稿目录。");
+  });
+
+  it("routes ops and digest wechat to the WeChat account report", async () => {
+    const store = memoryStore();
+    const ops = await resolveContentSlashIntegration({ command: "ops", args: "" }, store);
+    expect(ops?.prompt).toContain("daily_report.py");
+    expect(ops?.prompt).toContain(".artifacts/wechat/ops");
+    expect(ops?.prompt).not.toContain(".artifacts/scraps/");
+    const alias = await resolveContentSlashIntegration({ command: "digest", args: "wechat" }, store);
+    expect(alias?.prompt).toContain("daily_report.py");
+    expect(alias?.prompt).toContain("wechat-publish");
+  });
+
+  it("drafts comment replies on ops comments and only sends after confirm", async () => {
+    const store = memoryStore();
+    const list = await resolveContentSlashIntegration({ command: "ops", args: "comments" }, store);
+    expect(list?.prompt).toContain("comments.py list");
+    expect(list?.prompt).toContain("comment-drafts.json");
+    expect(list?.prompt).toContain("不要发到微信");
+    const send = await resolveContentSlashIntegration({ command: "ops", args: "comments send" }, store);
+    expect(send?.prompt).toContain("comments.py send");
+    expect(send?.prompt).toContain("--yes");
+    const elect = await resolveContentSlashIntegration({ command: "ops", args: "comments elect abc_12" }, store);
+    expect(elect?.prompt).toContain("comments.py elect abc_12");
+    expect(elect?.prompt).not.toContain("elect abc_12 --yes");
+    const electYes = await resolveContentSlashIntegration(
+      { command: "ops", args: "comments elect abc_12 yes" },
+      store,
+    );
+    expect(electYes?.prompt).toContain("comments.py elect abc_12 --yes");
+    expect(list?.prompt).toContain("processed-comments.json");
+  });
+
+  it("asks digest month to write a monthly report", async () => {
+    const store = memoryStore();
+    const result = await resolveContentSlashIntegration({ command: "digest", args: "month" }, store);
+    expect(result?.prompt).toContain("monthly-report.md");
+    expect(result?.prompt).toContain("本月无采集");
   });
 
   it("proposes topics without creating a draft", async () => {
@@ -249,7 +339,10 @@ describe("content slash integration", () => {
     expect(result?.prompt).toContain("主题和标题分开");
     expect(result?.prompt).toContain("锁定主题");
     expect(result?.prompt).toContain("collect.py");
-    expect(result?.prompt).toContain("1200–2000");
+    expect(result?.prompt).toContain("1800–2500");
+    expect(result?.prompt).toContain("爆款");
+    expect(result?.prompt).toContain("五大技巧");
+    expect(result?.prompt).toContain("不要暴露 AI 参与");
     expect(result?.prompt).toContain("[等待确认]");
     expect(result?.prompt).toContain("用户确认后才写锁定目录");
     expect(result?.prompt).not.toContain("标题尚未确认");

@@ -74,7 +74,7 @@ describe("content roster workflow", () => {
         agentFile: "guide.md",
         name: "内容向导",
         skills: ["web-to-markdown"],
-        commands: ["style", "record", "pull"],
+        commands: ["style", "record", "scrap"],
         summary: "",
       },
       {

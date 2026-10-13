@@ -14,6 +14,12 @@ import re
 import sys
 from pathlib import Path
 
+from title_bytes import (
+    WECHAT_TITLE_MAX_BYTES,
+    WECHAT_TITLE_MAX_CHARS,
+    utf8_len,
+)
+
 _IMAGE_SCRIPTS = (
     Path(__file__).resolve().parent.parent.parent / "image-generator" / "scripts"
 )
@@ -128,11 +134,22 @@ def inspect_article(article_dir: Path, require_html: bool = False) -> dict:
     digest = str(meta.get("digest") or "").strip()
 
     if not title:
-        errors.append("article.yaml 缺少 title（微信草稿标题必填，最长 64 字）")
-    elif len(title) > 64:
-        errors.append(f"标题 {len(title)} 字，超过微信 API 上限 64")
+        errors.append(
+            "article.yaml 缺少 title（微信草稿标题必填；UTF-8 ≤"
+            f"{WECHAT_TITLE_MAX_BYTES} 字节，避免 45028）"
+        )
     else:
-        notes.append(f"标题 {len(title)} 字")
+        title_bytes = utf8_len(title)
+        notes.append(f"标题 {len(title)} 字 / {title_bytes} UTF-8 字节")
+        if title_bytes > WECHAT_TITLE_MAX_BYTES:
+            errors.append(
+                f"标题 {title_bytes} UTF-8 字节，超过微信 45028 上限 "
+                f"{WECHAT_TITLE_MAX_BYTES}（按字节裁切，不要只数 25 字）"
+            )
+        elif len(title) > WECHAT_TITLE_MAX_CHARS:
+            errors.append(
+                f"标题 {len(title)} 字，超过微信字段上限 {WECHAT_TITLE_MAX_CHARS} 字"
+            )
 
     if not digest:
         warnings.append("article.yaml 无 digest。推草稿时会从正文截 54 字，建议手写摘要")

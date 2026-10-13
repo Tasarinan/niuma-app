@@ -14,9 +14,10 @@ description: 在调研之后写初稿，把用户拷来的一段话整理进当�
 - 没有 `research.md` 时加载 `topic-research`，只保留贴题材料
 - 聊天里讲写法（各节要解决什么），把废水想法列为禁用
 - 新目录先问用户确认，确认前不要 mkdir。只写对话里锁定的 `.artifacts/drafts/<YYYYMMDD-主题>/`
-- `article.md`：工作标题（可暂用主题原句）+ 可读初稿（约 1200–2000 字）
+- `article.md`：工作标题（可暂用主题原句）+ 可读初稿，篇幅按 `target_word_count`（缺省 1800–2500 字）
+- 写的时候执行 [references/craft-checks.md](references/craft-checks.md)：排水、五大技巧、不暴露 AI
 - `open_article` 定位 `article.md`
-- 标题按正文后面再改。改 H1 不改主题
+- 标题按正文后面再改，用双轨：[references/title-dual-track.md](references/title-dual-track.md)。改 H1 不改主题
 
 ### 2. 改已有稿
 - `read` 最新 `article.md`
@@ -53,9 +54,9 @@ description: 在调研之后写初稿，把用户拷来的一段话整理进当�
 唯一正文：`article.md`。不要另写 `draft.md`。
 
 #### 步骤 3: 标题后改
-按已写内容给标题候选。改标题不改主题。
+按已写内容给出爆款 3–5 + 自然 3–5，再推荐 Top 3。改标题不改主题。
 
-结构：[references/structure-template.md](references/structure-template.md)。框架、栏目、组件分开放在 `editor/blocks/`。落盘：[references/usage.md](references/usage.md)。
+结构：[references/structure-template.md](references/structure-template.md)。写法检查：[references/craft-checks.md](references/craft-checks.md)。标题：[references/title-dual-track.md](references/title-dual-track.md)。落盘：[references/usage.md](references/usage.md)。
 
 ## 数据源
 
@@ -68,6 +69,7 @@ description: 在调研之后写初稿，把用户拷来的一段话整理进当�
 ## 安全与合规
 
 - ❌ 不编造亲身经历、排名、无来源数字
+- ❌ 不暴露 AI 参与写作
 - ❌ 不配图、不排版、不推草稿箱
 - ✅ 先 `read` 再改
 - ✅ 主题锁定后材料必须贴题；标题可后改

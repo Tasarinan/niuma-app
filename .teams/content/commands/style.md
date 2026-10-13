@@ -52,7 +52,7 @@ argument-hint: [setup|view|update|sources] [栏目或字段]
 | 操作 | 示例 |
 |------|------|
 | 放到目录 | `/style sources 目录` |
-| 指定目录 | `/style sources 目录 .artifacts/content/pulls` |
+| 指定目录 | `/style sources 目录 .artifacts/scraps` |
 | 放到 IMA | `/style sources ima` |
 | 指定 IMA | `/style sources ima <知识库ID> <文件夹ID>` |
 | 添加网址 | `/style sources add https://example.com/feed` |

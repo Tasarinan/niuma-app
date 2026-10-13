@@ -14,12 +14,14 @@ description: 内容频道流程地图。当用户问下一步用哪条命令、�
 |--------|------|------|
 | 文风、素材去向 | `/style` | （命令即可） |
 | 记一则 | `/record` | （命令即可） |
-| 拉网址 | `/pull` | `web-to-markdown` |
-| 汇总 / 出题 | `/digest` `/propose` | `topic-analyzer` |
+| 采集热点或一篇文章 | `/scrap` | `scraps`（正文走 `web-to-markdown`） |
+| 采集日报 / 月报 / 出题 | `/digest` `/propose` | `topic-analyzer` |
+| 公众号涨粉、阅读、该不该跟读 | `/ops`（`/digest wechat` 同义） | `wechat-publish` |
+| 评论拟回复 / 精选，确认再发 | `/ops comments` / `elect` | `wechat-publish` |
 | 定主题并写初稿（标题后改） | `/outline` | `topic-research` + `manuscript-writer` |
 | 把拷来的一段话写进当前稿（须贴题） | 直接粘贴 / `/clip` | `manuscript-writer` |
 | 改一段、续写 | 编辑栏助手 | `manuscript-writer` |
-| 配图 | 编辑栏「配图」 | `image-generator` |
+| 配图 | 聊天先出 `illustration-plan.md`（确认后再出图）；编辑栏单张沿用锁定 Style | `image-generator` |
 | 审稿 | 编辑栏「审这里 / 审全文」 | `manuscript-reviewer` |
 | 微信排版 | 编辑栏「排全文」 | `wechat-formatting` |
 | 推微信草稿箱 | 稿件信息里的发布 | `wechat-publish` |
@@ -60,4 +62,4 @@ description: 内容频道流程地图。当用户问下一步用哪条命令、�
 
 ## 相关命令
 
-- `/style` `/record` `/pull` `/digest` `/propose` `/outline` `/clip` `/publish`
+- `/style` `/record` `/scrap` `/digest` `/ops` `/propose` `/outline` `/clip` `/publish`

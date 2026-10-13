@@ -11,7 +11,7 @@
 - [ ] 封面比例接近 1283×383（合并）、900×383、900×500 或 1:1；可用 `image-generator/scripts/prepare_cover.py` 居中裁切
 - [ ] 正文内图片齐全，PNG/JPG/GIF，建议小于 2MB；`.drawio` 已导出 PNG
 - [ ] 已跑 `check_images.py` 或 `publish.py check-images`
-- [ ] 已跑 `preflight.py` 或 `publish.py preflight DIR`（标题 ≤64、摘要、HTML 无 tempkey/data:image/script）
+- [ ] 已跑 `preflight.py` 或 `publish.py preflight DIR`（标题 UTF-8 ≤96 字节/45028、摘要、HTML 无 tempkey/data:image/script）
 - [ ] 原创/转载标注已按配置处理
 - [ ] 文末引导区块已就位
 - [ ] 如需开启评论/仅粉丝可评，已确认设置

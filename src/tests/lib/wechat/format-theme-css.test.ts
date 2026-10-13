@@ -65,6 +65,22 @@ describe("format theme CSS", () => {
     expect(css).toContain("background-color: #fff");
   });
 
+  it("loads a ported macaron theme as CSS strings", () => {
+    const raw = readFileSync(
+      path.resolve(
+        process.cwd(),
+        ".teams/content/editor/themes/builtin/macaron-blue.yaml",
+      ),
+      "utf8",
+    );
+    const parsed = parseFormatThemeYaml(raw);
+    expect(parsed.name).toBe("马卡龙蓝");
+    const styles = buildResolvedStyles(parsed);
+    expect(styles.h1).toContain("#3b82f6");
+    expect(styles.container).toContain("max-width: 740px");
+    expect(styles.p).toContain("#0f172a");
+  });
+
   it("strips theme !important so block inline styles can win", () => {
     const css = themeStylesToScopedCss(".wechat-theme-preview", {
       p: "font-size: 16px !important; color: #333",

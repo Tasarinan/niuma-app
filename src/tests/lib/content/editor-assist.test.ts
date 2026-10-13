@@ -35,6 +35,9 @@ describe("editor assist", () => {
     });
     expect(user).toContain("整篇正文");
     expect(user).toContain("不要输出改写稿");
+    expect(user).toContain("三遍审校");
+    expect(user).toContain("<35");
+    expect(user).toContain("暴露 AI 参与");
   });
 
   it("maps bubble seats to .teams/content/agents files", () => {
@@ -108,6 +111,8 @@ describe("editor assist", () => {
     });
     expect(user).toContain("主题封面配图");
     expect(user).toContain("整篇正文");
+    expect(user).toContain("3–5");
+    expect(user).toContain("一种 Style");
   });
 
   it("keeps a selected range even after the editor loses focus", () => {

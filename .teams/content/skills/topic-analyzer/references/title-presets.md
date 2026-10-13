@@ -1,6 +1,6 @@
 # 标题风格预设
 
-根据配置 `title_style` 或用户指定，选择对应风格生成标题。每个选题建议混合 3-5 种风格供选择。
+选题阶段可按风格混出候选。**成稿标题**走写手 [title-dual-track.md](../../manuscript-writer/references/title-dual-track.md)：爆款 3–5 + 自然 3–5，再推荐 Top 3。每个 UTF-8 ≤96 字节（微信 45028）；`title_max_length`（默认 25 字）只是文风建议。
 
 ## 风格一览
 

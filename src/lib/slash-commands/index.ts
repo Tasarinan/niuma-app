@@ -484,8 +484,9 @@ export function getSlashArgumentCompletion(
 export const CONTENT_SLASH_MENU = [
   "style",
   "record",
-  "pull",
+  "scrap",
   "digest",
+  "ops",
   "propose",
   "outline",
   "clip",

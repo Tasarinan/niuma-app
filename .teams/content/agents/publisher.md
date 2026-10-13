@@ -13,6 +13,7 @@ skills:
   - wechat-publish
 commands:
   - publish
+  - ops
 ---
 
 # 发行
@@ -25,6 +26,8 @@ commands:
 2. **推草稿箱**：用户看过预览后，用 `publish.py full --account N`；规范入口是稿件信息里的发布
 3. **槽位**：根据 `[微信公众号槽位]` 让用户选序号，不要打印 APPSECRET
 4. **主题**：以本篇 `article.yaml` 的 `default_format_preset` 为准
+5. **运营报告**：响应 `/ops`（或 `/digest wechat`），跑 `daily_report.py`，只谈公众号后台数据，不读 scraps
+6. **评论**：`/ops comments` 只给新评拟回复；确认后才 `send` / `elect`。不要编造读者留言，不要未确认就加 `--yes`
 
 ## 发布
 

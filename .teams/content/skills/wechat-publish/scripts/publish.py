@@ -200,6 +200,7 @@ WECHAT_ERR_HINTS = {
     42001: "access_token 超时",
     44004: "正文 content 为空",
     45009: "接口调用超过日限额（token 每日最多约 2000 次，请依赖本地缓存）",
+    45028: "标题 UTF-8 超限（约 96 字节）。请按字节裁切，不要只数 25 字",
     45166: "invalid content，常见于 tempkey 预览链或非法 HTML",
     48001: "接口未授权，确认账号类型（草稿箱普通订阅号可用；群发需认证/服务号）",
     89004: "IP 白名单相关限制",
@@ -352,13 +353,29 @@ def upload_content_image(token: str, image_path: str) -> str:
 # ── 草稿 ────────────────────────────────────────────────────
 
 def create_draft(token: str, articles: list[dict]) -> str:
-    """Create a draft and return media_id."""
+    """Create a draft and return media_id. Retry shorter titles on 45028."""
+    from title_bytes import is_title_limit_response, title_candidates_for_draft, utf8_len
+
     url = f"{API_BASE}{API_PATH}/draft/add?access_token={token}"
-    body = {"articles": articles}
-    data = _api_post_json(url, body)
-    if "media_id" not in data:
-        _err(f"创建草稿失败: {_format_api_error(data)}")
-    return data["media_id"]
+    if not articles:
+        _err("创建草稿失败: 没有 article")
+    primary = dict(articles[0])
+    rest = articles[1:]
+    last_error = ""
+    for candidate in title_candidates_for_draft(str(primary.get("title") or "")):
+        article = {**primary, "title": candidate}
+        data = _api_post_json(url, {"articles": [article, *rest]})
+        if "media_id" in data:
+            if candidate != str(primary.get("title") or ""):
+                _info(
+                    f"标题已按 UTF-8 {utf8_len(candidate)} 字节写入草稿（45028 回退）：{candidate}"
+                )
+            return data["media_id"]
+        last_error = _format_api_error(data)
+        if not is_title_limit_response(data):
+            _err(f"创建草稿失败: {last_error}")
+        _info(f"标题超限（45028），缩短后再试：{candidate} ({utf8_len(candidate)} 字节)")
+    _err(f"创建草稿失败: {last_error or '标题多次裁切后仍返回 45028'}")
 
 
 # ── 发布 ────────────────────────────────────────────────────
@@ -517,11 +534,25 @@ def full_publish(
         _err(f"未找到 {content_path}")
     content = content_path.read_text(encoding="utf-8")
 
+    from title_bytes import (
+        WECHAT_TITLE_MAX_BYTES,
+        utf8_len,
+        trim_title_to_wechat_limit,
+    )
+
     title = str(meta.get("title") or "").strip()
     if not title:
-        _err("article.yaml 缺少 title（微信草稿标题必填，最长 64 字）")
-    if len(title) > 64:
-        _err(f"标题 {len(title)} 字，超过微信 API 上限 64")
+        _err(
+            "article.yaml 缺少 title（微信草稿标题必填；"
+            f"UTF-8 ≤{WECHAT_TITLE_MAX_BYTES} 字节，避免 45028）"
+        )
+    raw_title = title
+    title = trim_title_to_wechat_limit(title)
+    if title != raw_title:
+        _info(
+            f"标题已按 UTF-8 {WECHAT_TITLE_MAX_BYTES} 字节裁切（45028）："
+            f"{title}（{utf8_len(title)} 字节，原文 {utf8_len(raw_title)}）"
+        )
 
     cover_names = ["cover.jpg", "cover.png", "cover.jpeg"]
     cover_path = _find_file(article_dir, cover_names)

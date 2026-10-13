@@ -127,6 +127,7 @@ surface: default
       "guide.md",
     );
     expect(findRoleByCommand(pack.roles, "publish")?.agentFile).toBe("publisher.md");
+    expect(findRoleByCommand(pack.roles, "ops")?.agentFile).toBe("publisher.md");
     expect(findRoleByCommand(pack.roles, "outline")?.agentFile).toBe("writer.md");
     expect(findRoleByCommand(pack.roles, "style")?.agentFile).toBe("guide.md");
     expect(findRoleByCommand(pack.roles, "digest")?.agentFile).toBe("desk.md");

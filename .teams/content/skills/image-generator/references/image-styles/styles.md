@@ -4,7 +4,7 @@
 
 ## Type（画面构成）
 
-12 种图片类型，描述"画什么"：
+13 种图片类型，描述"画什么"：
 
 | Type | 名称 | 说明 | 适用场景 |
 |------|------|------|---------|
@@ -20,8 +20,9 @@
 | `quote-card` | 金句卡片 | 突出核心观点或名言金句 | 金句、核心结论、截图转发 |
 | `scene` | 场景还原 | 还原真实使用场景，代入感 | 用户场景、产品展示、生活方式 |
 | `atmosphere` | 氛围烘托 | 营造情绪氛围，视觉呼吸 | 情感渲染、散文配图、阅读节奏 |
+| `screenshot` | 真实截图 | 产品页、后台、IDE、官网 | 禁止 AI 假界面；搜图或用户提供 |
 
-封面图不属于以上 Type，由独立的封面预设体系管理（见 [cover-styles/](../cover-styles/)）。
+封面图不属于以上 Type，由独立的封面预设体系管理（见 [cover-styles/](../cover-styles/)）。全文 Style 只锁一种，见 [illustration-plan.md](../illustration-plan.md)。
 
 ## Style（视觉风格）— Agent 内部参考
 
@@ -55,4 +56,5 @@
 | quote-card 金句卡片 | 温暖 | 手绘、海报、极简 |
 | scene 场景还原 | 温暖 | 水彩、手绘 |
 | atmosphere 氛围烘托 | 温暖 | 水彩、手绘 |
+| screenshot 真实截图 | （不生图） | real-capture |
 | 封面 | 由封面预设体系管理 | 见 [cover-styles/](../cover-styles/) |

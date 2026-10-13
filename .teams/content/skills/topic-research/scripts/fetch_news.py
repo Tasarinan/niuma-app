@@ -3,6 +3,7 @@
 热点新闻采集 - 20+ 数据源，纯 stdlib，无需 pip install
 """
 import json, sys, argparse, re, time
+from datetime import datetime, timezone
 from urllib.request import urlopen, Request
 from urllib.parse import quote, urlencode
 from urllib.error import URLError, HTTPError
@@ -47,6 +48,12 @@ def filt(items, keyword=None):
 
 # ---- 数据源实现 ----
 
+def format_unix(ts):
+    try:
+        return datetime.fromtimestamp(int(ts), timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    except (TypeError, ValueError, OSError):
+        return "Unknown Time"
+
 def fetch_hackernews(limit=20, keyword=None):
     ids = fetch_json("https://hacker-news.firebaseio.com/v0/topstories.json")
     if not ids: return []
@@ -54,7 +61,17 @@ def fetch_hackernews(limit=20, keyword=None):
     for iid in ids[:min(limit*2, 50)]:
         item = fetch_json(f"https://hacker-news.firebaseio.com/v0/item/{iid}.json")
         if item and item.get('title'):
-            items.append({"source":"Hacker News","title":item['title'],"url":item.get('url') or f"https://news.ycombinator.com/item?id={iid}","score":f"{item.get('score',0)} pts","time":""})
+            hn_url = f"https://news.ycombinator.com/item?id={iid}"
+            heat = f"{item.get('score', 0)} points"
+            items.append({
+                "source": "Hacker News",
+                "title": item["title"],
+                "url": item.get("url") or hn_url,
+                "hn_url": hn_url,
+                "score": heat,
+                "heat": heat,
+                "time": format_unix(item.get("time")),
+            })
     return filt(items, keyword)[:limit]
 
 def fetch_github(limit=20, keyword=None):

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>mermaid-render</title>
+  <style>
+    html, body {
+      margin: 0;
+      background: #ffffff;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    #stage {
+      min-width: 1600px;
+      min-height: 900px;
+      padding: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <pre class="mermaid" id="src">flowchart LR
+      A[示例]
+    </pre>
+  </div>
+  <script>window.__MERMAID_SOURCE__ = __MERMAID_PLACEHOLDER__;</script>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    const src = window.__MERMAID_SOURCE__ || document.getElementById("src").textContent;
+    document.getElementById("src").textContent = src;
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "neutral",
+      fontFamily: "PingFang SC, Microsoft YaHei, sans-serif",
+      fontSize: 20,
+      flowchart: { htmlLabels: true, curve: "basis" },
+    });
+  </script>
+</body>
+</html>
