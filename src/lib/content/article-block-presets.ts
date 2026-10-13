@@ -41,8 +41,8 @@ const PRESET_GROUPS = [
   { slot: "kit", label: "栏目" },
 ] as const;
 
-export function groupArticleBlockPresets(presets: ArticleBlockPresetMeta[]) {
-  const grouped = PRESET_GROUPS.map((group) => ({
+export function groupArticleBlockPresets<T extends ArticleBlockPresetMeta>(presets: T[]) {
+  const grouped: { label: string; items: T[] }[] = PRESET_GROUPS.map((group) => ({
     label: group.label,
     items: presets.filter((preset) => preset.slot === group.slot),
   })).filter((group) => group.items.length > 0);

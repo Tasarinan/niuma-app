@@ -114,7 +114,7 @@ export function redirectDraftWritePath(
   if (!folder) return { path: requestedPath };
   const locked = preferredSameThemeFolder(folder, existingFolders, date, preferredFolder);
   if (!locked) return { path: requestedPath };
-  return { path: requestedPath.replaceAll(folder, locked), redirectedFrom: folder };
+  return { path: requestedPath.split(folder).join(locked), redirectedFrom: folder };
 }
 
 export function rewriteDraftFoldersInCommand(
@@ -126,7 +126,7 @@ export function rewriteDraftFoldersInCommand(
   return command.replace(/(?:\.artifacts\/drafts\/)?(\d{8}-[^\s"'\\/]+)/g, (matched, folder: string) => {
     const locked = preferredSameThemeFolder(folder, existingFolders, date, preferredFolder);
     if (!locked) return matched;
-    return matched.replaceAll(folder, locked);
+    return matched.split(folder).join(locked);
   });
 }
 
