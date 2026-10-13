@@ -232,7 +232,15 @@ fn user_file_roots() -> Vec<PathBuf> {
         return Vec::new();
     };
     let mut roots = Vec::new();
-    for name in ["Desktop", "Documents", "Downloads", "Pictures", "桌面", "文档", "下载"] {
+    for name in [
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "Pictures",
+        "桌面",
+        "文档",
+        "下载",
+    ] {
         let path = home.join(name);
         if path.is_dir() {
             roots.push(path);
@@ -263,7 +271,14 @@ fn user_file_roots() -> Vec<PathBuf> {
     roots
 }
 
-fn consider_entry(bucket: &mut [Vec<QuickSearchEntry>; 2], name: &str, path: String, is_dir: bool, kind: &str, query: &str) {
+fn consider_entry(
+    bucket: &mut [Vec<QuickSearchEntry>; 2],
+    name: &str,
+    path: String,
+    is_dir: bool,
+    kind: &str,
+    query: &str,
+) {
     let Some(rank) = rank_name(name, query) else {
         return;
     };
@@ -301,7 +316,10 @@ fn excerpt_around(text: &str, query: &str) -> Option<String> {
     while end < text.len() && !text.is_char_boundary(end) {
         end += 1;
     }
-    let snippet = text[start..end].replace(['\r', '\n'], " ").trim().to_string();
+    let snippet = text[start..end]
+        .replace(['\r', '\n'], " ")
+        .trim()
+        .to_string();
     if snippet.is_empty() {
         None
     } else {
@@ -336,7 +354,10 @@ fn collect_apps(query: &str, limit: usize) -> Vec<QuickSearchEntry> {
             let file_name = entry.file_name().to_string_lossy().to_string();
             if file_type.is_dir() {
                 if file_name.to_lowercase().ends_with(".app") {
-                    let display = file_name.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(&file_name);
+                    let display = file_name
+                        .rsplit_once('.')
+                        .map(|(stem, _)| stem)
+                        .unwrap_or(&file_name);
                     consider_entry(
                         &mut ranked,
                         display,
@@ -351,7 +372,10 @@ fn collect_apps(query: &str, limit: usize) -> Vec<QuickSearchEntry> {
                 continue;
             }
             let lower = file_name.to_lowercase();
-            let display = if lower.ends_with(".lnk") || lower.ends_with(".app") || lower.ends_with(".desktop") {
+            let display = if lower.ends_with(".lnk")
+                || lower.ends_with(".app")
+                || lower.ends_with(".desktop")
+            {
                 file_name
                     .rsplit_once('.')
                     .map(|(stem, _)| stem.to_string())
@@ -395,7 +419,11 @@ fn walk_user_files(
             return;
         }
         let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') || SKIP_DIR_NAMES.iter().any(|skip| skip.eq_ignore_ascii_case(&name)) {
+        if name.starts_with('.')
+            || SKIP_DIR_NAMES
+                .iter()
+                .any(|skip| skip.eq_ignore_ascii_case(&name))
+        {
             continue;
         }
         let Ok(file_type) = entry.file_type() else {
@@ -440,7 +468,15 @@ fn collect_user_files(query: &str, limit: usize) -> Vec<QuickSearchEntry> {
     let deadline = Instant::now() + QUICK_SEARCH_FILE_BUDGET;
     let mut seen = 0usize;
     for root in user_file_roots() {
-        walk_user_files(&root, query, 0, deadline, &mut ranked, &mut seen, limit.saturating_mul(3));
+        walk_user_files(
+            &root,
+            query,
+            0,
+            deadline,
+            &mut ranked,
+            &mut seen,
+            limit.saturating_mul(3),
+        );
         if Instant::now() > deadline {
             break;
         }
@@ -456,10 +492,7 @@ pub fn quick_search_local(req: FileSearchRequest) -> Result<QuickSearchResponse,
     if query.is_empty() {
         return Err("缺少搜索关键词".to_string());
     }
-    let limit = req
-        .max_results
-        .unwrap_or(8)
-        .clamp(1, 20);
+    let limit = req.max_results.unwrap_or(8).clamp(1, 20);
     let mut entries = collect_user_files(&query, limit);
     if entries.len() < limit {
         let mut apps = collect_apps(&query, limit - entries.len());

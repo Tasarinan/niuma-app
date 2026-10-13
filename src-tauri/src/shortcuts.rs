@@ -460,10 +460,7 @@ pub fn update_shortcuts<R: Runtime>(
     Ok(())
 }
 
-fn register_shortcut<R: Runtime>(
-    app: &AppHandle<R>,
-    shortcut: Shortcut,
-) -> Result<(), String> {
+fn register_shortcut<R: Runtime>(app: &AppHandle<R>, shortcut: Shortcut) -> Result<(), String> {
     match app.global_shortcut().register(shortcut) {
         Ok(_) => Ok(()),
         Err(e) => {

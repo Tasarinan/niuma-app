@@ -98,7 +98,7 @@ Production build:
 npm run tauri build
 ```
 
-Installers land in `src-tauri/target/release/bundle/`.
+Installers land in `src-tauri/target/release/bundle/`. Local builds skip updater `.sig` files so you do not need `TAURI_SIGNING_PRIVATE_KEY`. To sign locally: set that env var and run `npx tauri build --config src-tauri/tauri.release.conf.json`.
 
 Local secrets: copy `.env.example` to `.env.local` at the repo root. `build.rs` loads that file. Never commit `.env.local`.
 

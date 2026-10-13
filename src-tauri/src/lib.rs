@@ -295,10 +295,7 @@ fn get_artifact_dirs(app: tauri::AppHandle) -> Vec<String> {
     }
 
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    push_if_exists(
-        &mut results,
-        manifest_dir.join("..").join(".artifacts"),
-    );
+    push_if_exists(&mut results, manifest_dir.join("..").join(".artifacts"));
 
     if let Ok(cwd) = std::env::current_dir() {
         push_if_exists(&mut results, cwd.join(".artifacts"));

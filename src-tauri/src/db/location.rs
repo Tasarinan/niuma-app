@@ -6,7 +6,9 @@ const APP_ID: &str = "com.niuma.desktop";
 
 fn plain_path(path: &Path) -> String {
     let text = path.to_string_lossy();
-    text.strip_prefix(r"\\?\").unwrap_or(text.as_ref()).to_string()
+    text.strip_prefix(r"\\?\")
+        .unwrap_or(text.as_ref())
+        .to_string()
 }
 
 /// Workspace root that contains `.teams`, without the installed-app resource fallback.
@@ -52,8 +54,11 @@ fn legacy_sqlite_file() -> Option<PathBuf> {
     let base = if cfg!(target_os = "windows") {
         std::env::var_os("APPDATA").map(PathBuf::from)
     } else if cfg!(target_os = "macos") {
-        std::env::var_os("HOME")
-            .map(|home| PathBuf::from(home).join("Library").join("Application Support"))
+        std::env::var_os("HOME").map(|home| {
+            PathBuf::from(home)
+                .join("Library")
+                .join("Application Support")
+        })
     } else {
         std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
@@ -96,10 +101,7 @@ fn prepare_sqlite_url() -> String {
     if !dest.is_file() {
         if let Some(legacy) = legacy_sqlite_file() {
             match copy_sqlite_family(&legacy, &dest) {
-                Ok(()) => eprintln!(
-                    "Copied SQLite database to {}",
-                    plain_path(&dest)
-                ),
+                Ok(()) => eprintln!("Copied SQLite database to {}", plain_path(&dest)),
                 Err(err) => {
                     eprintln!(
                         "Could not copy SQLite database to {} ({err}); still using {}",

@@ -534,7 +534,7 @@ pub fn list_directory(path: String) -> Result<Vec<SimpleDirEntry>, String> {
             is_dir,
         });
     }
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    entries.sort_by_key(|a| a.name.to_lowercase());
     Ok(entries)
 }
 

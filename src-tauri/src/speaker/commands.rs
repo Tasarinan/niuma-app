@@ -239,7 +239,7 @@ async fn run_vad_capture(
                     }
                 } else {
                     // Not in speech yet - maintain rolling pre-speech buffer
-                    pre_speech.extend(mono.into_iter());
+                    pre_speech.extend(mono);
 
                     // Trim excess (maintain fixed size)
                     while pre_speech.len() > config.pre_speech_chunks * config.hop_size {

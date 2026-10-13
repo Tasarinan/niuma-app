@@ -331,21 +331,17 @@ pub fn unified_api_get_stats(state: State<'_, UnifiedManager>) -> Result<Unified
     let mut by_model: Vec<ModelStat> = by_model
         .into_values()
         .map(|mut s| {
-            s.avg_duration_ms = if s.count > 0 {
-                s.avg_duration_ms / s.count
-            } else {
-                0
-            };
+            s.avg_duration_ms = s.avg_duration_ms.checked_div(s.count).unwrap_or(0);
             s
         })
         .collect();
-    by_model.sort_by(|a, b| b.count.cmp(&a.count));
+    by_model.sort_by_key(|a| std::cmp::Reverse(a.count));
 
     Ok(UnifiedStats {
         total,
         success,
         errors,
-        avg_duration_ms: if total > 0 { total_duration / total } else { 0 },
+        avg_duration_ms: total_duration.checked_div(total).unwrap_or(0),
         prompt_tokens,
         completion_tokens,
         total_tokens,

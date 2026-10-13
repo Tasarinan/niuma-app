@@ -16,6 +16,7 @@ use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+#[cfg(target_os = "windows")]
 use std::sync::OnceLock;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -307,7 +308,8 @@ static WINDOWS_PYTHON: OnceLock<Option<String>> = OnceLock::new();
 fn find_python_windows() -> Option<String> {
     WINDOWS_PYTHON
         .get_or_init(|| {
-            find_command_on_path_windows("python3").or_else(|| find_command_on_path_windows("python"))
+            find_command_on_path_windows("python3")
+                .or_else(|| find_command_on_path_windows("python"))
         })
         .clone()
 }
