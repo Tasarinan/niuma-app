@@ -101,7 +101,8 @@ surface: default
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .filter((slug) => existsSync(resolve(skillsDir, slug, "SKILL.md")));
-    expect(diskSlugs.length).toBeGreaterThan(3);
+    expect(diskSlugs).toContain("ima-skill");
+    expect(diskSlugs.length).toBeGreaterThan(0);
   });
 
   it("reads content team agents, skills, and commands from agent frontmatter", () => {

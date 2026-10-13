@@ -32,7 +32,8 @@
 - 画面内文字必须为中文，在 prompt 中直接写出要显示的中文文案
 ```
 
-- 文件名即预设名（不含后缀），如 `简约.md` → 预设名 `简约`。
+- 文件名即预设名（不含后缀）。用户自定义可用中文名，如 `简约.md` → 预设名 `简约`。
+- 仓库内置示例必须用 ASCII 文件名（WiX/MSI 无法打包非 Latin-1 路径），风格中文名写在文件标题里：`minimal.example.md`（简约）、`dazibao.example.md`（大字报）、`illustration.example.md`（插画）、`tech.example.md`（科技风）。
 - `Prompt 要点` 部分会被 Agent 直接嵌入封面 prompt 的「风格」字段。
 - 每个预设自包含视觉风格描述，无须引用外部 Style 维度。
 
