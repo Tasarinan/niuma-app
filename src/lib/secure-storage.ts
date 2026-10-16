@@ -12,8 +12,8 @@
  */
 
 import { Store } from "@tauri-apps/plugin-store";
+import { niumaConfigStorePath } from "@/lib/niuma-config-path";
 
-// Store file name (stored in app data directory, encrypted)
 const SECURE_STORE_FILE = ".secure-settings.dat";
 
 // Singleton store instance
@@ -24,7 +24,8 @@ let storeInstance: Store | null = null;
  */
 async function getStore(): Promise<Store> {
   if (!storeInstance) {
-    storeInstance = await Store.load(SECURE_STORE_FILE);
+    const path = await niumaConfigStorePath(SECURE_STORE_FILE);
+    storeInstance = await Store.load(path);
   }
   return storeInstance;
 }

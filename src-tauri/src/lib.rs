@@ -5,6 +5,7 @@ mod capture;
 mod db;
 mod fs_tools;
 mod health;
+mod niuma_config;
 mod http_tools;
 mod mcp;
 mod sandbox;
@@ -102,71 +103,11 @@ fn resolve_existing_dir(candidates: Vec<std::path::PathBuf>) -> String {
 }
 
 /// Return the base project root that contains `.teams`.
-/// Priority: env override -> dev manifest parent -> CWD -> resource dir.
 #[tauri::command]
 fn get_niuma_root_dir(app: tauri::AppHandle) -> String {
-    // If env points directly at `.teams`, return its parent.
-    if let Some(configured) =
-        runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
-    {
-        let configured_path = std::path::PathBuf::from(configured);
-        let file_name = configured_path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .map(|s| s.eq_ignore_ascii_case(".teams"))
-            .unwrap_or(false);
-
-        if file_name {
-            if let Some(parent) = configured_path.parent() {
-                return parent
-                    .canonicalize()
-                    .unwrap_or_else(|_| parent.to_path_buf())
-                    .to_string_lossy()
-                    .to_string();
-            }
-        }
-
-        // If env points at project root, accept it as-is.
-        if configured_path.join(".teams").is_dir() {
-            return configured_path
-                .canonicalize()
-                .unwrap_or(configured_path)
-                .to_string_lossy()
-                .to_string();
-        }
-    }
-
-    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let dev_root = manifest_dir.join("..");
-    if dev_root.join(".teams").is_dir() {
-        return dev_root
-            .canonicalize()
-            .unwrap_or(dev_root)
-            .to_string_lossy()
-            .to_string();
-    }
-
-    if let Ok(cwd) = std::env::current_dir() {
-        if cwd.join(".teams").is_dir() {
-            return cwd
-                .canonicalize()
-                .unwrap_or(cwd)
-                .to_string_lossy()
-                .to_string();
-        }
-    }
-
-    if let Ok(res) = app.path().resource_dir() {
-        if res.join(".teams").is_dir() {
-            return res
-                .canonicalize()
-                .unwrap_or(res)
-                .to_string_lossy()
-                .to_string();
-        }
-    }
-
-    String::new()
+    niuma_config::resolve_workspace_root(Some(&app))
+        .map(|root| root.to_string_lossy().to_string())
+        .unwrap_or_default()
 }
 
 fn yaml_scalar(raw: &str, key: &str) -> Option<String> {
@@ -324,7 +265,7 @@ fn get_articles_dirs(app: tauri::AppHandle) -> Vec<String> {
     get_artifact_dirs(app)
 }
 
-/// SQLite connection string. The file lives at `<workspace>/.artifacts/sqlite/niuma.db`.
+/// SQLite connection string. The file lives at `<workspace>/.niumaconfig/sqlite/niuma.db`.
 #[tauri::command]
 fn get_niuma_sqlite_url() -> String {
     db::sqlite_connection_url()
@@ -448,6 +389,7 @@ pub fn run() {
             get_niuma_agents_dir,
             get_niuma_skills_dir,
             get_niuma_root_dir,
+            niuma_config::get_niuma_config_dir,
             get_niuma_sqlite_url,
             get_niuma_commands_dir,
             get_artifact_dirs,
@@ -474,6 +416,9 @@ pub fn run() {
             set_proxy_url,
         ])
         .setup(|app| {
+            if let Err(err) = niuma_config::migrate_legacy_app_data_if_needed(Some(app.handle())) {
+                eprintln!("Niuma config migration: {err}");
+            }
             // Setup main window positioning
             window::setup_main_window(app).expect("Failed to setup main window");
             #[cfg(target_os = "macos")]

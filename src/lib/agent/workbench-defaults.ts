@@ -16,6 +16,7 @@ import {
   loadChannelTeamPresets as discoverChannelTeamPresets,
 } from "./team-discovery";
 import { findRoleByAgentFile, type TeamRoleDefinition } from "./team-manifest";
+import { isAgentAvatarImage } from "@/lib/agent/agent-avatar";
 
 export type WorkbenchTeamId = string;
 export type WorkbenchTeamAccent = "rose" | "emerald" | "sky" | "violet" | "amber";
@@ -213,9 +214,10 @@ async function ensurePresetAgent(
   // agent still carries an emoji or blank avatar, update it.
   const catalogAvatar = catalogAgent.avatar ?? "";
   const existingAvatar = existing.avatar ?? "";
-  const catalogIsImage = catalogAvatar.startsWith("/") || catalogAvatar.startsWith("http") || catalogAvatar.startsWith("data:");
-  const existingIsImage = existingAvatar.startsWith("/") || existingAvatar.startsWith("http") || existingAvatar.startsWith("data:");
-  const needsAvatarSync = catalogAgent.fromTeams && catalogIsImage && !existingIsImage;
+  const needsAvatarSync =
+    catalogAgent.fromTeams &&
+    isAgentAvatarImage(catalogAvatar) &&
+    (!isAgentAvatarImage(existingAvatar) || existingAvatar !== catalogAvatar);
 
   const patch: UpdateInput<AgentDefinition> = {};
   if (!sameStringArray(existing.enabledSkillIds ?? [], targetSkillIds)) patch.enabledSkillIds = targetSkillIds;

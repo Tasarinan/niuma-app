@@ -232,7 +232,9 @@ def main() -> int:
     args = parser.parse_args()
 
     fetch = load_fetch()
-    requested = [part.strip().lower() for part in args.sources.split(",") if part.strip()]
+    requested_parts = [part.strip() for part in args.sources.split(",") if part.strip()]
+    url_requests = [part for part in requested_parts if part.lower().startswith(("http://", "https://"))]
+    requested = [part.lower() for part in requested_parts if not part.lower().startswith(("http://", "https://"))]
     profile_name = requested[0] if len(requested) == 1 and requested[0] in profiles else default_group
     profile = profiles.get(profile_name) or {}
     deep = bool(profile.get("deep", True))
@@ -243,10 +245,22 @@ def main() -> int:
     count = args.count or int(profile.get("count") or 40)
     per = int(profile.get("per") or max(6, count // max(len(requested), 1)))
 
-    unique_names = resolve_names(requested, groups, fetch)
+    unique_names = resolve_names(requested or ([default_group] if not url_requests else []), groups, fetch)
     keywords = expand_keywords(args.keyword)
     items: list[dict] = []
     failed: list[str] = []
+    for url in url_requests:
+        items.append(
+            normalize(
+                {
+                    "source": "url",
+                    "title": url,
+                    "url": url,
+                    "time": "Unknown Time",
+                    "content": "",
+                }
+            )
+        )
     for name in unique_names:
         print(f"[collect] {name}...", file=sys.stderr)
         try:
@@ -257,7 +271,9 @@ def main() -> int:
             print(f"[collect] {name} failed: {exc}", file=sys.stderr)
             failed.append(f"{name}: {exc}")
 
-    unique = rank_items(items, keywords, count)
+    unique = rank_items(items, keywords, count) if items else []
+    if url_requests and not unique_names:
+        unique = items
 
     use_playwright = deep and not args.no_playwright
     if deep:

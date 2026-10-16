@@ -6,7 +6,6 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use tauri::Manager;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -80,11 +79,11 @@ pub async fn health_save_attachment(
             .join(&now.0)
             .join(&now.1),
         None => {
-            let app_data = app
-                .path()
-                .app_data_dir()
-                .map_err(|e| format!("app_data_dir error: {e}"))?;
-            app_data
+            let workspace = crate::niuma_config::resolve_workspace_root(Some(&app))
+                .ok_or_else(|| "无法定位工作区，请设置 NIUMA_ROOT_DIR 或将 .teams 放在应用旁".to_string())?;
+            let _ = crate::niuma_config::migrate_legacy_app_data_if_needed(Some(&app));
+            let config = crate::niuma_config::ensure_niuma_config_dir(&workspace)?;
+            config
                 .join("health")
                 .join("attachments")
                 .join(&now.0)

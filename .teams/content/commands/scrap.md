@@ -9,7 +9,7 @@ argument-hint: [源名或网址]
 
 ## 执行步骤
 
-1. 加载 scraps，跑 `collect.py --deep`（指定文章则走 `web-to-markdown`）
+1. 加载 scraps，跑 `collect.py --deep`（指定文章网址同样走深读，HTTP + 可选 Playwright）
 2. 每条按统一模板写成中文（Title / Source / Time / Heat / Links / Summary / Deep Dive）
 3. 写到 `.artifacts/scraps/<YYYY-MM-DD>/`，并写 `index.json` 与 `briefing.md`
 4. 打不开的源写进列表，不要编造正文

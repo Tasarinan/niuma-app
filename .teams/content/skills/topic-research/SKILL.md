@@ -16,7 +16,7 @@ description: 针对一个想法先查本地素材，再采集热点和网页，�
 扩 3–5 个关键词，跑 `scripts/collect.py`（wemp-ops `fetch_news.py`）。源失败就跳过。
 
 ### 3. 网页搜索与深读
-`web_search` 2–3 轮。选 2–4 个 URL，用 `web-to-markdown` 抽正文。没有 `web_fetch`。
+`web_search` 2–3 轮。选 2–4 个 URL，用 `scraps`/`collect.py` 同款深读（HTTP + 可选 Playwright）或 `bash`+`curl` 抽正文。没有 `web_fetch`。
 
 ### 4. 产出
 调研摘要、**写法**、**主题**（一句话，不是标题）。事实带 URL。跑题条目丢掉并注明。
@@ -39,7 +39,7 @@ description: 针对一个想法先查本地素材，再采集热点和网页，�
 ```bash
 python .teams/content/skills/topic-research/scripts/collect.py --query "想法" --keywords "k1,k2"
 ```
-然后 `web_search`。深读走 `web-to-markdown`。
+然后 `web_search`。深读走 `collect.py --deep` 逻辑或 `curl`，不要编造正文。
 
 #### 步骤 3: 落盘
 写入同篇目录的 `research.md`。已有锁定主题时不要另定主题。本技能不写正文、不定标题。
@@ -51,7 +51,7 @@ python .teams/content/skills/topic-research/scripts/collect.py --query "想法" 
 | 本地 | 对话注入 | 用户记录 |
 | 热点 | `scripts/collect.py` | sspai / juejin / 36kr / v2ex / zhihu 等 |
 | 搜索 | `web_search` | 标题、URL、摘要 |
-| 原文 | `web-to-markdown` | 页面 Markdown |
+| 原文 | `collect.py --deep` / `curl` | 页面正文 |
 
 ## 安全与合规
 

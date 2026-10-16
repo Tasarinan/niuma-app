@@ -1,8 +1,7 @@
+use crate::niuma_config;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-
-const APP_ID: &str = "com.niuma.desktop";
 
 fn plain_path(path: &Path) -> String {
     let text = path.to_string_lossy();
@@ -11,61 +10,18 @@ fn plain_path(path: &Path) -> String {
         .to_string()
 }
 
-/// Workspace root that contains `.teams`, without the installed-app resource fallback.
 fn workspace_root() -> Option<PathBuf> {
-    if let Some(configured) =
-        crate::runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
-    {
-        let configured_path = PathBuf::from(configured);
-        let is_teams = configured_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name.eq_ignore_ascii_case(".teams"));
-        if is_teams {
-            if let Some(parent) = configured_path.parent() {
-                return Some(parent.to_path_buf());
-            }
-        }
-        if configured_path.join(".teams").is_dir() {
-            return Some(configured_path);
-        }
-    }
-
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let dev_root = manifest_dir.join("..");
-    if dev_root.join(".teams").is_dir() {
-        return Some(dev_root);
-    }
-
-    if let Ok(cwd) = std::env::current_dir() {
-        if cwd.join(".teams").is_dir() {
-            return Some(cwd);
-        }
-    }
-
-    None
+    niuma_config::resolve_workspace_root(None)
 }
 
-fn sqlite_file_path(root: &Path) -> PathBuf {
-    root.join(".artifacts").join("sqlite").join("niuma.db")
-}
-
-fn legacy_sqlite_file() -> Option<PathBuf> {
-    let base = if cfg!(target_os = "windows") {
-        std::env::var_os("APPDATA").map(PathBuf::from)
-    } else if cfg!(target_os = "macos") {
-        std::env::var_os("HOME").map(|home| {
-            PathBuf::from(home)
-                .join("Library")
-                .join("Application Support")
-        })
-    } else {
-        std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
-    }?;
-    let path = base.join(APP_ID).join("niuma.db");
-    path.is_file().then_some(path)
+fn legacy_sqlite_candidates(workspace: &Path) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    paths.push(niuma_config::niuma_config_dir_for_root(workspace).join("niuma.db"));
+    paths.push(workspace.join(".artifacts").join("sqlite").join("niuma.db"));
+    if let Some(legacy) = niuma_config::legacy_app_data_dir_from_env() {
+        paths.push(legacy.join("niuma.db"));
+    }
+    paths
 }
 
 fn copy_sqlite_family(src: &Path, dest: &Path) -> std::io::Result<()> {
@@ -88,7 +44,11 @@ fn prepare_sqlite_url() -> String {
     let Some(root) = workspace_root() else {
         return "sqlite:niuma.db".to_string();
     };
-    let dest = sqlite_file_path(&root);
+
+    let _ = niuma_config::migrate_legacy_app_data_if_needed(None);
+    let _ = niuma_config::migrate_sqlite_into_config_dir(&root);
+
+    let dest = niuma_config::sqlite_file_path(&root);
     if let Some(parent) = dest.parent() {
         let _ = fs::create_dir_all(parent);
     }
@@ -99,17 +59,25 @@ fn prepare_sqlite_url() -> String {
         .unwrap_or(dest);
 
     if !dest.is_file() {
-        if let Some(legacy) = legacy_sqlite_file() {
+        for legacy in legacy_sqlite_candidates(&root) {
+            if !legacy.is_file() || legacy == dest {
+                continue;
+            }
             match copy_sqlite_family(&legacy, &dest) {
-                Ok(()) => eprintln!("Copied SQLite database to {}", plain_path(&dest)),
+                Ok(()) => {
+                    eprintln!(
+                        "Copied SQLite database from {} to {}",
+                        plain_path(&legacy),
+                        plain_path(&dest)
+                    );
+                    break;
+                }
                 Err(err) => {
                     eprintln!(
-                        "Could not copy SQLite database to {} ({err}); still using {}",
+                        "Could not copy SQLite database from {} to {} ({err})",
+                        plain_path(&legacy),
                         plain_path(&dest),
-                        plain_path(&legacy)
                     );
-                    let _ = fs::remove_file(&dest);
-                    return format!("sqlite:{}", plain_path(&legacy));
                 }
             }
         }
@@ -126,13 +94,13 @@ pub fn sqlite_connection_url() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::sqlite_file_path;
+    use super::*;
     use std::path::Path;
 
     #[test]
-    fn sqlite_file_lives_under_artifacts() {
-        let path = sqlite_file_path(Path::new("C:/repo/niuma-app"));
+    fn sqlite_file_lives_under_niumaconfig() {
+        let path = niuma_config::sqlite_file_path(Path::new("C:/repo/niuma-app"));
         let text = path.to_string_lossy().replace('\\', "/");
-        assert!(text.ends_with(".artifacts/sqlite/niuma.db"));
+        assert!(text.ends_with(".niumaconfig/sqlite/niuma.db"));
     }
 }

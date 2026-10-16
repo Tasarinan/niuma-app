@@ -7,6 +7,8 @@
  * touching the repository or UI layers.
  */
 
+import { niumaConfigStorePath } from "@/lib/niuma-config-path";
+
 export interface KeyValueStore {
   get<T>(key: string): Promise<T | null>;
   set<T>(key: string, value: T): Promise<void>;
@@ -45,8 +47,10 @@ class TauriStore implements KeyValueStore {
 
   private async store() {
     if (!this.storePromise) {
-      this.storePromise = import("@tauri-apps/plugin-store").then(({ load }) =>
-        load(STORE_FILE, { autoSave: true, defaults: {} })
+      this.storePromise = niumaConfigStorePath(STORE_FILE).then((path) =>
+        import("@tauri-apps/plugin-store").then(({ load }) =>
+          load(path, { autoSave: true, defaults: {} }),
+        ),
       );
     }
     return this.storePromise;

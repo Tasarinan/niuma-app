@@ -43,16 +43,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "info.plist",
-      "niuma.desktop",
-      "../.teams/**/*.md",
-      "../.teams/**/*.yaml",
-      "../.teams/**/*.json",
-      "../.teams/**/*.cjs",
-      "../.teams/**/*.mjs",
-      "../.teams/**/*.py"
-    ],
+    "resources": {
+      "info.plist": "info.plist",
+      "niuma.desktop": "niuma.desktop",
+      "../.teams/": ".teams/"
+    },
     "macOS": { "minimumSystemVersion": "10.13" }
   },
   "plugins": {

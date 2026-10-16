@@ -43,6 +43,7 @@ import { useGroupChat } from "@/hooks/useGroupChat";
 import type { GroupChannel, GroupMessage, AgentDefinition } from "@/types";
 import { cn } from "@/lib/utils";
 import { AgentTurnProgress } from "@/pages/agents-chat/components/AgentTurnProgress";
+import { AgentAvatar } from "@/components/agent/AgentAvatar";
 
 // ─── Panel pixel height (excludes the toolbar strip) ─────────────────────────
 export const GROUP_CHAT_PANEL_HEIGHT = 480;
@@ -60,20 +61,14 @@ function Avatar({
   size?: number;
   className?: string;
 }) {
-  const isImage = src?.startsWith("/") || src?.startsWith("http");
   return (
-    <div
-      className={cn(
-        "flex flex-shrink-0 items-center justify-center rounded-full bg-muted overflow-hidden",
-        className
-      )}
-      style={{ width: size * 4, height: size * 4 }}
-    >
-      {isImage ? (
-        <img src={src} alt={name ?? ""} className="h-full w-full object-cover" />
-      ) : (
-        <span style={{ fontSize: size * 1.8 }}>{src || name?.[0] || "?"}</span>
-      )}
+    <div className={className} style={{ width: size * 4, height: size * 4 }}>
+      <AgentAvatar
+        src={src}
+        label={name ?? "?"}
+        className="size-full rounded-full bg-muted"
+        glyphClassName="text-base"
+      />
     </div>
   );
 }
@@ -546,18 +541,12 @@ function ChannelModal({
                           : "hover:bg-accent"
                       )}
                     >
-                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-muted overflow-hidden text-sm">
-                        {agent.avatar?.startsWith("/") ||
-                        agent.avatar?.startsWith("http") ? (
-                          <img
-                            src={agent.avatar}
-                            alt={agent.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span>{agent.avatar || "🤖"}</span>
-                        )}
-                      </div>
+                      <AgentAvatar
+                        src={agent.avatar}
+                        label={agent.name}
+                        className="size-6 rounded-full bg-muted"
+                        glyphClassName="text-sm"
+                      />
                       <div className="flex-1 text-left">
                         <div className="font-medium">{agent.name}</div>
                         {agent.role && (

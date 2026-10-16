@@ -33,5 +33,10 @@ create-shortcut.ps1
 docs/*
 # Generated drafts, screenshots, and transcripts. Team packs in .teams/ stay tracked.
 .artifacts/
+.niumaconfig/
+
+# Windows reserved device name; git cannot index a file named nul
+/nul
+/NUL
 
 

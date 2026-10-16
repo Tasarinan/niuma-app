@@ -23,6 +23,8 @@ export { parseStyleAssignments } from "@/lib/content/style-presets";
 export interface ContentSlashContext {
   command: string;
   args: string;
+  /** Vision images attached in the composer (e.g. `/intake` with screenshots). */
+  attachedImageCount?: number;
 }
 
 export interface ContentSlashResolution {
@@ -113,19 +115,19 @@ function formatEntry(entry: ContentEntry): string {
   return `- ${day(entry.occurredAt)} | ${entry.type} | ${entry.summary || entry.title}${ref}`;
 }
 
-async function handleRecord(args: string, store: ContentSlashStore): Promise<ContentSlashResolution> {
+async function handleClipJournal(args: string, store: ContentSlashStore): Promise<ContentSlashResolution> {
   const [typeToken = "", ...rest] = args.trim().split(/\s+/);
   const type = typeToken.toLowerCase() as ContentEntryType;
   const body = rest.join(" ").trim();
   if (!RECORD_TYPES.has(type)) {
     return {
       prompt:
-        "用户执行了 /record，但类型无效。请提示使用 idea、note、clip、quote、diary，例如：/record idea 今天想记的一句。",
+        "用户执行了 /clip，但类型无效。请提示使用 idea、note、clip、quote、diary，例如：/clip idea 今天想记的一句。（旧命令 /record 同义。）",
     };
   }
   if (!body) {
     return {
-      prompt: `用户执行了 /record ${type} 但没有正文。请提示补充内容，不要写入空记录。`,
+      prompt: `用户执行了 /clip ${type} 但没有正文。请提示补充内容，不要写入空记录。`,
     };
   }
   const entry = await store.createEntry({
@@ -145,7 +147,7 @@ async function handleRecord(args: string, store: ContentSlashStore): Promise<Con
   }
   return {
     prompt: [
-      `用户通过 /record ${type} 写入了 content_entries，数据库已保存。`,
+      `用户通过 /clip ${type} 写入了 content_entries，数据库已保存。`,
       "",
       formatEntry(entry),
       `- id: ${entry.id}`,
@@ -523,7 +525,7 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
         `用户把素材去向设为目录，版本 v${saved.version}。`,
         formatSources(saved),
         "",
-        "请简短确认。/scrap 仍写入 .artifacts/scraps；该目录字段留给记录和其它素材。/record 只留在本地。",
+        "请简短确认。/scrap 仍写入 .artifacts/scraps；该目录字段留给记录和其它素材。/clip 只留在本地。",
       ].join("\n"),
     };
   }
@@ -540,7 +542,7 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
         `用户把素材去向设为 IMA，版本 v${saved.version}。`,
         formatSources(saved),
         "",
-        "请简短确认。之后 /record 写入这个知识库；未填 ID 时沿用应用里的文章资产。/scrap 仍先写入 .artifacts/scraps。",
+        "请简短确认。之后 /clip 写入这个知识库；未填 ID 时沿用应用里的文章资产。/scrap 仍先写入 .artifacts/scraps。",
       ].join("\n"),
     };
   }
@@ -615,7 +617,12 @@ async function handleScrap(args: string, store: ContentSlashStore): Promise<Cont
       sources.length
         ? `预置信源：${sources.join(",")}。先运行 \`python .teams/content/skills/scraps/scripts/collect.py --sources ${sources.join(",")}${keywordFlag} --deep\`。脚本会按关键词过滤、标题去重、相关度排序，再 HTTP 深读，失败再用 Playwright。JSON 的 engine 为 playwright 时优先用那段 content。每一条都要写成中文模板：标题、Source、Time、Heat、Links、Summary、Deep Dive。Time 必填；缺则 Unknown Time。Hacker News 必须带 [Discussion](hn_url)。Deep Dive 只用 content 字段，没有就写「材料不足，仅标题」。briefing.md 选相关度高的约 20–25 条，不够就全写，禁止编造凑数，不要把多条揉成一条。`
         : "本次不跑预置信源，只处理下面的文章网址。抽正文后仍按同一模板写 Markdown。",
-      urls.length ? ["额外文章网址（用 web-to-markdown 抽正文）：", ...urls.map((url) => `- ${url}`)].join("\n") : "",
+      urls.length
+        ? [
+            "额外文章网址（用 scraps 深读 HTTP/Playwright 或 curl 抽正文，不要 node 技能）：",
+            ...urls.map((url) => `- ${url}`),
+          ].join("\n")
+        : "",
       "打不开的源或页面写进列表，不要编造正文。",
       "写完后用中文给一份列表报：标题 | 源 | 时间 | 热度 | 网址 | 本地路径。",
     ]
@@ -678,7 +685,7 @@ export function titlePickContinuationPrompt(): string {
   ].join("\n");
 }
 
-export function isContentClipPaste(text: string): boolean {
+export function isContentIntakePaste(text: string): boolean {
   const value = text.trim();
   if (!value || value.startsWith("/")) return false;
   if (isContentTitlePickReply(value)) return false;
@@ -686,39 +693,53 @@ export function isContentClipPaste(text: string): boolean {
   return value.length >= 80 || /[。！？\n]/.test(value);
 }
 
-export function clipIntoArticlePrompt(raw: string): string {
-  return [
-    "用户从外面拷来一段话，想整理进当前文章。主题和标题不是一回事。",
+/** @deprecated Use isContentIntakePaste */
+export const isContentClipPaste = isContentIntakePaste;
+
+export function intakeIntoArticlePrompt(raw: string, attachedImageCount = 0): string {
+  const lines = [
+    "用户提供了要整理进当前文章的材料（文字或附图）。主题和标题不是一回事。",
     "先 read topic.md 里已锁定的主题，再 read 当前 article.md。",
-    "材料必须尽量与主题一致才用。不贴题：说明为什么不用，不要硬塞，不要为了这段话改主题。",
+    "材料必须尽量与主题一致才用。不贴题：说明为什么不用，不要硬塞，不要为了材料改主题。",
     "贴题：用文章自己的语气改写进合适小节。用户没说「引用」就不要整段粘贴。",
     "别人的观点注明来源或标「待核」。不要编成用户的亲身经历。",
     "不要这时改标题。标题按写成的内容后续再改。",
-    "没有当前稿时说明先 /outline 开一篇，不要新建第二个主题。",
+    "没有当前稿时说明先 /outline 开一篇，并把原文记入 content_entries（类型 clip），不要新建第二个主题。",
+    "附图不会自动写入 imgs/；贴题时改写进稿或说明应放在哪一节。",
     "改完 open_article。",
-    "",
-    "原文：",
-    raw.trim(),
-  ].join("\n");
+  ];
+  if (attachedImageCount > 0) {
+    lines.push(
+      `用户附带了 ${attachedImageCount} 张图片（已在对话中，可用视觉理解）。请结合图片与文字判断是否贴题。`,
+    );
+  }
+  if (raw.trim()) {
+    lines.push("", "文字原文：", raw.trim());
+  } else if (attachedImageCount > 0) {
+    lines.push("", "（无附加文字，请主要依据附图内容整理进稿。）");
+  }
+  return lines.join("\n");
 }
 
-async function handleClip(args: string, store: ContentSlashStore): Promise<ContentSlashResolution> {
+/** @deprecated Use intakeIntoArticlePrompt */
+export function clipIntoArticlePrompt(raw: string): string {
+  return intakeIntoArticlePrompt(raw, 0);
+}
+
+async function handleIntake(
+  args: string,
+  attachedImageCount: number,
+): Promise<ContentSlashResolution> {
   const body = args.trim();
-  if (!body) {
-    return { prompt: "用户执行了 /clip 但没有正文。请提示直接粘贴要写进文章的那段话。" };
+  if (!body && attachedImageCount === 0) {
+    return {
+      prompt: "用户执行了 /intake 但没有正文也没有附图。请提示粘贴文字、附上图片，或直接发送长段落。",
+    };
   }
-  const entry = await store.createEntry({
-    type: "clip",
-    title: "clip",
-    summary: clip(body),
-    rawText: body,
-    source: "manual",
-  });
   return {
-    prompt: [
-      `用户通过 /clip 写入了 content_entries（id: ${entry.id}），同时要整理进当前 article.md。`,
-      clipIntoArticlePrompt(body),
-    ].join("\n"),
+    prompt: [`用户通过 /intake 要求整理进当前 article.md。`, intakeIntoArticlePrompt(body, attachedImageCount)].join(
+      "\n",
+    ),
   };
 }
 
@@ -737,7 +758,7 @@ async function handleOutline(args: string, store: ContentSlashStore): Promise<Co
         : [
             "主题和标题分开。先用一句话锁定主题，写入 topic.md，后面材料都要贴这个主题。",
             "不要先选最终标题。标题按写成的内容后续再改。",
-            "若还没有 research.md：加载 topic-research（本地素材 → collect.py → web_search → web-to-markdown）。跑题材料丢掉。",
+            "若还没有 research.md：加载 topic-research（本地素材 → collect.py → web_search → 深读 URL）。跑题材料丢掉。",
             "聊天里先讲写法和各节要解决什么，废水至少 3 条列入禁用。写稿执行五大技巧（微幽默/强开头/概念把手/句长节奏/多巴胺密度），不要暴露 AI 参与。",
             "若对话里有 [等待确认]，本回合只问要不要新建该目录，禁止调研、禁止 write、禁止 mkdir。用户确认后才写锁定目录。",
             "目录已锁定时：只写那一个文件夹。同一主题当天不会有第二个；不要 mkdir，不要按很难/难另开目录。",
@@ -803,7 +824,7 @@ export async function resolveContentSlashIntegration(
   store: ContentSlashStore = defaultStore,
 ): Promise<ContentSlashResolution | null> {
   const command = ctx.command.trim().toLowerCase();
-  if (command === "record") return handleRecord(ctx.args, store);
+  if (command === "clip" || command === "record") return handleClipJournal(ctx.args, store);
   if (command === "style") return handleStyle(ctx.args, store);
   if (command === "collect") return handleCollect(ctx.args, store);
   if (command === "ops") return handleOps(ctx.args, store);
@@ -812,7 +833,7 @@ export async function resolveContentSlashIntegration(
   if (command === "sources") return handleSources(ctx.args, store);
   if (command === "scrap" || command === "pull") return handleScrap(ctx.args, store);
   if (command === "propose") return handlePropose(store);
-  if (command === "clip") return handleClip(ctx.args, store);
+  if (command === "intake") return handleIntake(ctx.args, ctx.attachedImageCount ?? 0);
   if (command === "outline") return handleOutline(ctx.args, store);
   return null;
 }

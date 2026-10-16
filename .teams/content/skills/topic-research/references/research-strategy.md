@@ -1,13 +1,13 @@
 # 调研策略（参考 wemp-ops 采集顺序）
 
-Niuma 没有 `web_fetch`。深读用 `web-to-markdown`。热点源用本技能 `scripts/collect.py`（底层是 wemp-ops 的 `fetch_news.py`）。
+Niuma 没有 `web_fetch`。深读用 `scraps`/`collect.py --deep`（HTTP + 可选 Playwright）或 `curl`。热点源用本技能 `scripts/collect.py`（底层是 wemp-ops 的 `fetch_news.py`）。
 
 ## 顺序（不要跳）
 
 1. **本地先查**：对话里的 `content_entries`、中央 Feed、IMA。有匹配就标用途（开头 / 论据 / 反面 / 待补事实）。用自己的话转述，不要学术式堆链接。
 2. **热点源**：想法扩 3–5 个关键词，跑 `collect.py`。默认 sspai / juejin / 36kr / v2ex / zhihu。
 3. **补充搜索**：`web_search` 2–3 轮（官方或一手 → 深度分析 → 对比讨论）。一共 4–6 次，不要空转。
-4. **深读**：从上面挑 2–4 个最好的 URL，用 `web-to-markdown` 抽正文。打不开就换，不要编造。
+4. **深读**：从上面挑 2–4 个最好的 URL，用深读脚本或 `curl` 抽正文。打不开就换，不要编造。
 
 ## collect.py
 

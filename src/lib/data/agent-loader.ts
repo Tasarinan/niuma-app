@@ -100,7 +100,7 @@ function parseFrontmatter(raw: string): Record<string, string> {
   return meta;
 }
 
-function toSlug(value: string): string {
+export function toSlug(value: string): string {
   const normalized = value
     .trim()
     .toLowerCase()
@@ -126,6 +126,41 @@ function buildIdentity(explicitId: string | undefined, fileName: string, context
     id: `agent:${slug}`,
     slug,
   };
+}
+
+/** Stable slug for a team agent markdown file (matches catalog `slug` for `.teams` agents). */
+export function teamAgentCatalogSlug(teamId: string, agentFile: string): string {
+  const withoutExt = agentFile.replace(/\.md$/i, "").trim();
+  return toSlug(`${teamId}-${withoutExt}`);
+}
+
+/** Same talent_icon URL assignment as `loadAgentCatalog()` (by catalog slug). */
+export function talentAvatarForCatalogSlug(slug: string): string {
+  const talentLen = TALENT_AVATAR_ITEMS.length;
+  if (!slug.trim() || talentLen === 0) return "";
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) {
+    h = (Math.imul(31, h) + slug.charCodeAt(i)) | 0;
+  }
+  return TALENT_AVATAR_ITEMS[Math.abs(h) % talentLen]?.avatarUrl ?? "";
+}
+
+export function findCatalogAgentForTeamFile(
+  catalog: CatalogAgent[],
+  teamId: string,
+  agentFile: string,
+): CatalogAgent | undefined {
+  const normalized = agentFile.endsWith(".md") ? agentFile : `${agentFile}.md`;
+  const slug = teamAgentCatalogSlug(teamId, normalized);
+  const bySlug = catalog.find((a) => a.slug === slug);
+  if (bySlug) return bySlug;
+
+  const teamSegment = `/.teams/${teamId.toLowerCase()}/agents/`;
+  return catalog.find((a) => {
+    if (a.file !== normalized) return false;
+    const path = a.sourcePath.replace(/\\/g, "/").toLowerCase();
+    return path.includes(teamSegment);
+  });
 }
 
 function parseListField(value: unknown): string[] {
@@ -357,11 +392,7 @@ export async function loadAgentCatalog(): Promise<CatalogAgent[]> {
   sorted.forEach((agent) => {
     const needsIcon = agent.fromTeams ? true : !agent.avatar;
     if (needsIcon && talentLen > 0) {
-      let h = 0;
-      for (let i = 0; i < agent.slug.length; i++) {
-        h = (Math.imul(31, h) + agent.slug.charCodeAt(i)) | 0;
-      }
-      agent.avatar = TALENT_AVATAR_ITEMS[Math.abs(h) % talentLen]?.avatarUrl ?? "🤖";
+      agent.avatar = talentAvatarForCatalogSlug(agent.slug) || "🤖";
     }
   });
   cache = sorted;

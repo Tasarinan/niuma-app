@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  isContentClipPaste,
+  isContentIntakePaste,
   isContentTitlePickReply,
   isOutlineFolderCancelReply,
   isOutlineFolderConfirmReply,
@@ -73,10 +73,10 @@ describe("content slash integration", () => {
     expect(parseStyleAssignments("tone: 更口语")).toEqual({});
   });
 
-  it("writes a record before the agent replies", async () => {
+  it("writes a journal clip before the agent replies", async () => {
     const store = memoryStore();
     const result = await resolveContentSlashIntegration(
-      { command: "record", args: "idea Cursor 多窗口的一个坑" },
+      { command: "clip", args: "idea Cursor 多窗口的一个坑" },
       store,
     );
     expect(store.entries).toHaveLength(1);
@@ -112,7 +112,7 @@ describe("content slash integration", () => {
   it("searches saved entries", async () => {
     const store = memoryStore();
     await resolveContentSlashIntegration(
-      { command: "record", args: "quote 少谈赋能" },
+      { command: "clip", args: "quote 少谈赋能" },
       store,
     );
     const result = await resolveContentSlashIntegration(
@@ -129,7 +129,7 @@ describe("content slash integration", () => {
       store,
     );
     await resolveContentSlashIntegration(
-      { command: "record", args: "idea 今天的一个切口" },
+      { command: "clip", args: "idea 今天的一个切口" },
       store,
     );
     const material = await resolveWritingMaterialContext(store);
@@ -320,14 +320,32 @@ describe("content slash integration", () => {
     expect(store.entries).toHaveLength(0);
   });
 
-  it("clips pasted text into the current article", async () => {
+  it("still accepts legacy /record as journal clip", async () => {
+    const store = memoryStore();
+    const result = await resolveContentSlashIntegration(
+      { command: "record", args: "idea 兼容旧命令" },
+      store,
+    );
+    expect(store.entries).toHaveLength(1);
+    expect(store.entries[0].type).toBe("idea");
+    expect(result?.prompt).toContain("/clip");
+  });
+
+  it("intake routes pasted text into the current article without auto journal write", async () => {
     const store = memoryStore();
     const pasted = "产品好做是因为脚手架太强，难的是让客户愿意付钱换掉旧习惯。";
-    const result = await resolveContentSlashIntegration({ command: "clip", args: pasted }, store);
-    expect(result?.prompt).toContain("整理进当前");
+    const result = await resolveContentSlashIntegration({ command: "intake", args: pasted }, store);
+    expect(result?.prompt).toContain("/intake");
     expect(result?.prompt).toContain("必须尽量与主题一致");
     expect(result?.prompt).toContain(pasted);
-    expect(store.entries.some((entry) => entry.type === "clip")).toBe(true);
+    expect(store.entries).toHaveLength(0);
+  });
+
+  it("intake with attached images mentions vision in the prompt", async () => {
+    const result = await resolveContentSlashIntegration(
+      { command: "intake", args: "", attachedImageCount: 2 },
+    );
+    expect(result?.prompt).toContain("2 张图片");
   });
 
   it("asks outline to research then write a first draft, titles later", async () => {
@@ -362,10 +380,10 @@ describe("content slash integration", () => {
     expect(isContentTitlePickReply("今天天气不错")).toBe(false);
   });
 
-  it("treats a long pasted paragraph as clip-into-article", () => {
-    expect(isContentClipPaste("改第二段")).toBe(false);
+  it("treats a long pasted paragraph as intake material", () => {
+    expect(isContentIntakePaste("改第二段")).toBe(false);
     expect(
-      isContentClipPaste("产品好做是因为脚手架太强，难的是让客户愿意付钱换掉旧习惯。"),
+      isContentIntakePaste("产品好做是因为脚手架太强，难的是让客户愿意付钱换掉旧习惯。"),
     ).toBe(true);
   });
 });

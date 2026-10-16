@@ -100,6 +100,14 @@ npm run tauri build
 
 Installers land in `src-tauri/target/release/bundle/`. Local builds skip updater `.sig` files so you do not need `TAURI_SIGNING_PRIVATE_KEY`. To sign locally: set that env var and run `npx tauri build --config src-tauri/tauri.release.conf.json`.
 
+**Windows portable (no installer):** on Windows, after a normal build:
+
+```bash
+npm run tauri:build:portable
+```
+
+This produces `src-tauri/target/release/bundle/portable/Niuma-<version>-windows-x64-portable.zip`. Unzip and run `Niuma.exe`. The script copies the full repo `.teams/` tree (same file count as source). WebView2 Runtime must be installed on the PC. Put `.env.local` next to `Niuma.exe` and `.teams/` (see `README-portable.txt` in the zip).
+
 Local secrets: copy `.env.example` to `.env.local` at the repo root. `build.rs` loads that file. Never commit `.env.local`.
 
 ## Release

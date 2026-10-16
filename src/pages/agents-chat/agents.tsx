@@ -13,8 +13,7 @@ import { loadAgentCatalog, invalidateAgentCatalogCache, type CatalogAgent } from
 import { loadHiredAgentFiles, saveHiredAgentFiles } from "@/lib/storage";
 import { Bot, BriefcaseBusiness, Loader2, RefreshCw, Search, UserCheck, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-function isImg(av?: string) { return !!av && (av.startsWith("/") || av.startsWith("http") || av.startsWith("data:")); }
+import { AgentAvatar } from "@/components/agent/AgentAvatar";
 
 export default function AgentsPage() {
   const [catalog, setCatalog] = useState<CatalogAgent[]>([]);
@@ -75,7 +74,7 @@ export default function AgentsPage() {
               return (
                 <div key={a.file} className={cn("bg-card border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all select-none", hired ? "border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-200 dark:ring-emerald-800" : "border-border")}>
                   <div className="w-full aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
-                    {isImg(a.avatar) ? <img src={a.avatar} alt={a.name} className="absolute inset-0 w-full h-full object-cover" /> : <span className="text-4xl leading-none">{a.avatar || "🤖"}</span>}
+                    <AgentAvatar src={a.avatar} label={a.name} className="absolute inset-0 size-full rounded-none" glyphClassName="text-4xl leading-none" />
                     {hired && (
                       <div className="absolute top-1.5 right-1.5 bg-emerald-500 rounded-full p-0.5">
                         <UserCheck className="size-3 text-white" />

@@ -483,13 +483,13 @@ export function getSlashArgumentCompletion(
 /** Commands shown in the content channel `/` menu. */
 export const CONTENT_SLASH_MENU = [
   "style",
-  "record",
+  "clip",
   "scrap",
   "digest",
   "ops",
   "propose",
   "outline",
-  "clip",
+  "intake",
   "publish",
 ] as const;
 

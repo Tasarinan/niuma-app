@@ -33,7 +33,7 @@ python -m playwright install chromium
 也可设 `CHROME_PATH` / `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指向本机 Chrome 或 Edge。`--no-playwright` 可关掉浏览器回退。
 
 ### 3. 单篇正文
-指定的 http(s) 用 `web-to-markdown`。没有 `web_fetch`。
+指定的 http(s) 走本技能深读：`collect.py --deep`（先 HTTP，正文过短或遇挑战页时用 Playwright）。没有 `web_fetch`、不依赖 Node 技能。
 
 ### 4. 落盘与报告
 目录：`.artifacts/scraps/<YYYY-MM-DD>/`

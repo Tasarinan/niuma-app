@@ -4,7 +4,7 @@ import Database from "@tauri-apps/plugin-sql";
 let dbInstance: Database | null = null;
 
 /**
- * Open the workspace SQLite database at `.artifacts/sqlite/niuma.db`.
+ * Open the workspace SQLite database at `.niumaconfig/sqlite/niuma.db`.
  * The connection string comes from Rust so migrations use the same path.
  */
 export async function getDatabase(): Promise<Database> {

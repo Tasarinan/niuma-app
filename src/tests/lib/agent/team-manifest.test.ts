@@ -122,7 +122,7 @@ surface: default
     const guide = resolveDefaultRole(pack);
     expect(guide?.agentFile).toBe("guide.md");
     expect(guide?.summary).toBeTruthy();
-    expect(listDefaultCommandFromManifest(pack)).toBe("record");
+    expect(listDefaultCommandFromManifest(pack)).toBe("clip");
     expect(findRoleByCommand(pack.roles, listDefaultCommandFromManifest(pack) ?? "")?.agentFile).toBe(
       "guide.md",
     );
@@ -132,7 +132,7 @@ surface: default
     expect(findRoleByCommand(pack.roles, "style")?.agentFile).toBe("guide.md");
     expect(findRoleByCommand(pack.roles, "digest")?.agentFile).toBe("desk.md");
     expect(findRoleByCommand(pack.roles, "propose")?.agentFile).toBe("desk.md");
-    expect(findRoleByCommand(pack.roles, "clip")?.agentFile).toBe("writer.md");
+    expect(findRoleByCommand(pack.roles, "intake")?.agentFile).toBe("writer.md");
     expect(pack.roles.some((role) => role.agentFile === "producer.md")).toBe(false);
     expect(findRoleByCommand(pack.roles, "image")).toBeUndefined();
     expect(findRoleByCommand(pack.roles, "format")).toBeUndefined();

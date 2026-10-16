@@ -73,8 +73,8 @@ describe("content roster workflow", () => {
       {
         agentFile: "guide.md",
         name: "内容向导",
-        skills: ["web-to-markdown"],
-        commands: ["style", "record", "scrap"],
+        skills: ["scraps"],
+        commands: ["style", "clip", "scrap"],
         summary: "",
       },
       {
@@ -92,11 +92,11 @@ describe("content roster workflow", () => {
         summary: "",
       },
     ];
-    const commands = resolveContentWorkflowCommands(contentLike, "record");
+    const commands = resolveContentWorkflowCommands(contentLike, "clip");
     expect(commands.draft).toEqual(["outline"]);
     expect(commands.publish).toEqual(["publish"]);
     expect(hasFamilyCommand(commands, "draft", "style")).toBe(false);
-    expect(resolveContentRosterCopy(contentLike, { defaultAgent: "guide.md", defaultCommand: "record" }).draftCommand).toBe(
+    expect(resolveContentRosterCopy(contentLike, { defaultAgent: "guide.md", defaultCommand: "clip" }).draftCommand).toBe(
       "outline",
     );
   });

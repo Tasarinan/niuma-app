@@ -16,7 +16,18 @@
  *   Center – Window toolbar (对话/编辑 stays here). 对话 = messages; 编辑 = manuscript.
  *   Right  – Members (对话) or 稿件信息 + 配图 (编辑)
  */
-import { useCallback, useEffect, useMemo, useRef, useState, cloneElement, isValidElement, type ReactNode } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -36,12 +47,19 @@ import {
   ScrollArea,
   Textarea,
 } from "@/components/ui";
-import { Markdown } from "@/components";
 import { useAgents, useGroupChat } from "@/hooks";
 import type { AgentInput } from "@/hooks";
 import { MeetingChannelView, type MeetingParticipant } from "./components/meeting";
-import { AgentTurnProgress } from "./components/AgentTurnProgress";
-import { loadAgentCatalog, type CatalogAgent } from "@/lib/data/agent-loader";
+import { ChatMessageList } from "./components/ChatMessageList";
+import {
+  findCatalogAgentForTeamFile,
+  loadAgentCatalog,
+  talentAvatarForCatalogSlug,
+  teamAgentCatalogSlug,
+  type CatalogAgent,
+} from "@/lib/data/agent-loader";
+import { AgentAvatar } from "@/components/agent/AgentAvatar";
+import { isAgentAvatarImage, preferAgentAvatar } from "@/lib/agent/agent-avatar";
 import { fetchNiumaSkillCatalog, type NiumaSkill } from "@/lib/data";
 import { loadHiredAgentFiles, loadDisabledSkillSlugs } from "@/lib/storage";
 import { getImaKbConfig } from "@/lib/storage/ima.storage";
@@ -67,7 +85,7 @@ import {
   type WorkbenchTeamPreset,
 } from "@/lib/agent/workbench-defaults";
 import { discoverCatalogTeamPresets, listSkillSlugsFromTeamSkillsDir } from "@/lib/agent/team-discovery";
-import { findRoleByCommand, resolveDefaultRole } from "@/lib/agent/team-manifest";
+import { agentMatchesRole, findRoleByCommand, resolveDefaultRole } from "@/lib/agent/team-manifest";
 import {
   buildSkillCitationPrompt,
   findCitedSkill,
@@ -155,8 +173,8 @@ import { getActiveProvider } from "@/lib/providers/storage";
 import { HealthImportReviewDialog } from "@/components/health/HealthImportReviewDialog";
 import { resolveHealthSlashIntegration } from "@/lib/health/health-slash-integration";
 import {
-  clipIntoArticlePrompt,
-  isContentClipPaste,
+  intakeIntoArticlePrompt,
+  isContentIntakePaste,
   isContentTitlePickReply,
   isOutlineFolderCancelReply,
   isOutlineFolderConfirmReply,
@@ -188,12 +206,7 @@ function commandArgumentHint(command: SlashCommandDefinition): string {
 }
 
 function isIconUrl(s: string) {
-  return (
-    s.startsWith("/") ||
-    s.startsWith("http") ||
-    s.startsWith("data:") ||
-    s.includes("assets/")
-  );
+  return isAgentAvatarImage(s);
 }
 
 function AvatarTile({
@@ -205,15 +218,7 @@ function AvatarTile({
   label: string;
   className?: string;
 }) {
-  return (
-    <div className={cn("flex size-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f3c98f]", className)}>
-      {src && isIconUrl(src) ? (
-        <img src={src} alt={label} className="h-full w-full object-cover" />
-      ) : (
-        <span className="text-sm font-bold text-slate-700">{label.slice(0, 1)}</span>
-      )}
-    </div>
-  );
+  return <AgentAvatar src={src} label={label} className={cn("size-11 rounded-xl", className)} />;
 }
 
 // ─── Hired-agents helpers ─────────────────────────────────────────────────────
@@ -463,9 +468,6 @@ function ChannelModal({
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
 
-  const isImg = (av?: string) =>
-    !!av && (av.startsWith("/") || av.startsWith("http") || av.startsWith("data:"));
-
   const handleTeamSelect = (id: string | undefined) => {
     setTeamId(id);
     if (id) {
@@ -592,20 +594,12 @@ function ChannelModal({
                         selected ? "bg-slate-100/80" : ""
                       )}
                     >
-                      {/* Agent avatar */}
-                      <div className="size-9 flex-shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-100">
-                        {isImg(a.avatar) ? (
-                          <img
-                            src={a.avatar}
-                            alt={a.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xl">
-                            {a.avatar || "🤖"}
-                          </div>
-                        )}
-                      </div>
+                      <AgentAvatar
+                        src={a.avatar}
+                        label={a.name}
+                        className="size-9 rounded-xl border border-slate-100"
+                        glyphClassName="text-xl"
+                      />
 
                       {/* Name / role */}
                       <div className="min-w-0 flex-1 text-left">
@@ -744,6 +738,9 @@ export default function ChatPage({
   } = useGroupChat();
 
   const [input, setInput] = useState("");
+  const deferredInput = useDeferredValue(input);
+  const [, startInputTransition] = useTransition();
+  const imeComposingRef = useRef(false);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [healthImportOpen, setHealthImportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -763,6 +760,7 @@ export default function ChatPage({
   const [isAugmenting, setIsAugmenting] = useState(false);
   const [composerHint, setComposerHint] = useState<string | null>(null);
   const [workbenchTeamPresets, setWorkbenchTeamPresets] = useState(() => WORKBENCH_TEAM_PRESETS);
+  const [agentCatalog, setAgentCatalog] = useState<CatalogAgent[]>([]);
   const defaultTeamsSeedStartedRef = useRef(false);
   const activeTeamSyncKeyRef = useRef("");
   const activeTeamSyncingKeyRef = useRef("");
@@ -776,6 +774,26 @@ export default function ChatPage({
     () => Object.fromEntries(agents.map((a) => [a.id, a])),
     [agents]
   );
+  const catalogByFile = useMemo(() => {
+    const map: Record<string, CatalogAgent> = {};
+    for (const a of agentCatalog) {
+      map[a.file] = a;
+      const base = a.file.split(/[/\\]/).pop();
+      if (base) map[base] = a;
+    }
+    return map;
+  }, [agentCatalog]);
+  const catalogByName = useMemo(() => {
+    const map = new Map<string, CatalogAgent>();
+    for (const a of agentCatalog) {
+      map.set(a.name.trim().toLowerCase(), a);
+    }
+    return map;
+  }, [agentCatalog]);
+
+  useEffect(() => {
+    loadAgentCatalog().then(setAgentCatalog).catch(() => setAgentCatalog([]));
+  }, []);
   const activeTeamPreset = useMemo(
     () => getWorkbenchTeamPreset(activeChannel, workbenchTeamPresets),
     [activeChannel, workbenchTeamPresets],
@@ -803,36 +821,70 @@ export default function ChatPage({
     [activeTeamPreset],
   );
   const activeAgents = useMemo<MemberDisplayAgent[]>(() => {
+    const teamId = activeTeamPreset?.id;
+    const roles = activeTeamPreset?.roles ?? [];
+
+    const catalogAvatarFor = (name: string, agentFile?: string) => {
+      let entry: CatalogAgent | undefined;
+      if (teamId && agentFile) {
+        entry = findCatalogAgentForTeamFile(agentCatalog, teamId, agentFile);
+      }
+      if (!entry) {
+        entry = agentFile ? catalogByFile[agentFile] : undefined;
+      }
+      if (!entry) {
+        entry = catalogByName.get(name.trim().toLowerCase());
+      }
+      if (entry?.avatar) return entry.avatar;
+      const slug =
+        entry?.slug ??
+        (teamId && agentFile ? teamAgentCatalogSlug(teamId, agentFile) : entry?.slug ?? "");
+      return slug ? talentAvatarForCatalogSlug(slug) : "";
+    };
+
     const hired = activeChannel?.agentIds.map((id) => {
       const agent = agentMap[id];
-      return agent
-        ? {
-            id: agent.id,
-            name: agent.name,
-            avatar: agent.avatar,
-            role: agent.role,
-          }
-        : {
-            id,
-            name: id,
-            avatar: "",
-            role: "",
-          };
+      if (!agent) {
+        return { id, name: id, avatar: "", role: "" };
+      }
+      const role = roles.find((r) => agentMatchesRole(agent, r));
+      const catalogAvatar = catalogAvatarFor(agent.name, role?.agentFile);
+      return {
+        id: agent.id,
+        name: agent.name,
+        avatar: preferAgentAvatar(agent.avatar, catalogAvatar),
+        role: agent.role,
+      };
     }) ?? [];
-    const roles = activeTeamPreset?.roles ?? [];
+
     if (roles.length === 0) return hired;
     return roles.map((role) => {
       const match = hired.find(
-        (agent) => agent.name === role.name || agent.role === role.name,
+        (agent) => agent.name === role.name || agent.role === role.name || agentMatchesRole(agent, role),
       );
-      return match ?? {
+      const catalogAvatar = catalogAvatarFor(role.name, role.agentFile);
+      if (match) {
+        return {
+          ...match,
+          avatar: preferAgentAvatar(match.avatar, catalogAvatar),
+        };
+      }
+      return {
         id: role.agentFile,
         name: role.name,
-        avatar: "",
+        avatar: preferAgentAvatar("", catalogAvatar),
         role: role.summary,
       };
     });
-  }, [activeChannel, agentMap, activeTeamPreset?.roles]);
+  }, [
+    activeChannel,
+    agentMap,
+    activeTeamPreset?.id,
+    activeTeamPreset?.roles,
+    agentCatalog,
+    catalogByFile,
+    catalogByName,
+  ]);
 
   const syncTeamForChannel = useCallback(
     async (channel: GroupChannel) => {
@@ -1005,7 +1057,10 @@ export default function ChatPage({
     };
   }, [activeTeamPreset?.id]);
 
-  const slashQuery = useMemo(() => parseTrailingSlashQuery(input)?.query ?? parseSlashQuery(input), [input]);
+  const slashQuery = useMemo(
+    () => parseTrailingSlashQuery(deferredInput)?.query ?? parseSlashQuery(deferredInput),
+    [deferredInput],
+  );
   const teamCommands = useMemo(
     () => commandsForSlashMenu(slashCommands, { content: isContentChannel }),
     [slashCommands, isContentChannel],
@@ -1018,8 +1073,8 @@ export default function ChatPage({
     [teamCommands, slashQuery]
   );
   const slashArgumentCompletion = useMemo(
-    () => getSlashArgumentCompletion(input, teamCommands),
-    [input, teamCommands]
+    () => getSlashArgumentCompletion(deferredInput, teamCommands),
+    [deferredInput, teamCommands],
   );
 
   const channelSkills = useMemo(() => {
@@ -1033,13 +1088,13 @@ export default function ChatPage({
     );
   }, [niumaSkills, teamSkillSlugs]);
   const mentionedSeatSkills = useMemo(() => {
-    const name = extractMentionNames(input)[0];
+    const name = extractMentionNames(deferredInput)[0];
     if (!name) return [] as string[];
     const role = (activeTeamPreset?.roles ?? []).find(
       (item) => item.name === name || item.name.includes(name),
     );
     return role?.skills ?? [];
-  }, [input, activeTeamPreset?.roles]);
+  }, [deferredInput, activeTeamPreset?.roles]);
   const slashSkillSuggestions = useMemo(() => {
     if (slashQuery === null || isContentChannel) return [];
     const ranked = rankSlashSkills(channelSkills, slashQuery, {
@@ -1063,10 +1118,10 @@ export default function ChatPage({
   const [mentionMenuIndex, setMentionMenuIndex] = useState(0);
 
   const mentionState = useMemo(() => {
-    const match = /@(\S*)$/.exec(input);
+    const match = /@(\S*)$/.exec(deferredInput);
     if (!match) return null;
     return { query: match[1], atIndex: match.index };
-  }, [input]);
+  }, [deferredInput]);
 
   const mentionSuggestions = useMemo(() => {
     if (!mentionState) return [];
@@ -1081,17 +1136,25 @@ export default function ChatPage({
     mentionSuggestions.length > 0;
 
   const activeInvocationCommand = useMemo(() => {
-    const invocation = parseSlashInvocation(input);
+    const invocation = parseSlashInvocation(deferredInput);
     if (!invocation) return null;
     return teamCommands.find((command) => command.name === invocation.command) ?? null;
-  }, [input, teamCommands]);
+  }, [deferredInput, teamCommands]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+  const bumpComposerMenus = useCallback(() => {
     setSlashMenuDismissed(false);
     setSlashMenuIndex(0);
     setMentionMenuDismissed(false);
     setMentionMenuIndex(0);
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    setInput(next);
+    if (imeComposingRef.current) return;
+    startInputTransition(() => {
+      bumpComposerMenus();
+    });
   };
 
   const selectSlashCommand = (command: SlashCommandDefinition) => {
@@ -1431,8 +1494,11 @@ export default function ChatPage({
         const writer = findRoleByCommand(roles, "outline");
         if (writer) return [writer.name];
       }
-      if (isContentChannel && isContentClipPaste(text)) {
-        const writer = findRoleByCommand(roles, "clip") ?? findRoleByCommand(roles, "outline");
+      if (
+        isContentChannel &&
+        (isContentIntakePaste(text) || (attachedImages.length > 0 && !text.trim().startsWith("/")))
+      ) {
+        const writer = findRoleByCommand(roles, "intake") ?? findRoleByCommand(roles, "outline");
         if (writer) return [writer.name];
       }
       return undefined;
@@ -1633,6 +1699,8 @@ export default function ChatPage({
           const contentContext = await resolveContentSlashIntegration({
             command: slash.command,
             args: slash.args,
+            attachedImageCount:
+              slash.command.trim().toLowerCase() === "intake" ? attachedImages.length : undefined,
           });
           if (contentContext) {
             agentInput = [
@@ -1680,9 +1748,17 @@ export default function ChatPage({
     if (titlePickTurn) {
       agentInput = [agentInput, "", "[Content DB Integration Context]", titlePickContinuationPrompt()].join("\n");
     }
-    const clipPasteTurn = isContentChannel && !_slashForRouting && isContentClipPaste(text);
-    if (clipPasteTurn) {
-      agentInput = [agentInput, "", "[Content DB Integration Context]", clipIntoArticlePrompt(text)].join("\n");
+    const intakeMaterialTurn =
+      isContentChannel &&
+      !_slashForRouting &&
+      (isContentIntakePaste(text) || attachedImages.length > 0);
+    if (intakeMaterialTurn) {
+      agentInput = [
+        agentInput,
+        "",
+        "[Content DB Integration Context]",
+        intakeIntoArticlePrompt(text, attachedImages.length),
+      ].join("\n");
     }
 
     const pendingOutline = isContentChannel ? readPendingOutlineFolder() : null;
@@ -1765,10 +1841,10 @@ export default function ChatPage({
       !outlineCancelTurn &&
       (_articleDraftWorkflow != null ||
         titlePickTurn ||
-        clipPasteTurn ||
+        intakeMaterialTurn ||
         outlineConfirmTurn ||
         (outlineThemeTurn && !outlineAskTurn) ||
-        ["rewrite", "clip"].includes(_slashForRouting?.command.trim().toLowerCase() ?? ""));
+        ["rewrite", "intake"].includes(_slashForRouting?.command.trim().toLowerCase() ?? ""));
     if (isContentChannel && writingTurn) {
       try {
         const material = await resolveWritingMaterialContext();
@@ -2216,81 +2292,17 @@ export default function ChatPage({
                 <div
                   ref={scrollRef}
                   className={cn(
-                    "flex-1 space-y-6 overflow-x-hidden overflow-y-auto py-6",
-                    sidecar ? "px-3" : "px-6",
+                    "flex-1 space-y-4 overflow-x-hidden overflow-y-auto py-4",
+                    sidecar ? "px-3" : "px-5",
                   )}
                 >
-                  {activeMessages.length === 0 ? (
-                <div className="mx-auto flex min-h-full max-w-xl items-center text-sm text-slate-400">
-                  {t("chatPage.startMessaging")}
-                      </div>
-                  ) : (
-                    activeMessages.map((msg) => {
-                      const agent = msg.agentId ? agentMap[msg.agentId] : undefined;
-                      const isUser = msg.role === "user";
-                      const streaming = streamingIds.has(msg.id);
-                      return (
-                        <div
-                          key={msg.id}
-                          className={cn(
-                            "flex gap-3",
-                            isUser ? "flex-row-reverse" : "flex-row"
-                          )}
-                        >
-                          {!isUser && (
-                            <AvatarTile
-                              src={agent?.avatar ?? msg.agentAvatar}
-                              label={msg.agentName ?? agent?.name ?? "AI"}
-                              className="size-9 rounded-full"
-                            />
-                          )}
-                          <div
-                            className={cn(
-                              "flex max-w-[68%] flex-col gap-2",
-                              isUser ? "items-end" : "items-start"
-                            )}
-                          >
-                            {!isUser && (
-                              <span className="text-sm font-semibold text-slate-700">
-                                {msg.agentName ?? agent?.name}
-                              </span>
-                            )}
-                            <div
-                              className={cn(
-                                "overflow-x-auto rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
-                                isUser
-                                  ? cn("rounded-tr-md text-white", activeTeamStyle?.solid ?? "bg-[#7771e8]")
-                                  : "rounded-tl-md bg-white text-slate-800 ring-1 ring-slate-100"
-                              )}
-                            >
-                              {isUser && msg.images && msg.images.length > 0 && (
-                                <div className="mb-2 flex flex-wrap gap-1.5">
-                                  {msg.images.map((img, i) => (
-                                    <img
-                                      key={i}
-                                      src={`data:${img.mimeType};base64,${img.data}`}
-                                      alt=""
-                                      className="size-16 rounded-lg object-cover ring-1 ring-white/30"
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                              {!isUser && (
-                                <AgentTurnProgress
-                                  steps={msg.toolProgress}
-                                  streaming={streaming && !msg.content}
-                                />
-                              )}
-                              {msg.content && <Markdown>{msg.content}</Markdown>}
-                            </div>
-                            <span className="text-xs text-slate-400">
-                              {moment(msg.timestamp).format("HH:mm")}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                  <ChatMessageList
+                    messages={activeMessages}
+                    agentMap={agentMap}
+                    streamingIds={streamingIds}
+                    activeTeamStyle={activeTeamStyle}
+                    emptyLabel={t("chatPage.startMessaging")}
+                  />
                 </div>
 
             <div className={cn("flex-shrink-0 bg-transparent pb-4", sidecar ? "px-3" : "px-6")}>
@@ -2363,13 +2375,12 @@ export default function ChatPage({
                                   idx === mentionMenuIndex ? "bg-slate-100" : "hover:bg-slate-50"
                                 )}
                               >
-                                {agent.avatar ? (
-                                  <img src={agent.avatar} alt="" className="size-5 rounded-full object-cover" />
-                                ) : (
-                                  <span className="flex size-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-600">
-                                    {agent.name.slice(0, 1)}
-                                  </span>
-                                )}
+                                <AgentAvatar
+                                  src={agent.avatar}
+                                  label={agent.name}
+                                  className="size-5 rounded-full bg-slate-200"
+                                  glyphClassName="text-[10px] font-medium"
+                                />
                                 <span className="w-[34%] truncate text-[13px] font-medium text-slate-900">{agent.name}</span>
                                 <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{agent.role || "Agent"}</span>
                               </button>
@@ -2443,7 +2454,7 @@ export default function ChatPage({
                       </div>
                     </div>
                   )}
-                  <div className="mx-auto flex max-w-5xl items-end gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-xl shadow-slate-200/80 transition-all focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300">
+                  <div className="mx-auto flex max-w-5xl items-end gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-md shadow-slate-200/60 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-200">
                         <input
                           ref={fileInputRef}
                           type="file"
@@ -2484,6 +2495,14 @@ export default function ChatPage({
                           ref={textareaRef}
                           value={input}
                           onChange={handleInputChange}
+                          onCompositionStart={() => {
+                            imeComposingRef.current = true;
+                          }}
+                          onCompositionEnd={(e) => {
+                            imeComposingRef.current = false;
+                            setInput(e.currentTarget.value);
+                            bumpComposerMenus();
+                          }}
                           onKeyDown={(e) => {
                             if (isMentionMenuOpen) {
                               const count = mentionSuggestions.length;
@@ -2580,13 +2599,15 @@ export default function ChatPage({
                               }
                             }
                             if (e.key === "Enter" && !e.shiftKey) {
+                              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                               e.preventDefault();
                               void send();
                             }
                           }}
                           placeholder={t("chatPage.inputPlaceholder", { name: activeChannel.name })}
                           rows={2}
-                          className="min-h-[52px] max-h-48 flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-7 shadow-none focus-visible:ring-0 caret-slate-800"
+                          lang="zh-CN"
+                          className="min-h-[40px] max-h-36 flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-6 shadow-none [field-sizing:fixed] focus-visible:ring-0 caret-slate-800 md:text-sm"
                         />
                         <button
                           type="button"

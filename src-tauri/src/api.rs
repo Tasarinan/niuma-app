@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_machine_uid::MachineUidExt;
 
 fn get_app_endpoint() -> Result<String, String> {
@@ -31,17 +31,8 @@ fn get_api_access_key() -> Result<String, String> {
     }
 }
 
-// Secure storage functions
 fn get_secure_storage_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-
-    fs::create_dir_all(&app_data_dir)
-        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
-
-    Ok(app_data_dir.join("secure_storage.json"))
+    crate::niuma_config::secure_storage_path(app)
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

@@ -1,6 +1,6 @@
 id: content
 defaultAgent: guide.md
-defaultCommand: record
+defaultCommand: clip
 name: 内容创作
 description: 文风、素材、调研与初稿；改稿配图审稿排版在编辑栏；确认后推公众号草稿箱。
 eyebrow: 日记 · 成稿 · 多平台
@@ -13,7 +13,7 @@ dataDomain: contentbook
 
 starterPrompts:
   - "/style setup — 建立文风档案"
-  - "/record idea 今天的一句思考"
+  - "/clip idea 今天的一句思考"
   - "/scrap — 采集预置信源或一篇文章"
   - "/digest — 根据采集写日报或月报"
   - "/ops — 公众号涨粉与阅读"

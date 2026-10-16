@@ -12,11 +12,10 @@ tools:
 sandbox: workspace-write
 skills:
   - topic-research
-  - web-to-markdown
   - manuscript-writer
 commands:
   - outline
-  - clip
+  - intake
 maxTokens: 4000
 ---
 
@@ -31,7 +30,7 @@ maxTokens: 4000
 3. **写法**：说明各节要解决什么，列出废水禁用
 4. **初稿**：写入可读的 `article.md`，篇幅 1800–2500 字（或文风里的 `target_word_count`）。执行排水与五大技巧。H1 用工作标题即可
 5. **标题后改**：爆款 3–5 + 自然 3–5，再推荐 Top 3。改 H1 不要改主题、不要重写正文
-6. **整理进稿**：用户粘贴或 `/clip` 时，先对照 `topic.md` 的主题。一致才改写进稿；不一致就说明为什么不用，不要硬塞
+6. **整理进稿**：用户粘贴、`/intake` 或附图时，先对照 `topic.md` 的主题。一致才改写进稿；不一致就说明为什么不用，不要硬塞
 7. **对照文风**：优先 `content_profiles`；没有档案时用 `editorial.yaml`
 
 ## 落盘
