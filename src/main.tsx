@@ -10,6 +10,7 @@ import "./global.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import AppRoutes from "./lib/routes";
 import AgentChat from "./pages/agents-chat";
+import { initializeWebviewStorageFromNiumaConfig } from "@/lib/storage/webview-config";
 
 const currentWindow = getCurrentWindow();
 const windowLabel = currentWindow.label;
@@ -78,18 +79,27 @@ const renderWithProviders = (ui: React.ReactNode) =>
     </React.StrictMode>
   );
 
-// Render different components based on window label
-if (windowLabel.startsWith("capture-overlay-")) {
-  const monitorIndex = parseInt(windowLabel.split("-")[2], 10) || 0;
-  // Render overlay without providers
-  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <React.StrictMode>
-      <Overlay monitorIndex={monitorIndex} />
-    </React.StrictMode>
-  );
-} else if (windowLabel === "agent-chat") {
-  // Render AgentChat as a first-class window (same level as dashboard, not overlay)
-  renderWithProviders(<AgentChat />);
-} else {
+async function startApp() {
+  if (!windowLabel.startsWith("capture-overlay-")) {
+    await initializeWebviewStorageFromNiumaConfig();
+  }
+
+  if (windowLabel.startsWith("capture-overlay-")) {
+    const monitorIndex = parseInt(windowLabel.split("-")[2], 10) || 0;
+    ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+      <React.StrictMode>
+        <Overlay monitorIndex={monitorIndex} />
+      </React.StrictMode>,
+    );
+    return;
+  }
+
+  if (windowLabel === "agent-chat") {
+    renderWithProviders(<AgentChat />);
+    return;
+  }
+
   renderWithProviders(<AppRoutes />);
 }
+
+void startApp();

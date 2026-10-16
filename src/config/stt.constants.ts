@@ -37,10 +37,9 @@ export const STT_LANGUAGES = [
  * - Existing users who have a language saved in localStorage will continue using their saved setting
  * - This default only applies to new installations or users who haven't set a preference
  *
- * Migration note: Changed from "en" to "auto" in v0.2.0. Existing users with "en" saved
- * will retain their setting - we don't override user preferences on upgrade.
+ * Product default: Chinese (`zh`). Saved `stt_language` in setting.json / localStorage wins.
  */
-export const DEFAULT_STT_LANGUAGE = "auto";
+export const DEFAULT_STT_LANGUAGE = "zh";
 
 // STT Translation defaults
 export const DEFAULT_TRANSLATION_ENABLED = false;

@@ -17,6 +17,11 @@ import zhErrors from "./locales/zh/errors.json";
 export const SUPPORTED_LOCALES = ["en", "zh"] as const;
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 
+/** i18next + workspace `setting.json` UI language key */
+export const LOCALE_STORAGE_KEY = "niuma-locale";
+
+export const DEFAULT_APP_LOCALE: AppLocale = "zh";
+
 const resources = {
   en: {
     common: enCommon,
@@ -39,16 +44,18 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: "en",
+    lng: DEFAULT_APP_LOCALE,
+    fallbackLng: DEFAULT_APP_LOCALE,
     defaultNS: "common",
     fallbackNS: "common",
     interpolation: {
       escapeValue: false,
     },
     detection: {
-      order: ["localStorage", "navigator"],
+      // Product default is Chinese; only restore an explicit user choice.
+      order: ["localStorage"],
       caches: ["localStorage"],
-      lookupLocalStorage: "niuma-locale",
+      lookupLocalStorage: LOCALE_STORAGE_KEY,
     },
   });
 

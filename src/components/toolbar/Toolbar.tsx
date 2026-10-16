@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
+import { exitAppWithSettingsSave } from "@/lib/storage/webview-config";
 import { ToolbarButton } from "./ToolbarButton";
 import { DragButton, WingIcon } from "@/components";
 import { UseTTSReturn } from "@/hooks/useTTS";
@@ -158,7 +159,7 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
 
   const handleClose = useCallback(async () => {
     try {
-      await invoke("exit_app");
+      await exitAppWithSettingsSave();
     } catch {
       window.close();
     }

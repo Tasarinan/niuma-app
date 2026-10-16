@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 pub const CONFIG_DIR_NAME: &str = ".niumaconfig";
+pub const SETTINGS_FILE_NAME: &str = "setting.json";
 pub const LEGACY_APP_ID: &str = "com.niuma.desktop";
 
 /// `.teams` in dev sits at `<root>/.teams`. Bundled apps may use `$RESOURCE/.teams/`
@@ -115,6 +116,10 @@ pub fn ensure_niuma_config_dir(workspace_root: &Path) -> Result<PathBuf, String>
     let dir = niuma_config_dir_for_root(workspace_root);
     fs::create_dir_all(&dir).map_err(|e| format!("create {CONFIG_DIR_NAME} failed: {e}"))?;
     Ok(dir)
+}
+
+pub fn settings_json_path(workspace_root: &Path) -> PathBuf {
+    niuma_config_dir_for_root(workspace_root).join(SETTINGS_FILE_NAME)
 }
 
 pub fn ensure_workspace_runtime_dirs(workspace_root: &Path) -> Result<(), String> {
@@ -296,4 +301,31 @@ pub fn get_niuma_config_dir(app: AppHandle) -> Result<String, String> {
         .ok_or_else(|| format!("无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR"))?;
     let config_dir = ensure_niuma_config_dir(&workspace)?;
     Ok(config_dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn read_workspace_settings(app: AppHandle) -> Result<Option<String>, String> {
+    migrate_legacy_app_data_if_needed(Some(&app))?;
+    let workspace = resolve_workspace_root(Some(&app))
+        .ok_or_else(|| format!("无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR"))?;
+    let path = settings_json_path(&workspace);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    fs::read_to_string(&path)
+        .map(Some)
+        .map_err(|e| format!("read {SETTINGS_FILE_NAME}: {e}"))
+}
+
+#[tauri::command]
+pub fn write_workspace_settings(app: AppHandle, contents: String) -> Result<(), String> {
+    migrate_legacy_app_data_if_needed(Some(&app))?;
+    let workspace = resolve_workspace_root(Some(&app))
+        .ok_or_else(|| format!("无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR"))?;
+    let path = settings_json_path(&workspace);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("create {CONFIG_DIR_NAME} failed: {e}"))?;
+    }
+    fs::write(&path, contents).map_err(|e| format!("write {SETTINGS_FILE_NAME}: {e}"))
 }

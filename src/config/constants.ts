@@ -3,7 +3,6 @@ export const STORAGE_KEYS = {
   THEME: "theme",
   TRANSPARENCY: "transparency",
   SYSTEM_PROMPT: "system_prompt",
-  SELECTED_SYSTEM_PROMPT_ID: "selected_system_prompt_id",
   SCREENSHOT_CONFIG: "screenshot_config",
   // add curl_ prefix because we are using curl to store the providers
   CUSTOM_AI_PROVIDERS: "curl_custom_ai_providers",
@@ -43,19 +42,11 @@ export const STORAGE_KEYS = {
   SPEAKER_PROFILES: "speaker_profiles",
   USER_VOICE_ENROLLMENT: "user_voice_enrollment",
   ASSEMBLYAI_API_KEY: "assemblyai_api_key",
-  PREVIOUS_STT_PROVIDER: "previous_stt_provider",
-
   // Meeting system-audio VAD sensitivity settings
   MEETING_VAD_SETTINGS: "meeting_vad_settings",
 
   // User Identity settings
   USER_IDENTITY: "user_identity",
-
-  // Multi-agent (Pi) settings
-  AGENTS: "agents",
-  AGENT_SKILLS: "agent_skills",
-  AGENT_MCP_SERVERS: "agent_mcp_servers",
-  SELECTED_AGENT_ID: "selected_agent_id",
 
   // IMA (腾讯IMA) knowledge-base integration
   IMA_CONFIG: "ima_config",

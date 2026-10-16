@@ -51,7 +51,7 @@ const README = `Niuma Windows 便携版（免安装）
 3. 本机需已安装 Microsoft Edge WebView2 运行时（Win10/11 多数已自带）。
 4. 密钥与微信/IMA：把本目录的 .env.example 复制为 .env.local，填密钥。
    文件须与 Niuma.exe、.teams 同级（也可设 NIUMA_ROOT_DIR 指向含 .teams 的工作区）。
-5. 应用配置在 .niumaconfig\\（与 .teams 同级）。草稿在 .artifacts\\。
+5. 应用配置在 .niumaconfig\\（与 .teams 同级），首次启动会生成 setting.json。草稿在 .artifacts\\。
 
 此包不写入注册表、不创建开始菜单项；删除文件夹即可卸载。
 `;

@@ -390,6 +390,8 @@ pub fn run() {
             get_niuma_skills_dir,
             get_niuma_root_dir,
             niuma_config::get_niuma_config_dir,
+            niuma_config::read_workspace_settings,
+            niuma_config::write_workspace_settings,
             get_niuma_sqlite_url,
             get_niuma_commands_dir,
             get_artifact_dirs,

@@ -12,3 +12,4 @@ export * from "./meeting-vad-settings.storage";
 export * from "./skill-prefs.storage";
 export * from "./hired-agents.storage";
 export * from "./ima.storage";
+export * from "./webview-config";

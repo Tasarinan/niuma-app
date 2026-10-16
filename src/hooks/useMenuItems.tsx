@@ -16,7 +16,7 @@ import {
   ZapIcon,
   TimerIcon,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { exitAppWithSettingsSave } from "@/lib/storage/webview-config";
 import { useTranslation } from "react-i18next";
 import { GithubIcon } from "@/components";
 
@@ -114,7 +114,7 @@ export const useMenuItems = () => {
       icon: PowerIcon,
       label: t("footer.quit"),
       action: async () => {
-        await invoke("exit_app");
+        await exitAppWithSettingsSave();
       },
     },
   ];

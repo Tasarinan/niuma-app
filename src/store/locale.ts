@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import i18n, { type AppLocale } from "@/i18n";
+import i18n, { DEFAULT_APP_LOCALE, type AppLocale } from "@/i18n";
 
 interface LocaleState {
   language: AppLocale;
@@ -10,7 +10,7 @@ interface LocaleState {
 export const useLocaleStore = create<LocaleState>()(
   persist(
     (set) => ({
-      language: (i18n.language?.startsWith("zh") ? "zh" : "en") as AppLocale,
+      language: DEFAULT_APP_LOCALE,
       setLanguage: (lang) => {
         void i18n.changeLanguage(lang);
         set({ language: lang });
