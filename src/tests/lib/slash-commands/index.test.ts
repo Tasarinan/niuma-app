@@ -10,6 +10,7 @@ import {
   parseSlashInvocation,
   parseSlashQuery,
   commandsForSlashMenu,
+  CONTENT_SLASH_MENU,
   rankSlashCommands,
   rankSlashSkills,
   type SlashCommandDefinition,
@@ -153,19 +154,19 @@ describe("slash command completion and execution", () => {
     expect(rankSlashSkills(skills, "语法").map((skill) => skill.slug)).toEqual(["grammar"]);
   });
 
-  it("keeps only the content writing commands in the slash menu", () => {
-    const names = ["style", "sources", "record", "continue", "rewrite", "review", "image", "format", "publish", "article-review"];
+  it("keeps only CONTENT_SLASH_MENU commands in the content channel slash menu", () => {
+    const names = [
+      ...CONTENT_SLASH_MENU,
+      "sources",
+      "record",
+      "continue",
+      "rewrite",
+      "article-review",
+    ];
     const commands = names.map((name) => ({ ...command, name, hidden: false }));
-    expect(commandsForSlashMenu(commands, { content: true }).map((item) => item.name)).toEqual([
-      "style",
-      "record",
-      "publish",
-    ]);
-    expect(rankSlashCommands(commandsForSlashMenu(commands, { content: true }), "").map((item) => item.name)).toEqual([
-      "style",
-      "record",
-      "publish",
-    ]);
+    const menu = commandsForSlashMenu(commands, { content: true });
+    expect(menu.map((item) => item.name)).toEqual([...CONTENT_SLASH_MENU]);
+    expect(rankSlashCommands(menu, "").map((item) => item.name)).toEqual([...CONTENT_SLASH_MENU]);
   });
 
   it("omits hidden commands from the suggestion menu", () => {

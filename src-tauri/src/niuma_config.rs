@@ -12,12 +12,9 @@ pub const LEGACY_APP_ID: &str = "com.niuma.desktop";
 /// `.teams` in dev sits at `<root>/.teams`. Bundled apps may use `$RESOURCE/.teams/`
 /// or legacy `$RESOURCE/_up_/.teams/`.
 pub fn find_teams_dir(base: &Path) -> Option<PathBuf> {
-    for candidate in [base.join(".teams"), base.join("_up_").join(".teams")] {
-        if candidate.is_dir() {
-            return Some(candidate);
-        }
-    }
-    None
+    [base.join(".teams"), base.join("_up_").join(".teams")]
+        .into_iter()
+        .find(|candidate| candidate.is_dir())
 }
 
 fn workspace_root_from_teams(teams_dir: &Path) -> Option<PathBuf> {
@@ -298,7 +295,7 @@ pub fn secure_storage_path(app: &AppHandle) -> Result<PathBuf, String> {
 pub fn get_niuma_config_dir(app: AppHandle) -> Result<String, String> {
     migrate_legacy_app_data_if_needed(Some(&app))?;
     let workspace = resolve_workspace_root(Some(&app))
-        .ok_or_else(|| format!("无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR"))?;
+        .ok_or_else(|| "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string())?;
     let config_dir = ensure_niuma_config_dir(&workspace)?;
     Ok(config_dir.to_string_lossy().to_string())
 }
@@ -307,7 +304,7 @@ pub fn get_niuma_config_dir(app: AppHandle) -> Result<String, String> {
 pub fn read_workspace_settings(app: AppHandle) -> Result<Option<String>, String> {
     migrate_legacy_app_data_if_needed(Some(&app))?;
     let workspace = resolve_workspace_root(Some(&app))
-        .ok_or_else(|| format!("无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR"))?;
+        .ok_or_else(|| "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string())?;
     let path = settings_json_path(&workspace);
     if !path.is_file() {
         return Ok(None);
@@ -321,7 +318,7 @@ pub fn read_workspace_settings(app: AppHandle) -> Result<Option<String>, String>
 pub fn write_workspace_settings(app: AppHandle, contents: String) -> Result<(), String> {
     migrate_legacy_app_data_if_needed(Some(&app))?;
     let workspace = resolve_workspace_root(Some(&app))
-        .ok_or_else(|| format!("无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR"))?;
+        .ok_or_else(|| "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string())?;
     let path = settings_json_path(&workspace);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
