@@ -45,6 +45,7 @@ fn prepare_sqlite_url() -> String {
         return "sqlite:niuma.db".to_string();
     };
 
+    let _ = niuma_config::ensure_workspace_runtime_dirs(&root);
     let _ = niuma_config::migrate_legacy_app_data_if_needed(None);
     let _ = niuma_config::migrate_sqlite_into_config_dir(&root);
 

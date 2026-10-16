@@ -23,11 +23,14 @@ fn workspace_root_from_teams(teams_dir: &Path) -> Option<PathBuf> {
     teams_dir.parent().map(|parent| parent.to_path_buf())
 }
 
-fn configured_workspace_root() -> Option<PathBuf> {
-    if let Some(configured) =
-        crate::runtime_or_build_env(&["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"])
-    {
-        let configured_path = PathBuf::from(configured);
+fn process_env_workspace_root() -> Option<PathBuf> {
+    for key in ["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"] {
+        let Ok(value) = std::env::var(key) else { continue };
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let configured_path = PathBuf::from(trimmed);
         let points_at_teams = configured_path
             .file_name()
             .and_then(|s| s.to_str())
@@ -93,13 +96,15 @@ fn app_workspace_root(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-/// Workspace root containing `.teams` (empty if unknown).
+/// Workspace root containing `.teams`.
+/// Portable/release: prefer the folder next to the exe when it has `.teams`.
+/// Dev (`tauri dev`): exe has no sibling `.teams`, so fall back to cwd / crate parent.
 pub fn resolve_workspace_root(app: Option<&AppHandle>) -> Option<PathBuf> {
-    configured_workspace_root()
-        .or_else(dev_workspace_root)
-        .or_else(cwd_workspace_root)
+    process_env_workspace_root()
         .or_else(|| app.and_then(app_workspace_root))
         .or_else(exe_workspace_root)
+        .or_else(cwd_workspace_root)
+        .or_else(dev_workspace_root)
 }
 
 pub fn niuma_config_dir_for_root(workspace_root: &Path) -> PathBuf {
@@ -110,6 +115,17 @@ pub fn ensure_niuma_config_dir(workspace_root: &Path) -> Result<PathBuf, String>
     let dir = niuma_config_dir_for_root(workspace_root);
     fs::create_dir_all(&dir).map_err(|e| format!("create {CONFIG_DIR_NAME} failed: {e}"))?;
     Ok(dir)
+}
+
+pub fn ensure_workspace_runtime_dirs(workspace_root: &Path) -> Result<(), String> {
+    ensure_niuma_config_dir(workspace_root)?;
+    let artifacts = workspace_root.join(".artifacts").join("drafts");
+    fs::create_dir_all(&artifacts).map_err(|e| format!("create .artifacts/drafts failed: {e}"))?;
+    let sqlite = sqlite_file_path(workspace_root);
+    if let Some(parent) = sqlite.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("create .niumaconfig/sqlite failed: {e}"))?;
+    }
+    Ok(())
 }
 
 pub fn sqlite_file_path(workspace_root: &Path) -> PathBuf {
@@ -237,6 +253,7 @@ pub fn migrate_legacy_app_data_if_needed(app: Option<&AppHandle>) -> Result<(), 
         Some(root) => root,
         None => return Ok(()),
     };
+    ensure_workspace_runtime_dirs(&workspace)?;
     let config_dir = ensure_niuma_config_dir(&workspace)?;
 
     let legacy = legacy_app_data_dir(app).or_else(legacy_app_data_dir_from_env);

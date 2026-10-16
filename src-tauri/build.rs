@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn find_env_file() -> Option<PathBuf> {
     let mut roots = Vec::new();
@@ -23,15 +23,6 @@ fn find_env_file() -> Option<PathBuf> {
     None
 }
 
-fn resolve_env_relative(env_dir: &Path, value: &str) -> PathBuf {
-    let candidate = PathBuf::from(value);
-    if candidate.is_absolute() {
-        candidate
-    } else {
-        env_dir.join(candidate)
-    }
-}
-
 fn main() {
     let env_file = find_env_file();
     if let Some(path) = env_file.as_ref() {
@@ -41,38 +32,8 @@ fn main() {
         dotenv::dotenv().ok();
     }
 
-    println!("cargo:rerun-if-env-changed=NIUMA_ARTIFACT_DIR");
-    println!("cargo:rerun-if-env-changed=NIUMA_ARTICLES_DIR");
-    println!("cargo:rerun-if-env-changed=NIUMA_CONTENT_DIR");
-    println!("cargo:rerun-if-env-changed=NIUMA_HOME");
-    println!("cargo:rerun-if-env-changed=NIUMA_ROOT_DIR");
-
-    let configured_artifact_dir =
-        std::env::var("NIUMA_ARTIFACT_DIR").or_else(|_| std::env::var("NIUMA_ARTICLES_DIR"));
-
-    if let (Some(env_file), Ok(artifact_dir)) = (env_file.as_ref(), configured_artifact_dir) {
-        if let Some(env_dir) = env_file.parent() {
-            let resolved = resolve_env_relative(env_dir, &artifact_dir);
-            println!(
-                "cargo:rustc-env=NIUMA_ARTIFACT_DIR={}",
-                resolved.to_string_lossy()
-            );
-        }
-    }
-
-    let configured_content_dir = std::env::var("NIUMA_CONTENT_DIR")
-        .or_else(|_| std::env::var("NIUMA_HOME"))
-        .or_else(|_| std::env::var("NIUMA_ROOT_DIR"));
-
-    if let (Some(env_file), Ok(content_dir)) = (env_file.as_ref(), configured_content_dir) {
-        if let Some(env_dir) = env_file.parent() {
-            let resolved = resolve_env_relative(env_dir, &content_dir);
-            let resolved_text = resolved.to_string_lossy();
-            println!("cargo:rustc-env=NIUMA_CONTENT_DIR={}", resolved_text);
-            println!("cargo:rustc-env=NIUMA_HOME={}", resolved_text);
-            println!("cargo:rustc-env=NIUMA_ROOT_DIR={}", resolved_text);
-        }
-    }
+    // Workspace paths (NIUMA_CONTENT_DIR / NIUMA_ARTIFACT_DIR) are runtime-only.
+    // Baking them here would pin a portable exe to the machine that ran `tauri build`.
 
     if let Ok(payment_endpoint) = std::env::var("PAYMENT_ENDPOINT") {
         println!("cargo:rustc-env=PAYMENT_ENDPOINT={}", payment_endpoint);

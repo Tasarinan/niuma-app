@@ -14,42 +14,17 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use xcap::Monitor;
 
 fn resolve_artifact_root_dir(app: &tauri::AppHandle) -> PathBuf {
-    if let Some(configured) =
-        option_env!("NIUMA_ARTIFACT_DIR").or(option_env!("NIUMA_ARTICLES_DIR"))
-    {
-        let configured_path = PathBuf::from(configured);
-        if configured_path.exists() {
-            return configured_path;
-        }
-    }
-
-    let manifest_candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join(".artifacts");
-    let _ = fs::create_dir_all(&manifest_candidate);
-    if manifest_candidate.exists() {
-        return manifest_candidate;
+    if let Some(root) = crate::niuma_config::resolve_workspace_root(Some(app)) {
+        let artifacts = root.join(".artifacts");
+        let _ = fs::create_dir_all(&artifacts);
+        return artifacts;
     }
 
     if let Ok(cwd) = std::env::current_dir() {
-        let cwd_candidate = cwd.join(".artifacts");
-        if cwd_candidate.exists() {
-            return cwd_candidate;
-        }
+        return cwd.join(".artifacts");
     }
 
-    if let Ok(res) = app.path().resource_dir() {
-        let res_candidate = res.join(".artifacts");
-        if res_candidate.exists() {
-            return res_candidate;
-        }
-    }
-
-    if let Ok(doc) = app.path().document_dir() {
-        return doc.join(".artifacts");
-    }
-
-    manifest_candidate
+    PathBuf::from(".artifacts")
 }
 
 #[tauri::command]

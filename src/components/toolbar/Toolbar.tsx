@@ -14,7 +14,6 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { ToolbarButton } from "./ToolbarButton";
@@ -159,8 +158,7 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
 
   const handleClose = useCallback(async () => {
     try {
-      const win = getCurrentWindow();
-      await win.hide();
+      await invoke("exit_app");
     } catch {
       window.close();
     }
@@ -310,10 +308,10 @@ export function Toolbar({ completion, tts, isHidden }: ToolbarProps) {
           <WingIcon className="h-5 w-5" />
         </ToolbarButton>
 
-        {/* Close / hide */}
+        {/* Quit */}
         <ToolbarButton
-          title="Hide window"
-          aria-label="Hide window"
+          title="退出"
+          aria-label="退出"
           onClick={handleClose}
         >
           <X className="h-4 w-4" aria-hidden="true" />

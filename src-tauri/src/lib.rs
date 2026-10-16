@@ -416,7 +416,13 @@ pub fn run() {
             set_proxy_url,
         ])
         .setup(|app| {
-            if let Err(err) = niuma_config::migrate_legacy_app_data_if_needed(Some(app.handle())) {
+            let handle = app.handle();
+            if let Some(root) = niuma_config::resolve_workspace_root(Some(handle)) {
+                if let Err(err) = niuma_config::ensure_workspace_runtime_dirs(&root) {
+                    eprintln!("Niuma workspace dirs: {err}");
+                }
+            }
+            if let Err(err) = niuma_config::migrate_legacy_app_data_if_needed(Some(handle)) {
                 eprintln!("Niuma config migration: {err}");
             }
             // Setup main window positioning
