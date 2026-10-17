@@ -72,7 +72,8 @@ pub fn run_sandboxed_command(req: SandboxRunRequest) -> Result<SandboxRunRespons
         return Err(format!("未知沙箱模式: {}", req.sandbox_mode));
     }
 
-    let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(30_000).clamp(1_000, 120_000));
+    // /scrap pre-collect can run up to ~4 minutes (HTTP deep-read, no Playwright).
+    let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(30_000).clamp(1_000, 300_000));
     let started = Instant::now();
     // Fall back to a managed sandbox directory when no workspace path is set,
     // so command execution works even before the user picks a workspace.

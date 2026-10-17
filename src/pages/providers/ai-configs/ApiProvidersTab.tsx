@@ -24,6 +24,7 @@ import {
   setProxyUrl,
 } from "@/lib/providers/storage";
 import { invoke } from "@tauri-apps/api/core";
+import { readWorkspaceEnvLocal } from "@/lib/env-local";
 import { ensureAgentFetch } from "@/lib/agent/agent-fetch";
 import { CheckCircle2, XCircle, RefreshCw, Loader2, FileKey } from "lucide-react";
 
@@ -40,38 +41,6 @@ const PROVIDER_ENV_KEYS: Record<string, string[]> = {
   nvidia:      ["NVIDIA_API_KEY"],
   agnes:       ["AGNES_API_KEY"],
 };
-
-function parseEnvFile(content: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq < 1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
-    if (key) result[key] = val;
-  }
-  return result;
-}
-
-async function readEnvLocal(): Promise<Record<string, string>> {
-  const root = await invoke<string>("get_niuma_root_dir").catch(() => "");
-  const sep = root.includes("/") ? "/" : "\\";
-  const candidates = [
-    `${root}${sep}.env.local`,
-    `${root}${sep}..${sep}.env.local`,
-  ];
-  for (const path of candidates) {
-    try {
-      const raw = await invoke<string>("read_text_file", { path });
-      return parseEnvFile(raw);
-    } catch {
-      // try next
-    }
-  }
-  return {};
-}
 
 function envKeyForProvider(providerId: string): string | undefined {
   const keys = PROVIDER_ENV_KEYS[providerId];
@@ -168,7 +137,7 @@ export const ApiProvidersTab = () => {
     let fromEnv = false;
     // Auto-fill from .env.local when no key is stored yet
     if (!key && def.requiresKey) {
-      const envVars = await readEnvLocal().catch((): Record<string, string> => ({}));
+      const envVars = await readWorkspaceEnvLocal().catch((): Record<string, string> => ({}));
       const envKeys = PROVIDER_ENV_KEYS[id] ?? [];
       for (const envKey of envKeys) {
         if (envVars[envKey]) { key = envVars[envKey]; fromEnv = true; break; }
@@ -192,7 +161,7 @@ export const ApiProvidersTab = () => {
 
   const handleLoadFromEnv = async () => {
     if (!currentDef) return;
-    const envVars = await readEnvLocal().catch((): Record<string, string> => ({}));
+    const envVars = await readWorkspaceEnvLocal().catch((): Record<string, string> => ({}));
     const envKeys = PROVIDER_ENV_KEYS[selectedId] ?? [];
     for (const envKey of envKeys) {
       if (envVars[envKey]) {

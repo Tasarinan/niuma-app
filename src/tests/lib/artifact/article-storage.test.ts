@@ -14,8 +14,9 @@ const leftover = String.raw`C:\N-5CG2150YY9-Data\dvkx47\Documents\niuma\artifact
 const draft = "C:/niuma/.artifacts/drafts/20260903-ai-builder/article.md";
 
 function installMemoryStorage() {
-  const store = new Map<string, string>();
-  const mem: Storage = {
+  const local = new Map<string, string>();
+  const session = new Map<string, string>();
+  const make = (store: Map<string, string>): Storage => ({
     getItem: (key) => (store.has(key) ? store.get(key)! : null),
     setItem: (key, value) => {
       store.set(String(key), String(value));
@@ -28,9 +29,13 @@ function installMemoryStorage() {
     get length() {
       return store.size;
     },
-  };
-  vi.stubGlobal("localStorage", mem);
-  Object.defineProperty(window, "localStorage", { configurable: true, value: mem });
+  });
+  const localMem = make(local);
+  const sessionMem = make(session);
+  vi.stubGlobal("localStorage", localMem);
+  vi.stubGlobal("sessionStorage", sessionMem);
+  Object.defineProperty(window, "localStorage", { configurable: true, value: localMem });
+  Object.defineProperty(window, "sessionStorage", { configurable: true, value: sessionMem });
 }
 
 beforeEach(() => {
@@ -41,8 +46,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("article localStorage migration", () => {
-  it("purges untitled last-open and catalog leftovers", () => {
+describe("article storage", () => {
+  it("purges legacy catalog from localStorage and does not keep last-open there", () => {
     localStorage.setItem(LAST_OPEN_DRAFT_KEY, leftover);
     localStorage.setItem(
       ARTICLES_STORAGE_KEY,
@@ -55,24 +60,19 @@ describe("article localStorage migration", () => {
     migrateArticleLocalStorage();
 
     expect(localStorage.getItem(LAST_OPEN_DRAFT_KEY)).toBeFalsy();
-    expect(JSON.parse(localStorage.getItem(ARTICLES_STORAGE_KEY) || "[]")).toEqual([
-      { id: draft, filePath: draft, title: "wealth", content: "# hi" },
-    ]);
+    expect(localStorage.getItem(ARTICLES_STORAGE_KEY)).toBeFalsy();
+    expect(readStoredArticles()).toEqual([]);
     expect(readLastOpenDraftPath()).toBeUndefined();
   });
 
-  it("does not persist untitled-article.md back into localStorage", () => {
+  it("does not persist catalog to localStorage", () => {
     expect(isOpenableDraftMarkdown(draft)).toBe(true);
-    persistStoredArticles([
-      { filePath: leftover },
-      { filePath: draft },
-    ]);
-    expect(JSON.parse(localStorage.getItem(ARTICLES_STORAGE_KEY) || "[]")).toEqual([
-      { filePath: draft },
-    ]);
+    persistStoredArticles([{ filePath: leftover }, { filePath: draft }]);
+    expect(localStorage.getItem(ARTICLES_STORAGE_KEY)).toBeFalsy();
+    expect(sessionStorage.getItem(ARTICLES_STORAGE_KEY)).toBeFalsy();
   });
 
-  it("readStoredArticles ignores leftover untitled after a dirty catalog", () => {
+  it("migrates legacy catalog key away", () => {
     localStorage.setItem(
       LEGACY_ARTICLES_STORAGE_KEY,
       JSON.stringify([{ filePath: leftover, title: "Untitled Article" }]),
@@ -81,8 +81,8 @@ describe("article localStorage migration", () => {
     expect(localStorage.getItem(LEGACY_ARTICLES_STORAGE_KEY)).toBeFalsy();
   });
 
-  it("rewrites last-open draft.md to article.md in the same folder", () => {
-    localStorage.setItem(
+  it("rewrites last-open draft.md to article.md in session", () => {
+    sessionStorage.setItem(
       LAST_OPEN_DRAFT_KEY,
       "C:/niuma/.artifacts/drafts/20260902-claude-51-de-ai-wei/draft.md",
     );
@@ -91,7 +91,7 @@ describe("article localStorage migration", () => {
     );
   });
 
-  it("persists the bound co-creation article.md path", () => {
+  it("persists the bound co-creation article.md path in session", () => {
     writeLastOpenDraftPath("C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/topic.md");
     expect(readLastOpenDraftPath()).toBe(
       "C:/niuma/.artifacts/drafts/20260917-workbuddy-本地配置/article.md",

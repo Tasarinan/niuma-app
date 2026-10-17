@@ -17,7 +17,7 @@ import { DEFAULT_STT_LANGUAGE } from "@/config/stt.constants";
 import { DEFAULT_CUSTOMIZABLE_STATE } from "./customizable.storage";
 import { DEFAULT_RESPONSE_SETTINGS } from "./response-settings.storage";
 import { DEFAULT_MEETING_VAD_SETTINGS } from "./meeting-vad-settings.storage";
-import { safeLocalStorage } from "./helper";
+import { NIUMA_LOCAL_STORAGE_SET_EVENT, safeLocalStorage } from "./helper";
 
 /** Keys that are no longer read by the app; removed on startup to reduce clutter. */
 export const DEPRECATED_WEBVIEW_STORAGE_KEYS = [
@@ -28,8 +28,18 @@ export const DEPRECATED_WEBVIEW_STORAGE_KEYS = [
   "selected_agent_id",
   "previous_stt_provider",
   "niuma.articles",
+  "niuma.artifact.articles",
+  "niuma.artifact.lastOpenPath",
+  "niuma.content.pendingOutlineFolder",
   "chat_history",
   "auto-configs-enabled",
+] as const;
+
+/** Never synced from `setting.json` — manuscripts live under `.artifacts/drafts/`. */
+export const ARTICLE_UI_STORAGE_KEYS = [
+  "niuma.artifact.articles",
+  "niuma.artifact.lastOpenPath",
+  "niuma.content.pendingOutlineFolder",
 ] as const;
 
 /** Keys persisted to `setting.json` on exit. */
@@ -72,9 +82,6 @@ export const ACTIVE_WEBVIEW_STORAGE_KEYS = [
   "niuma-hired-agents",
   "niuma-disabled-skills",
   "niuma:group-channels",
-  "niuma.artifact.articles",
-  "niuma.artifact.lastOpenPath",
-  "niuma.content.pendingOutlineFolder",
   "niuma.pomodoro.settings",
   "niuma.appMode",
   "niuma.sidebar.collapsed",
@@ -140,7 +147,9 @@ export function applySettingsToLocalStorage(
   localStorageSettings: Record<string, string> | undefined,
 ): void {
   if (!localStorageSettings || typeof localStorageSettings !== "object") return;
+  const skip = new Set<string>(ARTICLE_UI_STORAGE_KEYS);
   for (const [key, value] of Object.entries(localStorageSettings)) {
+    if (skip.has(key)) continue;
     if (typeof value === "string") {
       safeLocalStorage.setItem(key, value);
     }
@@ -208,6 +217,18 @@ export function syncAppLocaleFromLocalStorage(): void {
 
 let persistHooksRegistered = false;
 let persistInFlight = false;
+let persistDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+const TRACKED_KEY_SET = new Set<string>(ACTIVE_WEBVIEW_STORAGE_KEYS);
+
+export function scheduleWorkspaceSettingsPersist(): void {
+  if (!isTauri()) return;
+  if (persistDebounceTimer) clearTimeout(persistDebounceTimer);
+  persistDebounceTimer = setTimeout(() => {
+    persistDebounceTimer = null;
+    void persistWorkspaceSettingsToFile();
+  }, 600);
+}
 
 export async function persistWorkspaceSettingsToFile(): Promise<void> {
   if (!isTauri() || persistInFlight) return;
@@ -227,15 +248,37 @@ export async function persistWorkspaceSettingsToFile(): Promise<void> {
   }
 }
 
+let localStoragePersistHooked = false;
+
+function hookLocalStoragePersist(): void {
+  if (localStoragePersistHooked) return;
+  localStoragePersistHooked = true;
+  const storage = window.localStorage;
+  const nativeSet = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key: string, value: string) {
+    nativeSet.call(this, key, value);
+    if (this === storage && TRACKED_KEY_SET.has(key)) {
+      scheduleWorkspaceSettingsPersist();
+    }
+  };
+}
+
 export function registerWorkspaceSettingsPersistence(): void {
   if (!isTauri() || persistHooksRegistered) return;
   persistHooksRegistered = true;
+  hookLocalStoragePersist();
   const flush = () => {
     void persistWorkspaceSettingsToFile();
   };
   window.addEventListener("beforeunload", flush);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush();
+  });
+  window.addEventListener(NIUMA_LOCAL_STORAGE_SET_EVENT, (event) => {
+    const key = (event as CustomEvent<{ key?: string }>).detail?.key;
+    if (key && TRACKED_KEY_SET.has(key)) {
+      scheduleWorkspaceSettingsPersist();
+    }
   });
 }
 

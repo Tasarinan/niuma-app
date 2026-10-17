@@ -1691,6 +1691,8 @@ export default function ChatPage({
       }
     }
 
+    let contentFollowUpAfterTurn: { display: string; agentPrompt: string } | undefined;
+
     if (isContentChannel) {
       const slash = parseSlashInvocation(text);
       const skipOutlineSlash = slash?.command.trim().toLowerCase() === "outline";
@@ -1703,6 +1705,7 @@ export default function ChatPage({
               slash.command.trim().toLowerCase() === "intake" ? attachedImages.length : undefined,
           });
           if (contentContext) {
+            contentFollowUpAfterTurn = contentContext.followUpAfterTurn;
             agentInput = [
               agentInput,
               "",
@@ -1753,11 +1756,18 @@ export default function ChatPage({
       !_slashForRouting &&
       (isContentIntakePaste(text) || attachedImages.length > 0);
     if (intakeMaterialTurn) {
+      const { writeScrapInboxFile } = await import("@/lib/content/scraps-inbox");
+      const scrapPath = await writeScrapInboxFile({
+        kind: "intake",
+        body: text.trim() || `(附图 ${attachedImages.length} 张，见对话)`,
+        title: text.trim() ? text.trim().slice(0, 56) : `粘贴素材 ×${attachedImages.length}`,
+      });
+      const scrapNote = scrapPath ? `原文已备份到 scraps：\`${scrapPath}\`。\n` : "";
       agentInput = [
         agentInput,
         "",
         "[Content DB Integration Context]",
-        intakeIntoArticlePrompt(text, attachedImages.length),
+        scrapNote + intakeIntoArticlePrompt(text, attachedImages.length),
       ].join("\n");
     }
 
@@ -1907,6 +1917,16 @@ export default function ChatPage({
       text.trim() ? text : undefined,
       citedSkill ? [citedSkill.slug] : undefined,
     );
+
+    if (isContentChannel && contentFollowUpAfterTurn) {
+      await sendMessage(
+        contentFollowUpAfterTurn.agentPrompt,
+        undefined,
+        activeChannel?.id,
+        commandAgentNames,
+        contentFollowUpAfterTurn.display,
+      );
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

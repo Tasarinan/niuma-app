@@ -76,9 +76,27 @@ jobs:
           releaseBody: |
             Download binaries for your OS.
 
+            **Windows:** installer (NSIS) plus `Niuma-*-windows-x64-portable.zip` (no install; unzip and run `Niuma.exe`; WebView2 required).
+
             macOS: if blocked, System Settings → Privacy & Security → Allow Anyway, then reopen the app.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
+
+      - name: Package Windows portable zip
+        if: matrix.platform == 'windows-latest'
+        run: node scripts/package-windows-portable.mjs
+
+      - name: Upload Windows portable to Release
+        if: matrix.platform == 'windows-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = "app-v$version"
+          $zip = Get-ChildItem -Path "src-tauri/target/release/bundle/portable/*.zip" | Select-Object -First 1
+          if (-not $zip) { throw "Portable zip not found under bundle/portable" }
+          gh release upload $tag $zip.FullName --clobber

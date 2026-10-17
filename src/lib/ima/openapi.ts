@@ -267,13 +267,8 @@ export async function searchImaMaterials(query: string): Promise<ImaTopicPack> {
 
 async function readEnvLocal(): Promise<Record<string, string>> {
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const { parseDotenv } = await import("@/lib/wechat/accounts");
-    const root = await invoke<string>("get_niuma_root_dir").catch(() => "");
-    if (!root) return {};
-    const sep = root.includes("\\") ? "\\" : "/";
-    const raw = await invoke<string>("read_text_file", { path: `${root}${sep}.env.local` }).catch(() => "");
-    return raw ? parseDotenv(raw) : {};
+    const { readWorkspaceEnvLocal } = await import("@/lib/env-local");
+    return await readWorkspaceEnvLocal();
   } catch {
     return {};
   }

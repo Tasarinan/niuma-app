@@ -5,6 +5,12 @@ import {
   listContentEntries,
 } from "@/lib/database/content.action";
 import type { ContentEntry, ContentEntryType, ContentProfile } from "@/types/content.type";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  formatScrapCollectForPrompt,
+  runScrapCollect,
+} from "@/lib/content/scrap-collect";
+import { writeScrapInboxFile } from "@/lib/content/scraps-inbox";
 import {
   canonicalStyleProfile,
   formatStyleCard,
@@ -29,6 +35,11 @@ export interface ContentSlashContext {
 
 export interface ContentSlashResolution {
   prompt: string;
+  /** After the main agent turn finishes, run a second turn (content channel). */
+  followUpAfterTurn?: {
+    display: string;
+    agentPrompt: string;
+  };
 }
 
 export interface ContentSlashStore {
@@ -137,23 +148,25 @@ async function handleClipJournal(args: string, store: ContentSlashStore): Promis
     rawText: body,
     source: "manual",
   });
-  let imaNote = "未配置 IMA 同步。本地记录已保存。用 /sources ima <知识库ID> <文件夹ID> 指定地址。";
-  if (store.pushToIma) {
-    try {
-      imaNote = await store.pushToIma(entry);
-    } catch (error) {
-      imaNote = `本地已保存。IMA 未写入：${error instanceof Error ? error.message : String(error)}`;
-    }
-  }
+  const scrapPath = await writeScrapInboxFile({
+    kind: "clip",
+    clipType: type,
+    body,
+    entryId: entry.id,
+    title: `${type} — ${clip(body, 48)}`,
+  });
+  const scrapNote = scrapPath
+    ? `已写入 scraps：\`${scrapPath}\`（与 content_entries 同步）。`
+    : "scraps 文件未写入（需桌面工作区）；数据库记录已保存。";
   return {
     prompt: [
       `用户通过 /clip ${type} 写入了 content_entries，数据库已保存。`,
       "",
       formatEntry(entry),
       `- id: ${entry.id}`,
-      `- IMA: ${imaNote}`,
+      `- scraps: ${scrapNote}`,
       "",
-      "请用中文简短确认。不要再写 journal 文件；正文以这条数据库记录为准。",
+      "请用中文简短确认。素材以数据库 + `.artifacts/scraps/…/inbox/` 为准，不要另写 journal。",
     ].join("\n"),
   };
 }
@@ -525,7 +538,7 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
         `用户把素材去向设为目录，版本 v${saved.version}。`,
         formatSources(saved),
         "",
-        "请简短确认。/scrap 仍写入 .artifacts/scraps；该目录字段留给记录和其它素材。/clip 只留在本地。",
+        "请简短确认。/scrap 与 /clip 写入 .artifacts/scraps；该目录字段留给其它素材路径记录。",
       ].join("\n"),
     };
   }
@@ -542,7 +555,7 @@ async function handleSources(args: string, store: ContentSlashStore): Promise<Co
         `用户把素材去向设为 IMA，版本 v${saved.version}。`,
         formatSources(saved),
         "",
-        "请简短确认。之后 /clip 写入这个知识库；未填 ID 时沿用应用里的文章资产。/scrap 仍先写入 .artifacts/scraps。",
+        "请简短确认。/clip 与 /intake 备份在 .artifacts/scraps/inbox；IMA 用于文章资产推送（若配置）。/scrap 采集仍写入 .artifacts/scraps。",
       ].join("\n"),
     };
   }
@@ -609,25 +622,82 @@ async function handleScrap(args: string, store: ContentSlashStore): Promise<Cont
         ? await store.pushToIma(entry)
         : "文风指定放 IMA；采集仍先写入 .artifacts/scraps。"
       : "";
+
+  const collectJsonRel = `${dir}/collect.json`;
+  let collectBlock = "";
+  const workspaceRoot = await invoke<string>("get_niuma_root_dir").catch(() => "");
+  if (workspaceRoot.trim() && (sources.length > 0 || urls.length > 0)) {
+    const collected = await runScrapCollect({
+      workspaceRoot,
+      sources,
+      urls,
+      keywords: parsed.keywords,
+    });
+    if (collected.ok) {
+      const collectAbs = `${workspaceRoot.replace(/[/\\]+$/, "")}/${collectJsonRel.replace(/\\/g, "/")}`;
+      await invoke("write_text_file", {
+        path: collectAbs,
+        content: JSON.stringify(collected.payload, null, 2),
+      }).catch(() => undefined);
+      collectBlock = formatScrapCollectForPrompt(collected.payload, collectJsonRel);
+      if (collected.stderr.trim()) {
+        collectBlock += `\n\n[collect stderr]\n${collected.stderr.trim().slice(0, 2000)}`;
+      }
+    } else {
+      collectBlock = [
+        "应用内采集失败，不要编造条目。",
+        collected.message,
+        collected.stderr.trim() ? `stderr: ${collected.stderr.trim().slice(0, 1500)}` : "",
+        "可检查 Python、网络，或改用 /scrap https://单篇网址。",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+  } else if (!workspaceRoot.trim() && sources.length > 0) {
+    const sourceArg = [...sources, ...urls].join(",");
+    collectBlock = `先运行 \`python .teams/content/skills/scraps/scripts/collect.py --sources ${sourceArg}${keywordFlag} --deep --no-playwright --count 24\`（工作区根目录）。`;
+  }
+
+  const legacyCollectHint =
+    !collectBlock && sources.length
+      ? `预置信源：${sources.join(",")}。先运行 \`python .teams/content/skills/scraps/scripts/collect.py --sources ${sources.join(",")}${keywordFlag} --deep --no-playwright --count 24\`。`
+      : !collectBlock
+        ? "本次不跑预置信源，只处理下面的文章网址。抽正文后仍按同一模板写 Markdown。"
+        : "";
+
+  const followUpAfterTurn = {
+    display: "/intake（后台）整理今日采集进稿",
+    agentPrompt: [
+      "[Content DB Integration Context]",
+      `用户 /scrap 主流程已结束。请执行 intake（不要再跑 collect.py）：`,
+      `1. read \`${dir}/briefing.md\`；若不存在则 read \`${collectJsonRel}\` 与目录内条目 Markdown。`,
+      "2. read 当前稿 `topic.md` 与 `article.md`（无稿则说明先 /outline）。",
+      "3. 只把贴题要点改写进 article.md；不贴题写在回复里说明原因。",
+      "4. open_article 定位改动。",
+      `素材目录：\`${dir}/\`；用户素材备份在 \`${dir}/inbox/\`。`,
+    ].join("\n"),
+  };
+
   return {
     prompt: [
       `用户执行 /scrap。加载 scraps 技能。这次采集已记入 content_entries（${entry.id}）。`,
       imaNote,
       `把材料写到 \`${dir}/\`。每条一篇 Markdown（文首原 URL），再写 \`briefing.md\` 和 \`index.json\`。格式见 scraps/references/report-template.md。`,
-      sources.length
-        ? `预置信源：${sources.join(",")}。先运行 \`python .teams/content/skills/scraps/scripts/collect.py --sources ${sources.join(",")}${keywordFlag} --deep\`。脚本会按关键词过滤、标题去重、相关度排序，再 HTTP 深读，失败再用 Playwright。JSON 的 engine 为 playwright 时优先用那段 content。每一条都要写成中文模板：标题、Source、Time、Heat、Links、Summary、Deep Dive。Time 必填；缺则 Unknown Time。Hacker News 必须带 [Discussion](hn_url)。Deep Dive 只用 content 字段，没有就写「材料不足，仅标题」。briefing.md 选相关度高的约 20–25 条，不够就全写，禁止编造凑数，不要把多条揉成一条。`
-        : "本次不跑预置信源，只处理下面的文章网址。抽正文后仍按同一模板写 Markdown。",
-      urls.length
+      collectBlock || legacyCollectHint,
+      !collectBlock && urls.length
         ? [
-            "额外文章网址（用 scraps 深读 HTTP/Playwright 或 curl 抽正文，不要 node 技能）：",
+            "文章网址（用 curl 或 scraps 技能深读抽正文，不要 node 技能）：",
             ...urls.map((url) => `- ${url}`),
           ].join("\n")
         : "",
+      "每一条写成中文模板：Title / Source / Time / Heat / Links / Summary / Deep Dive。Time 必填；缺则 Unknown Time。Hacker News 必须带 [Discussion](hn_url)。Deep Dive 只用 content 字段，没有就写「材料不足，仅标题」。briefing.md 选相关度高的约 20–25 条，禁止编造、不要把多条揉成一条。",
       "打不开的源或页面写进列表，不要编造正文。",
       "写完后用中文给一份列表报：标题 | 源 | 时间 | 热度 | 网址 | 本地路径。",
+      "本回合结束后应用会自动发起后台 /intake，把 briefing 贴题内容整理进当前稿；你只需完成 scraps 落盘与列表。",
     ]
       .filter(Boolean)
       .join("\n"),
+    followUpAfterTurn,
   };
 }
 
@@ -704,7 +774,7 @@ export function intakeIntoArticlePrompt(raw: string, attachedImageCount = 0): st
     "贴题：用文章自己的语气改写进合适小节。用户没说「引用」就不要整段粘贴。",
     "别人的观点注明来源或标「待核」。不要编成用户的亲身经历。",
     "不要这时改标题。标题按写成的内容后续再改。",
-    "没有当前稿时说明先 /outline 开一篇，并把原文记入 content_entries（类型 clip），不要新建第二个主题。",
+    "没有当前稿时说明先 /outline 开一篇；原文已写入 `.artifacts/scraps/当日/inbox/` 并记入 content_entries（类型 clip），不要新建第二个主题。",
     "附图不会自动写入 imgs/；贴题时改写进稿或说明应放在哪一节。",
     "改完 open_article。",
   ];
@@ -736,10 +806,19 @@ async function handleIntake(
       prompt: "用户执行了 /intake 但没有正文也没有附图。请提示粘贴文字、附上图片，或直接发送长段落。",
     };
   }
+  const scrapPath = await writeScrapInboxFile({
+    kind: "intake",
+    body: body || `(附图 ${attachedImageCount} 张，见对话)`,
+    title: body ? clip(body, 56) : `intake 附图 ×${attachedImageCount}`,
+  });
+  const scrapNote = scrapPath
+    ? `原文已备份到 scraps：\`${scrapPath}\`。`
+    : "scraps 备份未写入（需桌面工作区）。仍按下方规则整理进稿。";
   return {
-    prompt: [`用户通过 /intake 要求整理进当前 article.md。`, intakeIntoArticlePrompt(body, attachedImageCount)].join(
-      "\n",
-    ),
+    prompt: [
+      `用户通过 /intake 要求整理进当前 article.md。${scrapNote}`,
+      intakeIntoArticlePrompt(body, attachedImageCount),
+    ].join("\n\n"),
   };
 }
 

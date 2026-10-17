@@ -290,7 +290,9 @@ def main() -> int:
         "failed": failed,
         "items": unique,
     }
-    json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+    import sys as _s
+    out = sys.stdout.buffer
+    json.dump(payload, _s.get_text_encoder(0), ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0
 

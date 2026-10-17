@@ -21,21 +21,34 @@ fn workspace_root_from_teams(teams_dir: &Path) -> Option<PathBuf> {
     teams_dir.parent().map(|parent| parent.to_path_buf())
 }
 
-fn process_env_workspace_root() -> Option<PathBuf> {
+fn process_env_workspace_root(relative_to: Option<&Path>) -> Option<PathBuf> {
     for key in ["NIUMA_CONTENT_DIR", "NIUMA_HOME", "NIUMA_ROOT_DIR"] {
-        let Ok(value) = std::env::var(key) else { continue };
+        let Ok(value) = std::env::var(key) else {
+            continue;
+        };
         let trimmed = value.trim();
         if trimmed.is_empty() {
             continue;
         }
         let configured_path = PathBuf::from(trimmed);
+        let configured_path = if configured_path.is_relative() {
+            relative_to
+                .map(|anchor| anchor.join(&configured_path))
+                .unwrap_or(configured_path)
+        } else {
+            configured_path
+        };
         let points_at_teams = configured_path
             .file_name()
             .and_then(|s| s.to_str())
             .is_some_and(|name| name.eq_ignore_ascii_case(".teams"));
         if points_at_teams {
             if let Some(parent) = configured_path.parent() {
-                return Some(parent.canonicalize().unwrap_or_else(|_| parent.to_path_buf()));
+                return Some(
+                    parent
+                        .canonicalize()
+                        .unwrap_or_else(|_| parent.to_path_buf()),
+                );
             }
         }
         if configured_path.join(".teams").is_dir() {
@@ -94,15 +107,45 @@ fn app_workspace_root(app: &AppHandle) -> Option<PathBuf> {
     None
 }
 
-/// Workspace root containing `.teams`.
-/// Portable/release: prefer the folder next to the exe when it has `.teams`.
-/// Dev (`tauri dev`): exe has no sibling `.teams`, so fall back to cwd / crate parent.
-pub fn resolve_workspace_root(app: Option<&AppHandle>) -> Option<PathBuf> {
-    process_env_workspace_root()
+/// Load `<workspace>/.env.local` then `.env` into the process (does not override existing vars).
+/// `tauri dev` does not load these via npm; runtime features (NIUMA_ROOT_DIR, API keys read by scripts) need this.
+pub fn load_workspace_dotenv(workspace_root: &Path) {
+    for name in [".env.local", ".env"] {
+        let path = workspace_root.join(name);
+        if path.is_file() {
+            let _ = dotenv::from_path(&path);
+        }
+    }
+}
+
+fn resolve_workspace_root_without_dotenv(app: Option<&AppHandle>) -> Option<PathBuf> {
+    // `tauri dev` copies `.teams` next to `target/debug/niuma.exe`; prefer the repo root in debug builds.
+    if cfg!(debug_assertions) {
+        return process_env_workspace_root(None)
+            .or_else(dev_workspace_root)
+            .or_else(cwd_workspace_root)
+            .or_else(|| app.and_then(app_workspace_root))
+            .or_else(exe_workspace_root);
+    }
+    process_env_workspace_root(None)
         .or_else(|| app.and_then(app_workspace_root))
         .or_else(exe_workspace_root)
         .or_else(cwd_workspace_root)
         .or_else(dev_workspace_root)
+}
+
+/// Workspace root containing `.teams`.
+/// Portable/release: prefer the folder next to the exe when it has `.teams`.
+/// Dev (`tauri dev`): exe has no sibling `.teams`, so fall back to cwd / crate parent.
+pub fn resolve_workspace_root(app: Option<&AppHandle>) -> Option<PathBuf> {
+    if let Some(root) = resolve_workspace_root_without_dotenv(app) {
+        load_workspace_dotenv(&root);
+        if let Some(from_env) = process_env_workspace_root(Some(&root)) {
+            return Some(from_env);
+        }
+        return Some(root);
+    }
+    None
 }
 
 pub fn niuma_config_dir_for_root(workspace_root: &Path) -> PathBuf {
@@ -125,7 +168,8 @@ pub fn ensure_workspace_runtime_dirs(workspace_root: &Path) -> Result<(), String
     fs::create_dir_all(&artifacts).map_err(|e| format!("create .artifacts/drafts failed: {e}"))?;
     let sqlite = sqlite_file_path(workspace_root);
     if let Some(parent) = sqlite.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("create .niumaconfig/sqlite failed: {e}"))?;
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("create .niumaconfig/sqlite failed: {e}"))?;
     }
     Ok(())
 }
@@ -161,7 +205,10 @@ pub fn migrate_sqlite_into_config_dir(workspace_root: &Path) -> Result<(), Strin
 
     let config_dir = niuma_config_dir_for_root(workspace_root);
     let candidates = [
-        workspace_root.join(".artifacts").join("sqlite").join("niuma.db"),
+        workspace_root
+            .join(".artifacts")
+            .join("sqlite")
+            .join("niuma.db"),
         config_dir.join("niuma.db"),
     ];
 
@@ -195,8 +242,7 @@ pub fn legacy_app_data_dir(app: Option<&AppHandle>) -> Option<PathBuf> {
 
 pub fn legacy_app_data_dir_from_env() -> Option<PathBuf> {
     if cfg!(target_os = "windows") {
-        return std::env::var_os("APPDATA")
-            .map(|base| PathBuf::from(base).join(LEGACY_APP_ID));
+        return std::env::var_os("APPDATA").map(|base| PathBuf::from(base).join(LEGACY_APP_ID));
     }
     if cfg!(target_os = "macos") {
         return std::env::var_os("HOME").map(|home| {
@@ -294,8 +340,9 @@ pub fn secure_storage_path(app: &AppHandle) -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn get_niuma_config_dir(app: AppHandle) -> Result<String, String> {
     migrate_legacy_app_data_if_needed(Some(&app))?;
-    let workspace = resolve_workspace_root(Some(&app))
-        .ok_or_else(|| "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string())?;
+    let workspace = resolve_workspace_root(Some(&app)).ok_or_else(|| {
+        "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string()
+    })?;
     let config_dir = ensure_niuma_config_dir(&workspace)?;
     Ok(config_dir.to_string_lossy().to_string())
 }
@@ -303,8 +350,9 @@ pub fn get_niuma_config_dir(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub fn read_workspace_settings(app: AppHandle) -> Result<Option<String>, String> {
     migrate_legacy_app_data_if_needed(Some(&app))?;
-    let workspace = resolve_workspace_root(Some(&app))
-        .ok_or_else(|| "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string())?;
+    let workspace = resolve_workspace_root(Some(&app)).ok_or_else(|| {
+        "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string()
+    })?;
     let path = settings_json_path(&workspace);
     if !path.is_file() {
         return Ok(None);
@@ -317,12 +365,12 @@ pub fn read_workspace_settings(app: AppHandle) -> Result<Option<String>, String>
 #[tauri::command]
 pub fn write_workspace_settings(app: AppHandle, contents: String) -> Result<(), String> {
     migrate_legacy_app_data_if_needed(Some(&app))?;
-    let workspace = resolve_workspace_root(Some(&app))
-        .ok_or_else(|| "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string())?;
+    let workspace = resolve_workspace_root(Some(&app)).ok_or_else(|| {
+        "无法定位 Niuma 工作区：请把 .teams 放在应用目录旁，或设置 NIUMA_ROOT_DIR".to_string()
+    })?;
     let path = settings_json_path(&workspace);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("create {CONFIG_DIR_NAME} failed: {e}"))?;
+        fs::create_dir_all(parent).map_err(|e| format!("create {CONFIG_DIR_NAME} failed: {e}"))?;
     }
     fs::write(&path, contents).map_err(|e| format!("write {SETTINGS_FILE_NAME}: {e}"))
 }

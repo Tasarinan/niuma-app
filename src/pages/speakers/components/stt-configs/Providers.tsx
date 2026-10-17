@@ -7,42 +7,15 @@ import { getSTTProviderInfo } from "@/config/models.constants";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-
-// ── .env.local helpers ────────────────────────────────────────────────────────
+import { readWorkspaceEnvLocal } from "@/lib/env-local";
 
 /** Env var names to probe for each STT provider id. */
 const STT_ENV_KEYS: Record<string, string[]> = {
   "elevenlabs-stt": ["STT_API_KEY"],
 };
 
-function parseEnvFile(content: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq < 1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
-    if (key) result[key] = val;
-  }
-  return result;
-}
-
-async function readEnvLocal(): Promise<Record<string, string>> {
-  const root = await invoke<string>("get_niuma_root_dir").catch(() => "");
-  const sep = root.includes("/") ? "/" : "\\";
-  for (const path of [`${root}${sep}.env.local`, `${root}${sep}..${sep}.env.local`]) {
-    try {
-      const raw = await invoke<string>("read_text_file", { path });
-      return parseEnvFile(raw);
-    } catch { /* try next */ }
-  }
-  return {};
-}
-
 async function readSttKeyFromEnv(providerId: string): Promise<string> {
-  const envVars = await readEnvLocal().catch((): Record<string, string> => ({}));
+  const envVars = await readWorkspaceEnvLocal().catch((): Record<string, string> => ({}));
   for (const envKey of STT_ENV_KEYS[providerId] ?? []) {
     if (envVars[envKey]) return envVars[envKey];
   }

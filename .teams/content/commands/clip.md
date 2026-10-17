@@ -1,11 +1,11 @@
 ---
-description: 快速记录思考、摘录、日记，存入本地数据库
+description: 快速记录思考、摘录、日记，写入 scraps inbox 与本地数据库
 argument-hint: [idea|note|clip|quote|diary] [content]
 ---
 
 # 素材记录
 
-将日更素材写入本地 SQLite `content_entries`。不要另写 journal Markdown 作为主记录。人给原文，不要扩写成文章。若要把一段话或图片整理进当前稿，用 `/intake` 或直接粘贴，不要只用 `/clip`。
+将日更素材写入 **`.artifacts/scraps/<日期>/inbox/`** 的 Markdown，并同步 SQLite `content_entries`。不要另写 journal 作为主记录。人给原文，不要扩写成文章。若要把一段话或图片整理进当前稿，用 `/intake` 或直接粘贴。
 
 ## 记录类型
 
@@ -42,11 +42,11 @@ argument-hint: [idea|note|clip|quote|diary] [content]
 ## 执行步骤
 
 1. 解析类型和正文；类型必须是 idea / note / clip / quote / diary
-2. 应用写入 `content_entries`
-3. 根据注入的记录 id 与摘要做简短确认
+2. 应用写入 `content_entries`，并在 scraps `inbox/` 落一份 Markdown
+3. 根据注入的记录 id、scraps 路径与摘要做简短确认
 
 ## 输出格式
 
 ```
-✅ 已记录 [类型] — [摘要]
+✅ 已记录 [类型] — [摘要]（scraps inbox + 数据库）
 ```

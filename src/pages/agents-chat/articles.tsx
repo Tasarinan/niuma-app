@@ -116,7 +116,6 @@ import {
 import { currentDraftPickerOptions, shouldOpenBoundDraft } from "@/lib/artifact/current-draft";
 import { displayPathUnderDrafts, normalizeDraftPath, sameManuscriptPath, toDraftArticlePath } from "@/lib/artifact/drafts";
 import {
-  persistStoredArticles,
   readLastOpenDraftPath,
   readStoredArticles,
   writeLastOpenDraftPath,
@@ -529,10 +528,6 @@ export default function ArticlesPage({
     // keystroke would wipe undo and jump the cursor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeArticle?.filePath, editor, applyMarkdownToEditor]);
-
-  useEffect(() => {
-    persistStoredArticles(articles);
-  }, [articles]);
 
   const getArticleSnapshot = useCallback((article: Pick<ArticleRecord, "title" | "content" | "summary">) => {
     return JSON.stringify({

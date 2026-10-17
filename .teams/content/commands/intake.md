@@ -11,7 +11,7 @@ argument-hint: [一段话]
 
 ## 执行步骤
 
-1. 没有当前稿时说明先 `/outline` 或打开一篇，仍把原文记入 `content_entries`（类型 clip）
+1. 原文已备份到 `.artifacts/scraps/<日期>/inbox/`；没有当前稿时说明先 `/outline` 或打开一篇，必要时记入 `content_entries`（类型 clip）
 2. 有当前稿：先 `read` `topic.md` 和最新 `article.md`
 3. 判断材料是否支撑已定主题。不贴题：说明为什么不用，不要硬塞进正文
 4. 贴题：用本文语气改写进合适小节。用户没说「引用」就不要整段粘贴

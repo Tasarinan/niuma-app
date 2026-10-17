@@ -234,10 +234,11 @@ describe("content slash integration", () => {
   it("runs preset sources when scrap has no urls", async () => {
     const store = memoryStore();
     const scrap = await resolveContentSlashIntegration({ command: "scrap", args: "" }, store);
+    expect(scrap?.followUpAfterTurn?.display).toContain("/intake");
     expect(scrap?.prompt).toContain("collect.py");
     expect(scrap?.prompt).toContain("--sources general");
     expect(scrap?.prompt).toContain("--deep");
-    expect(scrap?.prompt).toContain("Playwright");
+    expect(scrap?.prompt).toContain("--no-playwright");
     expect(scrap?.prompt).toContain("briefing.md");
     expect(scrap?.prompt).toContain("Deep Dive");
     expect(store.entries.some((entry) => entry.type === "collect")).toBe(true);

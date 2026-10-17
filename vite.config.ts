@@ -7,6 +7,8 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig({
+    // Load `.env.local` / `.env` from repo root (including under `tauri dev`).
+    envDir: path.resolve(__dirname),
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
