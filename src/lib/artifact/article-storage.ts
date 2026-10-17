@@ -12,12 +12,6 @@ function sessionStore(): Storage | null {
   }
 }
 
-function isDraftRecord(item: unknown): item is { filePath: string } {
-  if (!item || typeof item !== "object") return false;
-  const path = (item as { filePath?: unknown }).filePath;
-  return typeof path === "string" && isOpenableDraftMarkdown(path) && /\/article\.md$/i.test(path.replace(/\\/g, "/"));
-}
-
 /** Drop legacy article catalog + last-open from localStorage; last-open uses session only. */
 export function migrateArticleLocalStorage(): void {
   if (typeof window === "undefined") return;

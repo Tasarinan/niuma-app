@@ -5,7 +5,6 @@ import { KeyIcon, TrashIcon, ExternalLink, FileKey } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSTTProviderInfo } from "@/config/models.constants";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { readWorkspaceEnvLocal } from "@/lib/env-local";
 
